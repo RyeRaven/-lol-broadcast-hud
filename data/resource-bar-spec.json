@@ -1,0 +1,1473 @@
+{
+ "version": "16.22.1",
+ "source": "wiki.leagueoflegends.com/en-us/Ability_resource (internal index table) + 项目 data/champions-16.22.1.json 的 partype",
+ "definition": "资源条 = 游戏主视角/侧栏头像血条正下方那一条长条（wiki 称 primary resource, 'the resource line under the current health line'）。血条底部的分格 pips / 图标属 secondary resource，不计入。",
+ "classes": {
+  "A": "固定单色条，颜色与含义恒定（145 法力 + 6 能量）",
+  "B": "独立条但颜色/形态随状态变化（11 人）",
+  "C": "条长表示倒计时或状态剩余，不是资源量（5 人）——必须按英雄+状态门控，条不存在 ≠ 0%",
+  "D": "完全无资源条（6 人）"
+ },
+ "pixelReading": {
+  "judgement": "filled = (saturation > 0.35) or (luminance > 170 and saturation <= 0.35)",
+  "note": "前分支覆盖所有彩色条；后分支专治白色/浅色条（剑意/豪意/护盾）。先裁掉左右各 2px 避免外框(111,109,111)被误判；填充率取最右侧填充像素位置，不能取连续段长度（刻度线会挖洞）。",
+  "precision": "1px ≈ 1.96%（满宽 51px @2560x1440）",
+  "shieldCaveat": "Mordekaiser 的潜在护盾是独立资源条（wiki Ability resource index 3 shield），不是血条白段；W 激活后的真实护盾才以 #C0C0C0 叠在血条右端，必须单独输出 shieldPx 且不并入 HP —— 真实素材尚未验证"
+ },
+ "unverified": [
+  "Rumble 白/黄/橙三段的确切像素色值与分界点（wiki 全文无颜色原文，只能靠像素 dominantColor 实测）",
+  "Gnar / RekSai / Renekton / Shyvana / Tryndamere 的条颜色（wiki 无颜色原文，此前 note 里的颜色断言已删）",
+  "Sett 豪意 / Mordekaiser 护盾 / Kled 勇气 / Briar 狂怒 / Belveth 条的像素颜色（wiki 无原文）",
+  "Belveth 非真实形态下条是否绘制（wiki 只说 True Form 剩余时间显示在资源条）",
+  "Aatrox 非 R 状态的条颜色",
+  "Ambessa 专属 200 上限（只有 Energy 通则，无她的专属原文）",
+  "Vladimir 非充能状态条是否绘制",
+  "Aatrox / Yone / Briar / Belveth 的条在条槽不存在时的确切位置（可能不绘制而非空条）"
+ ],
+ "champions": {
+  "Ahri": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Akshan": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Alistar": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Amumu": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Anivia": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Annie": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Aphelios": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ashe": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "AurelionSol": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Aurora": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Azir": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Bard": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Blitzcrank": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Brand": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Braum": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Caitlyn": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Camille": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Cassiopeia": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Chogath": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Corki": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Darius": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Diana": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Draven": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ekko": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Elise": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Evelynn": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ezreal": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Fiddlesticks": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Fiora": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Fizz": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Galio": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Gangplank": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Gragas": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Graves": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Gwen": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Hecarim": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Heimerdinger": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Hwei": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Illaoi": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Irelia": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ivern": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Janna": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "JarvanIV": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Jax": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Jayce": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Jhin": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Jinx": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "KSante": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Kaisa": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Kalista": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Karma": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Karthus": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Kassadin": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Kayle": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Kayn": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Khazix": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Kindred": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "KogMaw": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Leblanc": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Leona": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Lillia": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Lissandra": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Locke": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Lucian": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Lulu": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Lux": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Malphite": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Malzahar": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Maokai": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "MasterYi": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Mel": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Milio": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "MissFortune": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "MonkeyKing": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Morgana": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Naafiri": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nami": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nasus": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nautilus": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Neeko": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nidalee": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nilah": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nocturne": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Nunu": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Olaf": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Orianna": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ornn": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Pantheon": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Poppy": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Pyke": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Qiyana": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Quinn": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Rakan": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Rammus": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Rell": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Renata": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ryze": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Samira": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Sejuani": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Senna": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Seraphine": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Shaco": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Singed": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Sion": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Sivir": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Skarner": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Smolder": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Sona": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Soraka": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Swain": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Sylas": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Syndra": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "TahmKench": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Taliyah": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Talon": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Taric": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Teemo": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Thresh": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Tristana": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Trundle": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "TwistedFate": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Twitch": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Udyr": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Urgot": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Varus": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Vayne": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Veigar": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Velkoz": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Vex": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Vi": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Viktor": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Volibear": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Warwick": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Xayah": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Xerath": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "XinZhao": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Yorick": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Yunara": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Yuumi": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Zaahen": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Zeri": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Ziggs": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Zilean": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Zoe": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Zyra": {
+   "class": "A",
+   "barColor": "#3b7fd4",
+   "colorKey": "mana",
+   "gating": "always",
+   "note": "法力条，蓝色",
+   "colorStates": null
+  },
+  "Akali": {
+   "class": "A",
+   "barColor": "#d4b53b",
+   "colorKey": "energy",
+   "gating": "always",
+   "note": "能量条，黄色（wiki: bottom of the two bars, colored in yellow）",
+   "colorStates": null
+  },
+  "Ambessa": {
+   "class": "A",
+   "barColor": "#d4b53b",
+   "colorKey": "energy",
+   "gating": "always",
+   "note": "能量条，黄色（wiki Energy 页原文：It is represented by a yellow bar instead of blue mana.）；专属 200 上限无原文，标 unverified",
+   "colorStates": null
+  },
+  "Kennen": {
+   "class": "A",
+   "barColor": "#d4b53b",
+   "colorKey": "energy",
+   "gating": "always",
+   "note": "能量条，黄色（wiki: bottom of the two bars, colored in yellow）",
+   "colorStates": null
+  },
+  "LeeSin": {
+   "class": "A",
+   "barColor": "#d4b53b",
+   "colorKey": "energy",
+   "gating": "always",
+   "note": "能量条，黄色（wiki: bottom of the two bars, colored in yellow）",
+   "colorStates": null
+  },
+  "Shen": {
+   "class": "A",
+   "barColor": "#d4b53b",
+   "colorKey": "energy",
+   "gating": "always",
+   "note": "能量条，黄色（wiki: bottom of the two bars, colored in yellow）",
+   "colorStates": null
+  },
+  "Zed": {
+   "class": "A",
+   "barColor": "#d4b53b",
+   "colorKey": "energy",
+   "gating": "always",
+   "note": "能量条，黄色（wiki: bottom of the two bars, colored in yellow）",
+   "colorStates": null
+  },
+  "Rumble": {
+   "class": "B",
+   "barColor": "#e07a2a",
+   "colorKey": "heat",
+   "gating": "always",
+   "note": "热量上限 150（wiki: becomes Overheated while at 150 Heat；Secondary Bar Heat (150)）。50 = 危险区（基础技能强化），150 = 过热（技能禁用，4 秒内每秒 -10 衰减到 0）。条颜色 wiki 无原文 → colorStates=null，靠像素 dominantColor 实测",
+   "colorStates": null,
+   "resourceMax": 150,
+   "thresholds": [
+    {
+     "at": 50,
+     "label": "danger-zone",
+     "effect": "基础技能强化"
+    },
+    {
+     "at": 150,
+     "label": "overheat",
+     "effect": "技能禁用，4 秒内每秒 -10 衰减到 0"
+    }
+   ]
+  },
+  "Gnar": {
+   "class": "B",
+   "barColor": "#d4433b",
+   "colorKey": "rage",
+   "gating": "always",
+   "note": "怒气上限 100；100 = 巨型纳尔变身（Mega 期间资源条改为变身倒计时 15s）。条颜色 wiki 无原文 → unverified",
+   "colorStates": null,
+   "resourceMax": 100
+  },
+  "RekSai": {
+   "class": "B",
+   "barColor": "#d4433b",
+   "colorKey": "rage",
+   "gating": "always",
+   "note": "怒气上限 100。条颜色 wiki 无原文 → unverified",
+   "colorStates": null,
+   "resourceMax": 100
+  },
+  "Renekton": {
+   "class": "B",
+   "barColor": "#d4433b",
+   "colorKey": "rage",
+   "gating": "always",
+   "note": "怒气上限 100；50 以上技能强化，100 满怒。条颜色 wiki 无原文 → unverified（此前写「恒定红色」无出处，已删）",
+   "colorStates": null,
+   "resourceMax": 100,
+   "thresholds": [
+    {
+     "at": 50,
+     "label": "empowered",
+     "effect": "技能强化"
+    }
+   ]
+  },
+  "Shyvana": {
+   "class": "B",
+   "barColor": "#c23b2b",
+   "colorKey": "dragonfury",
+   "gating": "always",
+   "note": "龙怒上限 100；100 可放 R 变身。条颜色 wiki 无原文 → unverified（此前写「恒定红色」无出处，已删）",
+   "colorStates": null,
+   "resourceMax": 100
+  },
+  "Tryndamere": {
+   "class": "B",
+   "barColor": "#d4433b",
+   "colorKey": "battlefury",
+   "gating": "always",
+   "note": "战斗怒气上限 100；100 满怒可放 R。条颜色 wiki 无原文 → unverified（此前写「恒定红色」无出处，已删）",
+   "colorStates": null,
+   "resourceMax": 100
+  },
+  "Kled": {
+   "class": "B",
+   "barColor": "#d4a03b",
+   "colorKey": "courage",
+   "gating": "always",
+   "note": "勇气上限 100；100 上马（Skarl）。⚠️ Kled 有两条血条（本人 + Skarl），像素读条必须相加才是有效生命。颜色 wiki 无原文 → unverified",
+   "colorStates": null,
+   "resourceMax": 100
+  },
+  "Rengar": {
+   "class": "B",
+   "barColor": "#e8e8e8",
+   "colorKey": "ferocity",
+   "gating": "always",
+   "note": "残暴上限 4；未满白、满 4 层橙（wiki Ferocity 原文），5 层强化技能。像素条 1 层 = 25% 宽",
+   "colorStates": [
+    {
+     "min": 0,
+     "max": 3,
+     "color": "#e8e8e8",
+     "label": "charging"
+    },
+    {
+     "min": 4,
+     "max": 4,
+     "color": "#e07a2a",
+     "label": "full"
+    }
+   ],
+   "resourceMax": 4
+  },
+  "Sett": {
+   "class": "B",
+   "barColor": "#d4662a",
+   "colorKey": "grit",
+   "gating": "always",
+   "note": "豪意：橙红色，满值可放 W",
+   "colorStates": null
+  },
+  "Mordekaiser": {
+   "class": "B",
+   "barColor": "#8a7fb0",
+   "colorKey": "shield",
+   "gating": "always",
+   "note": "潜在护盾：独立资源条（wiki Ability resource index 3 shield），灰白，代表 W 可转化护盾量；W 激活后的真实护盾才以 #C0C0C0 叠在血条右端",
+   "colorStates": null
+  },
+  "Vladimir": {
+   "class": "B",
+   "barColor": "#b02b4a",
+   "colorKey": "crimson",
+   "gating": "always",
+   "note": "猩红冲刺：独立第二条，主体是充能进度，满值 Q 强化。颜色三段 white → orange → red（wiki Template:Data Vladimir/Transfusion 原文）",
+   "colorStates": [
+    {
+     "min": 0,
+     "max": 33,
+     "color": "#e8e8e8",
+     "label": "white"
+    },
+    {
+     "min": 34,
+     "max": 66,
+     "color": "#e07a2a",
+     "label": "orange"
+    },
+    {
+     "min": 67,
+     "max": 100,
+     "color": "#b02b4a",
+     "label": "red"
+    }
+   ],
+   "resourceMax": 2
+  },
+  "Aatrox": {
+   "class": "C",
+   "barColor": "#8c2b2b",
+   "colorKey": "bloodwell",
+   "gating": "r-active",
+   "note": "鲜血魔井：仅 R 变身期间显示，条长=血井存量（死亡复活用）",
+   "colorStates": null
+  },
+  "Yasuo": {
+   "class": "C",
+   "barColor": "#9fd8e8",
+   "colorKey": "wind",
+   "gating": "always",
+   "note": "剑意(Flow)：移动充能，满值转白盾；条长=充能进度",
+   "colorStates": null
+  },
+  "Yone": {
+   "class": "C",
+   "barColor": "#9fd8e8",
+   "colorKey": "wind",
+   "gating": "e-active",
+   "note": "剑意(Soul Unbound)：橙色倒计时，条长=E 技能剩余时间",
+   "colorStates": null
+  },
+  "Briar": {
+   "class": "C",
+   "barColor": "#c23b2b",
+   "colorKey": "dragonfury",
+   "gating": "frenzy-active",
+   "note": "狂怒(Frenzy)：条长=狂怒状态剩余时间，非资源量",
+   "colorStates": null
+  },
+  "Belveth": {
+   "class": "C",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "r-active",
+   "note": "真实形态：条长=变身剩余秒数（wiki 原文 True Form's duration is displayed in Bel'Veth's resource bar）；非真实形态下条是否绘制 = unverified；partype 为空串",
+   "colorStates": null
+  },
+  "DrMundo": {
+   "class": "D",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "always",
+   "note": "无资源条",
+   "colorStates": null
+  },
+  "Garen": {
+   "class": "D",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "always",
+   "note": "无资源条",
+   "colorStates": null
+  },
+  "Katarina": {
+   "class": "D",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "always",
+   "note": "无资源条",
+   "colorStates": null
+  },
+  "Riven": {
+   "class": "D",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "always",
+   "note": "无资源条",
+   "colorStates": null
+  },
+  "Viego": {
+   "class": "D",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "always",
+   "note": "无资源条",
+   "colorStates": null
+  },
+  "Zac": {
+   "class": "D",
+   "barColor": null,
+   "colorKey": "none",
+   "gating": "always",
+   "note": "无资源条",
+   "colorStates": null
+  }
+ }
+}

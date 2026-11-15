@@ -1,0 +1,1794 @@
+'use strict';
+
+// 控台页面：三栏导播台（赛事配置/数据源健康 · 比分+10 人 KDA/装备+事件流 · OBS/回放）。
+// public/console.css 是本页面的样式源，通过内联 <style> 注入，避免改动 main.js 路由。
+const fs = require('fs');
+const path = require('path');
+const { htmlShell } = require('./html');
+
+let consoleCssCache = null;
+function consoleCss() {
+  if (consoleCssCache === null) {
+    try {
+      consoleCssCache = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'console.css'), 'utf8');
+    } catch {
+      consoleCssCache = '';
+    }
+  }
+  return consoleCssCache;
+}
+
+const CONSOLE_SCRIPT = String.raw`
+'use strict';
+var latestState = null;
+var latestSources = null;
+var latestReplay = null;
+var latestDirector = null;
+var directorDirty = false;
+var broadcastConfigDraft = null;
+var eventItems = [];
+var seenTimeline = new Set();
+var SEEN_TIMELINE_LIMIT = 500;
+var sceneCache = '';
+var autoCache = '';
+var feedReady = false;
+var toastTimer = null;
+
+var PHASE_TEXT = { draft: '赛前 BP', in_game: '局内比赛', post_game: '赛后数据' };
+var TYPE_LABEL = {
+  kill: '击杀', first_blood: '一血', multikill: '多杀', ace: '团灭',
+  tower: '防御塔', first_brick: '首塔', inhibitor: '水晶',
+  dragon: '小龙', baron: '大龙', herald: '先锋', horde: '巢虫',
+  game_start: '开始', game_end: '结束', minions: '小兵', phase: '阶段',
+  draft: 'BP', system: '系统'
+};
+var CUE_LABELS = { 'bp-in': 'BP 入场', 'hud-in': '局内入场', 'result-in': '赛后庆祝', 'wipe': '转场', 'reset': '重置' };
+var SHORTCUT_CUES = { '1': 'bp-in', '2': 'hud-in', '3': 'result-in', '4': 'wipe', 'Escape': 'reset' };
+var DIRECTOR_CUES = ['bp-in', 'hud-in', 'result-in', 'wipe', 'reset'];
+var ROLE_OPTIONS = [['TOP', '上单'], ['JUNGLE', '打野'], ['MID', '中单'], ['ADC', '下路'], ['SUPPORT', '辅助']];
+var HL_IDS = { lcu: 'hlLcu', live: 'hlLive', obs: 'hlObs' };
+var HL_LABELS = { lcu: 'LCU 客户端', live: 'Live Client Data', obs: 'OBS WebSocket' };
+var lastRosterHtml = '';
+
+function byId(id) { return document.getElementById(id); }
+function esc(value) {
+  return String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, function (ch) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+  });
+}
+function fmtClock(value) {
+  var total = Math.max(0, Math.floor(Number(value) || 0));
+  var minutes = Math.floor(total / 60);
+  var seconds = total % 60;
+  return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+}
+function fmtNumber(value) {
+  if (value === null || value === undefined || value === '') return '--';
+  var number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  return number.toLocaleString('zh-CN');
+}
+function fmtGold(value) {
+  if (value === null || value === undefined || value === '') return '--';
+  var number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  return number >= 10000 ? (number / 1000).toFixed(1) + 'k' : String(Math.round(number));
+}
+function nowClock() {
+  var date = new Date();
+  return [date.getHours(), date.getMinutes(), date.getSeconds()].map(function (n) { return String(n).padStart(2, '0'); }).join(':');
+}
+function phaseText(phase) { return PHASE_TEXT[phase] || '待机'; }
+function eventGroup(type) {
+  if (type === 'kill' || type === 'first_blood' || type === 'multikill' || type === 'ace') return 'kill';
+  if (type === 'dragon' || type === 'baron' || type === 'herald' || type === 'horde') return 'objective';
+  if (type === 'tower' || type === 'first_brick' || type === 'inhibitor') return 'tower';
+  if (type === 'game_start' || type === 'game_end' || type === 'phase') return 'phase';
+  if (type === 'draft') return 'draft';
+  return 'system';
+}
+function toast(message, isError) {
+  var el = byId('console-toast');
+  if (!el) return;
+  el.textContent = message;
+  el.className = 'console-toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.className = 'console-toast'; }, 3600);
+}
+function fetchJson(url, options) {
+  return fetch(url, options || {}).then(function (response) {
+    return response.text().then(function (text) {
+      var data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch (error) { data = { error: '响应不是有效 JSON' }; }
+      if (!response.ok) throw new Error((data && data.error) || ('HTTP ' + response.status));
+      return data;
+    });
+  });
+}
+function postJson(url, body) {
+  return fetchJson(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body || {})
+  }).catch(function (error) {
+    return { ok: false, error: error.message || String(error) };
+  });
+}
+
+function pushEvent(type, text, side, gameTime) {
+  eventItems.unshift({
+    type: type,
+    group: eventGroup(type),
+    side: side || '',
+    text: String(text || ''),
+    clock: nowClock(),
+    game: fmtClock(gameTime)
+  });
+  if (eventItems.length > 30) eventItems.length = 30;
+  renderFeed();
+}
+function renderFeed() {
+  var feed = byId('event-feed');
+  if (!feed) return;
+  if (!eventItems.length) {
+    feed.innerHTML = '<div class="feed-empty">等待比赛事件…</div>';
+  } else {
+    feed.innerHTML = eventItems.map(function (item) {
+      return '<article class="event-item type-' + esc(item.group) + (item.side === 'blue' || item.side === 'red' ? ' side-' + esc(item.side) : '') + '">' +
+        '<div class="event-time"><b>' + esc(item.clock) + '</b><small>' + esc(item.game) + '</small></div>' +
+        '<div class="event-copy"><span class="event-tag">' + esc(TYPE_LABEL[item.type] || '事件') + '</span>' +
+        '<p>' + esc(item.text) + '</p></div></article>';
+    }).join('');
+  }
+  var count = byId('feedCount');
+  if (count) count.textContent = eventItems.length + ' / 30';
+}
+function processTimeline(state) {
+  var timeline = state && Array.isArray(state.timeline) ? state.timeline : [];
+  timeline.forEach(function (entry) {
+    if (!entry || typeof entry !== 'object') return;
+    var key = String(entry.time) + '|' + String(entry.type) + '|' + String(entry.text);
+    if (seenTimeline.has(key)) return;
+    seenTimeline.add(key);
+    if (seenTimeline.size > SEEN_TIMELINE_LIMIT) {
+      var oldest = seenTimeline.values().next().value;
+      if (oldest !== undefined) seenTimeline.delete(oldest);
+    }
+    pushEvent(entry.type || 'system', entry.text || '', entry.side || '', entry.time);
+  });
+}
+function deriveEvents(previous, current) {
+  if (!previous || !current || previous.phase === undefined) return;
+  if (previous.phase !== current.phase) {
+    pushEvent('phase', '阶段切换：' + phaseText(previous.phase) + ' → ' + phaseText(current.phase), '', current.gameTime);
+  }
+  if (previous.mode !== current.mode) {
+    pushEvent('system', '数据模式切换：' + String(previous.mode || 'mock') + ' → ' + String(current.mode || 'mock'), '', current.gameTime);
+  }
+  ['blue', 'red'].forEach(function (side) {
+    var team = current[side] || {};
+    var before = previous[side] || {};
+    var scoreDiff = (Number(team.score) || 0) - (Number(before.score) || 0);
+    if (scoreDiff > 0) {
+      pushEvent('kill', String(team.name || (side === 'blue' ? '蓝方' : '红方')) + ' 取得 ' + scoreDiff + ' 次击杀 · 比分 ' +
+        String(current.blue && current.blue.score !== undefined ? current.blue.score : 0) + ' : ' +
+        String(current.red && current.red.score !== undefined ? current.red.score : 0), side, current.gameTime);
+    }
+    [['towers', '防御塔'], ['dragons', '小龙'], ['barons', '大龙'], ['heralds', '峡谷先锋']].forEach(function (pair) {
+      var oldValue = Number(before[pair[0]]) || 0;
+      var newValue = Number(team[pair[0]]) || 0;
+      if (newValue > oldValue) {
+        pushEvent('objective', String(team.name || (side === 'blue' ? '蓝方' : '红方')) + ' 拿下' + pair[1] + '（' + oldValue + ' → ' + newValue + '）', side, current.gameTime);
+      }
+    });
+  });
+  var oldDraft = previous.draft || {};
+  var newDraft = current.draft || {};
+  [['bluePicks', 'blue'], ['redPicks', 'red']].forEach(function (pair) {
+    var before = Array.isArray(oldDraft[pair[0]]) ? oldDraft[pair[0]] : [];
+    var after = Array.isArray(newDraft[pair[0]]) ? newDraft[pair[0]] : [];
+    after.forEach(function (champion) {
+      if (champion && before.indexOf(champion) === -1) {
+        pushEvent('draft', (pair[1] === 'blue' ? '蓝方' : '红方') + ' 锁定 ' + champion, pair[1], current.gameTime);
+      }
+    });
+  });
+}
+
+function setHealth(key, level, detail, tag) {
+  var lightId = HL_IDS[key];
+  if (lightId) {
+    var light = byId(lightId);
+    if (light) {
+      light.className = 'topbar-health-item ' + level;
+      light.title = (HL_LABELS[key] || key) + '：' + (detail || '--');
+    }
+  }
+  if (typeof document.querySelector !== 'function') return;
+  var row = document.querySelector('[data-health="' + key + '"]');
+  if (!row) return;
+  row.className = 'health-row ' + level;
+  var detailEl = row.querySelector('small');
+  var tagEl = row.querySelector('em');
+  if (detailEl) detailEl.textContent = detail || '--';
+  if (tagEl) tagEl.textContent = tag || '--';
+}
+function sourceResult(sources, name) {
+  if (!sources || !Array.isArray(sources.results)) return null;
+  for (var i = 0; i < sources.results.length; i += 1) {
+    if (sources.results[i] && sources.results[i].source === name) return sources.results[i];
+  }
+  return null;
+}
+function renderHealth(state, sources) {
+  state = state || {};
+  var live = state.live || {};
+  var lcuState = live.lcu || {};
+  var gameState = live.game || {};
+  var obs = state.obs || {};
+  var replay = latestReplay || state.replay || {};
+  var lcuProbe = sourceResult(sources, 'lcu');
+  var liveProbe = sourceResult(sources, 'live_client');
+
+  if (lcuProbe) {
+    if (lcuProbe.ok) setHealth('lcu', 'ok', '已连接 · 阶段 ' + (lcuProbe.phase || '未知'), 'OK');
+    else setHealth('lcu', 'idle', lcuProbe.reason === 'lockfile_not_found' ? '未发现客户端' : '无法连接：' + (lcuProbe.reason || '未知'), 'OFF');
+  } else if (lcuState.connected) {
+    setHealth('lcu', 'ok', '已连接 · 阶段 ' + (lcuState.phase || '未知'), 'OK');
+  } else {
+    setHealth('lcu', 'idle', '等待探测', '--');
+  }
+
+  if (liveProbe) {
+    if (liveProbe.ok) setHealth('live', 'ok', '已连接 · 端口 ' + (liveProbe.port || 2999), 'OK');
+    else if (state.phase === 'in_game' && state.mode === 'live') setHealth('live', 'warn', '游戏内但 :2999 未响应', 'WAIT');
+    else setHealth('live', 'idle', '未检测到对局数据', 'OFF');
+  } else if (gameState.connected || gameState.parsed) {
+    setHealth('live', 'ok', '已连接 · ' + (gameState.players || 0) + ' 名玩家', 'OK');
+  } else {
+    setHealth('live', 'idle', '等待探测', '--');
+  }
+
+  if (obs.connected) setHealth('obs', 'ok', '已连接 · 场景 ' + (obs.currentScene || '未知'), 'OK');
+  else if (obs.error) setHealth('obs', 'warn', '未连接：' + obs.error, 'WAIT');
+  else setHealth('obs', 'idle', obs.configured ? '已配置但未连接' : '未配置', 'OFF');
+
+  if (replay && replay.connected) setHealth('replay', 'ok', '回放 API 在线', 'OK');
+  else if (replay && replay.error) setHealth('replay', 'idle', '未检测到回放', 'OFF');
+  else setHealth('replay', 'idle', '未检测到回放', '--');
+
+  var updated = byId('healthUpdated');
+  if (updated) updated.textContent = '探测 ' + nowClock();
+}
+
+function renderHeader(state) {
+  var tournament = byId('tournamentLabel');
+  var clock = byId('gameClock');
+  var phase = byId('phaseLabel');
+  var mode = byId('topbarMode');
+  if (tournament) tournament.textContent = state.tournamentName || 'Khada Jhin';
+  if (clock) clock.textContent = fmtClock(state.gameTime);
+  if (phase) phase.textContent = phaseText(state.phase);
+  if (mode) {
+    mode.textContent = String(state.mode || 'mock').toUpperCase();
+    mode.className = 'topbar-mode ' + (state.mode === 'live' ? 'live' : 'mock');
+  }
+  var input = byId('tournament');
+  if (input && document.activeElement !== input) input.value = state.tournamentName || '';
+  var note = byId('phaseNote');
+  if (note) note.textContent = state.mode === 'live' ? '实战数据 · LCU / Live Client 自动同步' : '模拟数据 · 每秒刷新，可直接用于 OBS 测试';
+}
+
+function statTile(label, html) {
+  return '<div class="stat-tile"><small>' + esc(label) + '</small><div class="stat-pair">' + html + '</div></div>';
+}
+function pairStat(left, right) {
+  return '<span class="blue">' + esc(fmtNumber(left)) + '</span><i>:</i><span class="red">' + esc(fmtNumber(right)) + '</span>';
+}
+function draftChips(list, side) {
+  if (!Array.isArray(list) || !list.length) return '<span class="draft-empty">待选</span>';
+  return list.map(function (name, index) {
+    return '<span class="draft-chip ' + side + '"><i>' + String(index + 1).padStart(2, '0') + '</i>' + esc(name) + '</span>';
+  }).join('');
+}
+function renderMatch(state) {
+  var body = byId('matchBody');
+  var badge = byId('phaseBadge');
+  if (!body) return;
+  if (!state) {
+    body.innerHTML = '<div class="match-placeholder">正在连接本地数据链路…</div>';
+    return;
+  }
+  var blue = state.blue || {};
+  var red = state.red || {};
+  var blueName = blue.name || '蓝方';
+  var redName = red.name || '红方';
+  if (badge) {
+    badge.textContent = phaseText(state.phase);
+    badge.className = 'phase-badge phase-' + esc(state.phase || 'idle');
+  }
+  var blueGold = blue.gold === null || blue.gold === undefined ? null : Number(blue.gold);
+  var redGold = red.gold === null || red.gold === undefined ? null : Number(red.gold);
+  var goldDiff = null;
+  if (blueGold !== null && redGold !== null && Number.isFinite(blueGold) && Number.isFinite(redGold)) goldDiff = blueGold - redGold;
+  var diffText = '--';
+  if (goldDiff !== null) diffText = goldDiff >= 0 ? '+' + fmtGold(goldDiff) : '-' + fmtGold(Math.abs(goldDiff));
+
+  var html = '<div class="scoreboard">' +
+    '<div class="team-block blue"><span class="team-tag">BLUE</span><b>' + esc(blueName) + '</b><small>' + esc(blue.short || 'BLUE') + '</small></div>' +
+    '<div class="score-core"><div class="score-line"><b class="blue">' + esc(fmtNumber(blue.score)) + '</b><i>:</i><b class="red">' + esc(fmtNumber(red.score)) + '</b></div><span class="match-clock">' + esc(fmtClock(state.gameTime)) + '</span></div>' +
+    '<div class="team-block red"><span class="team-tag">RED</span><b>' + esc(redName) + '</b><small>' + esc(red.short || 'RED') + '</small></div>' +
+    '</div>';
+  html += '<div class="stat-strip">' +
+    '<div class="stat-tile economy"><small>经济</small><div class="economy-line"><span class="blue">' + esc(fmtGold(blue.gold)) + '</span><em>' + esc(diffText) + '</em><span class="red">' + esc(fmtGold(red.gold)) + '</span></div></div>' +
+    statTile('防御塔', pairStat(blue.towers, red.towers)) +
+    statTile('小龙', pairStat(blue.dragons, red.dragons)) +
+    statTile('大龙', pairStat(blue.barons, red.barons)) +
+    statTile('峡谷先锋', pairStat(blue.heralds, red.heralds)) +
+    '</div>';
+
+  if (state.phase === 'draft') {
+    var draft = state.draft || {};
+    var activeText = draft.active === 'blue' ? '蓝方行动' : draft.active === 'red' ? '红方行动' : '等待选人';
+    html += '<div class="draft-overview">' +
+      '<div class="draft-team blue"><div class="draft-label"><span>蓝方阵容</span><b>' + (Array.isArray(draft.bluePicks) ? draft.bluePicks.length : 0) + '/5</b></div><div class="draft-chips">' + draftChips(draft.bluePicks, 'blue') + '</div><div class="draft-bans"><span>BAN</span>' + (Array.isArray(draft.blueBans) && draft.blueBans.length ? draft.blueBans.map(function (name) { return esc(name); }).join(' · ') : '—') + '</div></div>' +
+      '<div class="draft-clock"><small>选人倒计时</small><b>' + (draft.timer === null || draft.timer === undefined ? '--' : esc(draft.timer)) + '</b><span>' + esc(activeText) + '</span><em>' + esc(draft.round || 'BP 阶段') + '</em></div>' +
+      '<div class="draft-team red"><div class="draft-label"><span>红方阵容</span><b>' + (Array.isArray(draft.redPicks) ? draft.redPicks.length : 0) + '/5</b></div><div class="draft-chips">' + draftChips(draft.redPicks, 'red') + '</div><div class="draft-bans"><span>BAN</span>' + (Array.isArray(draft.redBans) && draft.redBans.length ? draft.redBans.map(function (name) { return esc(name); }).join(' · ') : '—') + '</div></div>' +
+      '</div>';
+  } else if (state.phase === 'post_game') {
+    var blueScore = Number(blue.score) || 0;
+    var redScore = Number(red.score) || 0;
+    var winner = blueScore === redScore ? '双方战平' : (blueScore > redScore ? blueName : redName) + ' 获胜';
+    html += '<div class="result-banner"><span>FINAL RESULT</span><b>' + esc(winner) + '</b><em>' + esc(fmtNumber(blue.score)) + ' : ' + esc(fmtNumber(red.score)) + '</em></div>';
+  } else {
+    html += '<div class="live-strip"><span class="live-indicator"><i></i>LIVE</span><span>比赛进行中</span><span class="live-note">' + esc(state.tournamentName || '') + '</span></div>';
+  }
+  body.innerHTML = html;
+}
+
+// 装备既可能是旧字符串，也可能是 t9 之后的 {itemID,count,slot,price,displayName} 对象。
+function rosterItemChip(item) {
+  if (item === null || item === undefined) return null;
+  if (typeof item === 'object') {
+    var id = item.itemID !== undefined && item.itemID !== null ? item.itemID : (item.itemId !== undefined && item.itemId !== null ? item.itemId : item.id);
+    var name = String(item.displayName || item.name || '').trim();
+    var title = name || (id === undefined || id === null ? '' : '#' + id);
+    var label = name || (id === undefined || id === null ? '' : String(id));
+    if (!label) return null;
+    var count = Math.floor(Number(item.count) || 1);
+    return { label: label, title: title + (count > 1 ? ' ×' + count : '') };
+  }
+  var raw = String(item);
+  var label = raw.replace(/^#/, '');
+  return label ? { label: label, title: raw } : null;
+}
+function rosterItemChips(items) {
+  if (!Array.isArray(items) || !items.length) return '<span class="roster-item none">—</span>';
+  var chips = [];
+  for (var i = 0; i < items.length && chips.length < 6; i += 1) {
+    var chip = rosterItemChip(items[i]);
+    if (chip) chips.push('<span class="roster-item" title="' + esc(chip.title) + '">' + esc(chip.label) + '</span>');
+  }
+  if (!chips.length) return '<span class="roster-item none">—</span>';
+  return chips.join('');
+}
+function rosterRow(player, index) {
+  if (!player) {
+    return '<div class="roster-row waiting"><span class="roster-name"><b>等待选手 ' + (index + 1) + '</b><small>暂无数据</small></span>' +
+      '<span class="roster-kda">--</span><span class="roster-cs">--</span><span class="roster-items"><span class="roster-item none">—</span></span></div>';
+  }
+  var champion = String(player.champion || player.name || '选手 ' + (index + 1));
+  var summoner = String(player.name || '--');
+  var level = player.level === null || player.level === undefined ? '' : 'Lv' + esc(fmtNumber(player.level));
+  var kda = esc(fmtNumber(player.kills)) + '/' + esc(fmtNumber(player.deaths)) + '/' + esc(fmtNumber(player.assists));
+  var dead = player.alive === false;
+  var respawn = dead && Number(player.respawnTimer) > 0 ? ' · 复活 ' + Math.ceil(Number(player.respawnTimer)) + 's' : '';
+  var sub = esc(summoner) + (level ? ' · ' + level : '') + respawn;
+  return '<div class="roster-row' + (dead ? ' dead' : '') + '">' +
+    '<span class="roster-name"><b>' + esc(champion) + '</b><small>' + sub + '</small></span>' +
+    '<span class="roster-kda" title="K / D / A">' + kda + '</span>' +
+    '<span class="roster-cs" title="补刀">' + esc(fmtNumber(player.cs)) + '</span>' +
+    '<span class="roster-items">' + rosterItemChips(player.items) + '</span>' +
+    '</div>';
+}
+function rosterSide(list, side, label) {
+  var rows = '';
+  for (var i = 0; i < 5; i += 1) rows += rosterRow(list[i] || null, i);
+  return '<div class="roster-side ' + side + '">' +
+    '<div class="roster-side-head"><span>' + esc(label) + '</span><b>' + list.length + ' / 5</b></div>' +
+    rows + '</div>';
+}
+function renderRoster(state) {
+  var body = byId('rosterBody');
+  var count = byId('rosterCount');
+  if (!body) return;
+  var players = state && Array.isArray(state.players) ? state.players : [];
+  var blue = players.filter(function (p) { return p && (p.team === 'blue' || String(p.team).toUpperCase() === 'ORDER'); }).slice(0, 5);
+  var red = players.filter(function (p) { return p && (p.team === 'red' || String(p.team).toUpperCase() === 'CHAOS'); }).slice(0, 5);
+  if (!blue.length && !red.length && players.length) {
+    blue = players.slice(0, 5);
+    red = players.slice(5, 10);
+  }
+  if (count) count.textContent = Math.min(blue.length + red.length, 10) + ' / 10';
+  var markup;
+  if (!players.length) {
+    markup = '<div class="roster-empty">' + (state && state.mode === 'live' ? '实战模式：等待 Live Client Data 推送 10 名选手…' : '等待选手数据…') + '</div>';
+  } else {
+    var blueName = state && state.blue && state.blue.name ? state.blue.name : '蓝方';
+    var redName = state && state.red && state.red.name ? state.red.name : '红方';
+    markup = rosterSide(blue, 'blue', blueName + ' · BLUE') + rosterSide(red, 'red', redName + ' · RED');
+  }
+  if (lastRosterHtml !== markup) {
+    body.innerHTML = markup;
+    lastRosterHtml = markup;
+  }
+}
+function renderPhaseButtons(state) {
+  document.querySelectorAll('#phase-switch [data-phase]').forEach(function (button) {
+    button.classList.toggle('active', button.getAttribute('data-phase') === state.phase);
+  });
+  document.querySelectorAll('#mode-switch [data-mode]').forEach(function (button) {
+    button.classList.toggle('active', button.getAttribute('data-mode') === state.mode);
+  });
+}
+
+function renderSceneButtons(scenes, current) {
+  var box = byId('obsScenes');
+  if (!box) return;
+  if (!scenes.length) { box.innerHTML = '<span class="empty">暂无场景</span>'; return; }
+  box.innerHTML = scenes.map(function (name) {
+    return '<button type="button" class="scene-button' + (name === current ? ' active' : '') + '" data-scene="' + esc(name) + '">' + esc(name) + '</button>';
+  }).join('');
+  box.querySelectorAll('[data-scene]').forEach(function (button) {
+    button.addEventListener('click', function () { switchScene(button.getAttribute('data-scene')); });
+  });
+}
+function renderSceneShortcuts(scenes, current) {
+  var box = byId('scene-shortcuts');
+  if (!box) return;
+  if (!scenes.length) { box.innerHTML = '<span class="empty">连接 OBS 后显示场景</span>'; return; }
+  box.innerHTML = scenes.slice(0, 8).map(function (name) {
+    return '<button type="button" class="scene-shortcut' + (name === current ? ' active' : '') + '" data-scene-shortcut="' + esc(name) + '">' + esc(name) + '</button>';
+  }).join('');
+  box.querySelectorAll('[data-scene-shortcut]').forEach(function (button) {
+    button.addEventListener('click', function () { switchScene(button.getAttribute('data-scene-shortcut')); });
+  });
+}
+function switchScene(name) {
+  postJson('/api/obs/scene', { sceneName: name }).then(function (data) {
+    if (data.ok) {
+      toast('已切换 OBS 场景：' + name);
+      if (latestState && data.obs) latestState.obs = data.obs;
+      if (latestState) renderObs(latestState);
+    } else {
+      toast('场景切换失败：' + data.error, true);
+    }
+  });
+}
+function renderAutoSwitch(auto, scenes) {
+  var box = document.querySelector('.obs-auto');
+  if (!box) return;
+  auto = auto || {};
+  var key = scenes.join('|') + '::' + [auto.draft, auto.in_game, auto.post_game].join('|');
+  if (key === autoCache) return;
+  autoCache = key;
+  if (!scenes.length) { box.innerHTML = '<span class="empty">连接 OBS 后可配置自动切换</span>'; return; }
+  var option = function (phase, label) {
+    var selected = auto[phase] || '';
+    return '<label class="auto-row"><span>' + esc(label) + '</span><select data-auto="' + esc(phase) + '"><option value="">不自动切</option>' +
+      scenes.map(function (name) { return '<option value="' + esc(name) + '"' + (selected === name ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') +
+      '</select></label>';
+  };
+  box.innerHTML = option('draft', 'BP 阶段') + option('in_game', '局内') + option('post_game', '赛后');
+  box.querySelectorAll('[data-auto]').forEach(function (select) {
+    select.addEventListener('change', function () {
+      var body = {};
+      box.querySelectorAll('[data-auto]').forEach(function (item) { body[item.getAttribute('data-auto')] = item.value; });
+      postJson('/api/obs/autoswitch', body).then(function (data) {
+        if (data.ok) {
+          toast('自动切换已更新');
+          if (latestState) latestState.autoSwitch = data.autoSwitch || body;
+        } else {
+          toast('自动切换保存失败：' + data.error, true);
+        }
+      });
+    });
+  });
+}
+function renderObs(state) {
+  state = state || {};
+  var obs = state.obs || {};
+  var status = byId('obsStatus');
+  var badge = byId('obsBadge');
+  var current = byId('obsCurrent');
+  var recording = byId('obsRecording');
+  if (status) status.textContent = obs.connected ? ('已连接 ' + (obs.url || '') + ' · 当前场景 ' + (obs.currentScene || '-')) : (obs.error ? '未连接：' + obs.error : '未连接');
+  if (badge) { badge.textContent = obs.connected ? '在线' : '未连接'; badge.className = 'status-badge ' + (obs.connected ? 'online' : 'offline'); }
+  if (current) current.textContent = obs.currentScene || '--';
+  var stream = byId('obsStream');
+  var replay = byId('obsReplay');
+  var record = obs.record;
+  var streamStatus = obs.stream;
+  var replayStatus = obs.replayBuffer;
+  if (recording) {
+    if (!obs.connected) recording.textContent = '未接入';
+    else if (record === null || record === undefined) recording.textContent = '查询中…';
+    else recording.textContent = record.active ? '录制中 ' + (record.timecode || '') : '未录制';
+  }
+  if (stream) {
+    if (!obs.connected) stream.textContent = '--';
+    else if (streamStatus === null || streamStatus === undefined) stream.textContent = '查询中…';
+    else stream.textContent = streamStatus.active ? '推流中 ' + (streamStatus.timecode || '') : '未推流';
+  }
+  if (replay) {
+    if (!obs.connected) replay.textContent = '--';
+    else if (replayStatus === null || replayStatus === undefined) replay.textContent = '查询中…';
+    else replay.textContent = replayStatus.active ? '缓冲中' : '待命';
+  }
+  var scenes = Array.isArray(obs.scenes) ? obs.scenes : [];
+  var sceneKey = scenes.join('|') + '::' + (obs.currentScene || '');
+  if (sceneKey !== sceneCache) {
+    sceneCache = sceneKey;
+    renderSceneButtons(scenes, obs.currentScene);
+    renderSceneShortcuts(scenes, obs.currentScene);
+  } else {
+    document.querySelectorAll('#obsScenes [data-scene], #scene-shortcuts [data-scene-shortcut]').forEach(function (button) {
+      var name = button.getAttribute('data-scene') || button.getAttribute('data-scene-shortcut');
+      button.classList.toggle('active', name === obs.currentScene);
+    });
+  }
+  renderAutoSwitch(state.autoSwitch || {}, scenes);
+}
+
+function renderReplay() {
+  var replay = latestReplay || {};
+  var badge = byId('replayBadge');
+  var status = byId('replayStatus');
+  var details = byId('replayDetails');
+  if (badge) { badge.textContent = replay.connected ? '在线' : '未连接'; badge.className = 'status-badge ' + (replay.connected ? 'online' : 'offline'); }
+  if (!replay.connected) {
+    if (status) status.textContent = replay.error ? '未检测到回放：' + replay.error : '未检测到回放';
+    if (details) details.innerHTML = '<div class="detail-row"><span>播放位置</span><b>--</b></div><div class="detail-row"><span>镜头 FOV</span><b>--</b></div>';
+    return;
+  }
+  var playback = replay.playback || {};
+  var render = replay.render || {};
+  if (status) status.textContent = '回放 API 在线 · ' + (playback.paused ? '已暂停' : '播放中') + ' · 速度 ' + (playback.speed !== undefined ? playback.speed : '--') + '×';
+  if (details) details.innerHTML =
+    '<div class="detail-row"><span>播放位置</span><b>' + esc(playback.time !== undefined ? playback.time + ' s' : '--') + '</b></div>' +
+    '<div class="detail-row"><span>镜头 FOV</span><b>' + esc(render.fieldOfView !== undefined ? render.fieldOfView + '°' : '--') + '</b></div>';
+}
+function loadReplay() {
+  fetchJson('/api/replay').then(function (data) {
+    latestReplay = data;
+  }).catch(function (error) {
+    latestReplay = { connected: false, error: error.message || String(error) };
+  }).then(function () {
+    renderReplay();
+    renderHealth(latestState, latestSources);
+  });
+}
+function postReplay(path, body, label) {
+  postJson(path, body).then(function (data) {
+    if (data.ok) { toast(label + '已发送'); setTimeout(loadReplay, 400); }
+    else toast(label + '失败：' + data.error, true);
+  });
+}
+function obsCommand(path, body, label) {
+  postJson(path, body).then(function (data) {
+    if (data.ok) {
+      toast(label + '已执行');
+      setTimeout(loadObs, 300);
+    } else {
+      toast(label + '失败：' + data.error, true);
+    }
+  });
+}
+function loadObs() {
+  fetchJson('/api/obs').then(function (snapshot) {
+    if (!latestState) latestState = {};
+    latestState.obs = snapshot;
+    renderObs(latestState);
+    renderHealth(latestState, latestSources);
+  }).catch(function () {});
+}
+
+function refreshSources(force) {
+  fetchJson(force ? '/api/sources?refresh=1' : '/api/sources').then(function (data) {
+    latestSources = data;
+    renderHealth(latestState || (data && data.live ? { live: data.live } : null), latestSources);
+  }).catch(function (error) {
+    latestSources = { error: error.message || String(error), results: [] };
+    renderHealth(latestState, latestSources);
+  });
+}
+
+function applyState(state) {
+  var previous = latestState;
+  latestState = state;
+  renderHeader(state);
+  renderMatch(state);
+  renderRoster(state);
+  renderPhaseButtons(state);
+  renderCue(state);
+  renderDirectorFromState(state);
+  renderObs(state);
+  renderMvpPanel(state);
+  processTimeline(state);
+  deriveEvents(previous, state);
+  if (!feedReady) {
+    feedReady = true;
+    pushEvent('system', '控台已连接 · ' + (state.mode === 'mock' ? '模拟' : '实战') + '数据链路', '', state.gameTime);
+  }
+  renderHealth(state, latestSources);
+  var raw = byId('state');
+  if (raw) {
+    raw.textContent = JSON.stringify({
+      mode: state.mode, phase: state.phase, gameTime: state.gameTime,
+      blue: state.blue, red: state.red,
+      obs: state.obs ? { connected: state.obs.connected, scene: state.obs.currentScene } : null,
+      updatedAt: state.updatedAt ? new Date(state.updatedAt).toLocaleTimeString() : '--'
+    }, null, 2);
+  }
+}
+
+function setConnection(online) {
+  var el = byId('connectionState');
+  if (!el) return;
+  el.className = 'conn-pill ' + (online ? 'online' : 'offline');
+  el.innerHTML = '<i></i>' + (online ? 'SSE 在线' : 'SSE 重连中');
+}
+function buildUrls() {
+  var pages = [['BP 页面', 'bp'], ['顶部比分条', 'ingame-top'], ['底部选手条', 'ingame-bottom'], ['赛后数据页', 'postgame']];
+  var base = location.origin;
+  var box = byId('urls');
+  if (!box) return;
+  box.innerHTML = pages.map(function (pair) {
+    var url = base + '/overlay/' + pair[1];
+    return '<div class="url-row"><span>' + esc(pair[0]) + '</span><code title="' + esc(url) + '">' + esc(url) + '</code><button type="button" data-copy="' + esc(url) + '">复制</button></div>';
+  }).join('');
+  box.querySelectorAll('[data-copy]').forEach(function (button) {
+    button.addEventListener('click', function () { copyText(button.getAttribute('data-copy')); });
+  });
+}
+function buildBroadcastUrls() {
+  var pages = [
+    ['BP 广播页', '/broadcast/bp', '赛前 BP 选人画面'],
+    ['局内 HUD', '/broadcast/hud', '局内比分条 + 选手数据'],
+    ['赛后庆典', '/broadcast/result', '赛后数据结算'],
+    ['MVP 时刻', '/broadcast/mvp', '赛后 MVP 展示'],
+    ['聚合舞台页（单场景）', '/broadcast/stage', '一个 URL 全流程自动切换，OBS 只需添加这一个']
+  ];
+  var base = location.origin;
+  var box = byId('broadcast-urls');
+  if (!box) return;
+  box.innerHTML = pages.map(function (pair) {
+    var url = base + pair[1];
+    return '<div class="url-row broadcast-url-row"><div class="url-name"><span>' + esc(pair[0]) + '</span><small>' + esc(pair[2] || '') + '</small></div>' +
+      '<code title="' + esc(url) + '">' + esc(url) + '</code>' +
+      '<button type="button" data-copy="' + esc(url) + '">复制</button>' +
+      '<button type="button" data-preview="' + esc(url) + '">预览</button></div>';
+  }).join('');
+  box.querySelectorAll('[data-copy]').forEach(function (button) {
+    button.addEventListener('click', function () { copyText(button.getAttribute('data-copy')); });
+  });
+  box.querySelectorAll('[data-preview]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var url = button.getAttribute('data-preview');
+      try { window.open(url, '_blank', 'noopener,noreferrer'); } catch (error) { toast('无法打开预览：' + error.message, true); }
+    });
+  });
+}
+var mvpPick = { name: '', team: '' };
+function renderMvpPanel(state) {
+  var box = byId('mvp-candidates');
+  if (!box) return;
+  var pg = state && state.postGame;
+  var pool = pg && Array.isArray(pg.players) && pg.players.length
+    ? pg.players
+    : (state && Array.isArray(state.players) ? state.players : []);
+  var current = state && state.mvp && state.mvp.name ? state.mvp : null;
+  if (!pool.length) {
+    box.innerHTML = '<span class="empty">等待局内/赛后选手数据</span>';
+  } else {
+    box.innerHTML = pool.slice(0, 10).map(function (p, index) {
+      var team = p.team === 'red' ? 'red' : 'blue';
+      var name = String(p.name || ('选手 ' + (index + 1)));
+      var isCurrent = current && String(current.name) === name && String(current.team || 'blue') === team;
+      var isPicked = mvpPick.name === name && mvpPick.team === team;
+      return '<button type="button" class="mvp-candidate team-' + team + (isPicked ? ' picked' : '') + (isCurrent ? ' current' : '') + '"' +
+        ' data-name="' + esc(name) + '" data-team="' + team + '">' +
+        '<b>' + esc(name) + '</b>' +
+        '<small>' + esc(p.champion || '') + '</small>' +
+        (isCurrent ? '<em>MVP</em>' : '') +
+        '</button>';
+    }).join('');
+    box.querySelectorAll('.mvp-candidate').forEach(function (button) {
+      button.addEventListener('click', function () {
+        mvpPick = { name: button.getAttribute('data-name') || '', team: button.getAttribute('data-team') || 'blue' };
+        renderMvpPanel(latestState);
+      });
+    });
+  }
+  var note = byId('mvp-note');
+  if (note) note.textContent = current ? ('当前 MVP：' + current.name) : '未评选';
+  var send = byId('mvp-send');
+  if (send) send.disabled = !mvpPick.name;
+}
+function renderCue(state) {
+  var cue = state && state.broadcastCue ? state.broadcastCue : null;
+  var type = byId('cueType');
+  var seq = byId('cueSeq');
+  if (!type || !seq) return;
+  if (!cue || !cue.type) {
+    type.textContent = '待机';
+    seq.textContent = 'SEQ --';
+    return;
+  }
+  type.textContent = CUE_LABELS[cue.type] || String(cue.type);
+  seq.textContent = 'SEQ ' + (cue.seq === null || cue.seq === undefined ? '--' : cue.seq);
+}
+function cueCommand(type, button) {
+  var label = CUE_LABELS[type] || type;
+  if (button) button.disabled = true;
+  postJson('/api/broadcast/cue', { type: type }).then(function (data) {
+    if (button) button.disabled = false;
+    if (data && data.ok) {
+      toast('广播已触发：' + label + (data.cue && data.cue.seq !== undefined ? ' · SEQ ' + data.cue.seq : ''));
+      if (data.cue) {
+        if (!latestState) latestState = {};
+        latestState.broadcastCue = data.cue;
+        renderCue(latestState);
+      }
+    } else {
+      toast('广播触发失败：' + ((data && data.error) || '未知错误'), true);
+    }
+  }).catch(function (error) {
+    if (button) button.disabled = false;
+    toast('广播触发失败：' + (error.message || String(error)), true);
+  });
+}
+
+function directorSnapshot(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (data.director && typeof data.director === 'object') return data.director;
+  if (data.rules && typeof data.rules === 'object') return data.rules;
+  return data;
+}
+function clockFromTimestamp(value) {
+  var number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return '';
+  var date = new Date(number);
+  if (isNaN(date.getTime())) return '';
+  return [date.getHours(), date.getMinutes(), date.getSeconds()].map(function (n) { return String(n).padStart(2, '0'); }).join(':');
+}
+function directorTriggerText(trigger) {
+  if (!trigger || typeof trigger !== 'object') return '暂无触发';
+  var parts = [];
+  var cue = CUE_LABELS[trigger.cue] || trigger.cue || '未知 CUE';
+  if (trigger.reason === 'phase') {
+    var phase = trigger.phase || (trigger.payload && trigger.payload.phase);
+    parts.push('阶段 ' + phaseText(phase));
+  } else {
+    if (trigger.type) parts.push(TYPE_LABEL[trigger.type] || String(trigger.type));
+    if (trigger.score !== undefined && trigger.score !== null && Number.isFinite(Number(trigger.score))) {
+      parts.push(Number(trigger.score) + ' 分');
+    }
+  }
+  parts.push(cue);
+  var at = clockFromTimestamp(trigger.at);
+  if (at) parts.push(at);
+  return parts.join(' · ');
+}
+function fillDirectorForm(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+  var enabled = byId('directorEnabled');
+  if (enabled) enabled.checked = snapshot.enabled !== false;
+  var threshold = Number(snapshot.threshold);
+  if (!Number.isFinite(threshold)) threshold = 50;
+  var thresholdInput = byId('directorThreshold');
+  if (thresholdInput) thresholdInput.value = String(Math.round(threshold));
+  var thresholdRange = byId('directorThresholdRange');
+  if (thresholdRange) thresholdRange.value = String(Math.min(100, Math.max(0, Math.round(threshold))));
+  var cue = byId('directorCue');
+  if (cue) cue.value = DIRECTOR_CUES.indexOf(snapshot.cue) >= 0 ? snapshot.cue : 'hud-in';
+  var cooldown = Number(snapshot.cooldownMs);
+  if (!Number.isFinite(cooldown)) cooldown = 15000;
+  var cooldownInput = byId('directorCooldown');
+  if (cooldownInput) cooldownInput.value = String(Math.round(cooldown / 100) / 10);
+  var phaseCues = snapshot.phaseCues && typeof snapshot.phaseCues === 'object' ? snapshot.phaseCues : {};
+  var draftCue = byId('directorDraftCue');
+  if (draftCue) draftCue.value = DIRECTOR_CUES.indexOf(phaseCues.draft) >= 0 ? phaseCues.draft : 'bp-in';
+  var postCue = byId('directorPostCue');
+  if (postCue) postCue.value = DIRECTOR_CUES.indexOf(phaseCues.post_game) >= 0 ? phaseCues.post_game : 'result-in';
+  directorDirty = false;
+}
+function renderDirectorStatus(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+  latestDirector = snapshot;
+  var enabled = snapshot.enabled !== false;
+  var badge = byId('directorBadge');
+  if (badge) {
+    badge.textContent = enabled ? '已启用' : '已停用';
+    badge.className = 'status-badge director-badge ' + (enabled ? 'online' : 'offline');
+  }
+  var panel = byId('director-panel');
+  if (panel) panel.classList.toggle('director-disabled', !enabled);
+  var last = byId('directorLastTrigger');
+  if (last) last.textContent = directorTriggerText(snapshot.lastTrigger);
+  var remaining = Number(snapshot.cooldownRemaining);
+  var cooldown = byId('directorCooldownRemaining');
+  if (cooldown) {
+    if (Number.isFinite(remaining) && remaining > 0) {
+      cooldown.textContent = (Math.ceil(remaining / 100) / 10).toFixed(1) + ' 秒';
+      cooldown.className = 'director-cooldown cooling';
+    } else {
+      cooldown.textContent = '就绪';
+      cooldown.className = 'director-cooldown ready';
+    }
+  }
+}
+function applyDirectorSnapshot(data, fillForm) {
+  var snapshot = directorSnapshot(data);
+  if (!snapshot) return;
+  if (fillForm) fillDirectorForm(snapshot);
+  renderDirectorStatus(snapshot);
+}
+function renderDirectorFromState(state) {
+  var snapshot = state && state.director;
+  if (!snapshot) return;
+  applyDirectorSnapshot(snapshot, !directorDirty);
+}
+function loadDirectorRules() {
+  var status = byId('directorStatus');
+  fetchJson('/api/director/rules').then(function (data) {
+    if (!data || data.ok === false) throw new Error((data && data.error) || '读取失败');
+    applyDirectorSnapshot(data, true);
+    if (status) status.textContent = '已读取 · ' + nowClock() + ' · 规则修改后立即生效';
+  }).catch(function (error) {
+    if (status) status.textContent = '读取失败：' + (error.message || String(error));
+  });
+}
+function readDirectorRules() {
+  var threshold = Number(readFieldValue('directorThreshold'));
+  var cooldownSeconds = Number(readFieldValue('directorCooldown'));
+  var cue = readFieldValue('directorCue');
+  var draftCue = readFieldValue('directorDraftCue');
+  var postCue = readFieldValue('directorPostCue');
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100000) return { error: '阈值需在 0 - 100000 之间' };
+  if (!Number.isFinite(cooldownSeconds) || cooldownSeconds < 0 || cooldownSeconds > 86400) return { error: '冷却需在 0 - 86400 秒之间' };
+  if (DIRECTOR_CUES.indexOf(cue) < 0) return { error: '触发 CUE 无效' };
+  if (DIRECTOR_CUES.indexOf(draftCue) < 0) return { error: 'BP 阶段 CUE 无效' };
+  if (DIRECTOR_CUES.indexOf(postCue) < 0) return { error: '赛后阶段 CUE 无效' };
+  var enabled = byId('directorEnabled');
+  return {
+    rules: {
+      enabled: !!(enabled && enabled.checked),
+      threshold: Math.round(threshold),
+      cue: cue,
+      cooldownMs: Math.round(cooldownSeconds * 1000),
+      phaseCues: { draft: draftCue, post_game: postCue }
+    }
+  };
+}
+function saveDirectorRules() {
+  var status = byId('directorStatus');
+  var result = readDirectorRules();
+  if (result.error) {
+    if (status) status.textContent = '保存失败：' + result.error;
+    toast('自动导播规则保存失败：' + result.error, true);
+    return;
+  }
+  var button = byId('directorSave');
+  if (button) button.disabled = true;
+  postJson('/api/director/rules', { rules: result.rules }).then(function (data) {
+    if (button) button.disabled = false;
+    if (data && data.ok) {
+      applyDirectorSnapshot(data, true);
+      if (status) status.textContent = '已保存 · ' + nowClock() + ' · 规则已生效';
+      toast('自动导播规则已保存');
+    } else {
+      var message = (data && data.error) || '未知错误';
+      if (status) status.textContent = '保存失败：' + message;
+      toast('自动导播规则保存失败：' + message, true);
+    }
+  });
+}
+function bindDirectorPanel() {
+  var panel = byId('director-panel');
+  if (!panel || panel.getAttribute('data-bound') === '1') return;
+  panel.setAttribute('data-bound', '1');
+  panel.addEventListener('input', function (event) {
+    directorDirty = true;
+    var target = event.target;
+    if (target && target.id === 'directorThresholdRange') {
+      var numberInput = byId('directorThreshold');
+      if (numberInput) numberInput.value = target.value;
+    } else if (target && target.id === 'directorThreshold') {
+      var rangeInput = byId('directorThresholdRange');
+      if (rangeInput) rangeInput.value = String(Math.min(100, Math.max(0, Number(target.value) || 0)));
+    }
+  });
+  panel.addEventListener('change', function () { directorDirty = true; });
+  var reload = byId('directorReload');
+  if (reload) reload.addEventListener('click', loadDirectorRules);
+  var save = byId('directorSave');
+  if (save) save.addEventListener('click', saveDirectorRules);
+}
+
+function cloneConfig(value) {
+  try { return JSON.parse(JSON.stringify(value && typeof value === 'object' ? value : {})); } catch (error) { return {}; }
+}
+function setFieldValue(id, value) {
+  var field = byId(id);
+  if (field) field.value = value === null || value === undefined ? '' : String(value);
+}
+function readFieldValue(id) {
+  var field = byId(id);
+  return field ? String(field.value || '').trim() : '';
+}
+function readFieldNumber(id, fallback) {
+  var number = Number(readFieldValue(id));
+  return Number.isFinite(number) ? number : fallback;
+}
+function optionMarkup(options, selected) {
+  return options.map(function (pair) {
+    return '<option value="' + esc(pair[0]) + '"' + (String(selected) === String(pair[0]) ? ' selected' : '') + '>' + esc(pair[1]) + '</option>';
+  }).join('');
+}
+function configField(label, id, value, type, className) {
+  return '<label class="config-field' + (className ? ' ' + className : '') + '"><span>' + esc(label) + '</span>' +
+    '<input id="' + id + '" type="' + (type || 'text') + '"' + (type === 'number' ? ' step="0.1"' : '') + ' value="' + esc(value) + '"></label>';
+}
+function configSelect(label, id, value, options) {
+  return '<label class="config-field"><span>' + esc(label) + '</span><select id="' + id + '">' + optionMarkup(options, value) + '</select></label>';
+}
+function sponsorRowMarkup(sponsor) {
+  var item = sponsor || {};
+  var slots = [['top', '顶部'], ['bottom', '底部'], ['center', '中部']];
+  return '<div class="sponsor-row" data-sponsor-row>' +
+    '<input class="sponsor-name" value="' + esc(item.name || '') + '" placeholder="赞助商名称">' +
+    '<select class="sponsor-slot">' + optionMarkup(slots, item.slot || 'bottom') + '</select>' +
+    '<button type="button" class="icon-btn" data-sponsor-remove title="删除赞助商">×</button>' +
+  '</div>';
+}
+function playerRowMarkup(player, index) {
+  var item = player || {};
+  return '<div class="player-editor-row" data-player-row>' +
+    '<span class="player-index">' + String(index + 1).padStart(2, '0') + '</span>' +
+    '<input class="player-display" value="' + esc(item.displayName || item.gameName || '') + '" placeholder="选手 ID">' +
+    '<select class="player-team">' + optionMarkup([['blue', 'BLUE 蓝'], ['red', 'RED 红']], item.team || '') + '</select>' +
+    '<select class="player-role">' + optionMarkup(ROLE_OPTIONS, item.role || '') + '</select>' +
+  '</div>';
+}
+function coachFor(config, team) {
+  var list = config && Array.isArray(config.coaches) ? config.coaches : [];
+  for (var i = 0; i < list.length; i += 1) {
+    if (list[i] && list[i].team === team) return list[i];
+  }
+  return {};
+}
+function renderSponsorRows(sponsors) {
+  var box = byId('sponsorEditors');
+  if (!box) return;
+  var list = Array.isArray(sponsors) && sponsors.length ? sponsors : [{ name: '', slot: 'bottom' }];
+  box.innerHTML = list.map(sponsorRowMarkup).join('');
+}
+function renderPlayerRows(players) {
+  var box = byId('playerEditors');
+  if (!box) return;
+  var list = Array.isArray(players) ? players.slice(0, 10) : [];
+  while (list.length < 10) list.push({ displayName: '', team: list.length < 5 ? 'blue' : 'red', role: '' });
+  box.innerHTML = list.map(playerRowMarkup).join('');
+}
+function setLogoPreview(imgId, logo) {
+  var img = byId(imgId); if (!img) return;
+  if (logo) { img.src = logo; img.style.display = ''; } else { img.removeAttribute('src'); img.style.display = 'none'; }
+}
+function uploadLogoFile(input, targetId, previewId) {
+  var file = input && input.files && input.files[0];
+  var field = byId(targetId);
+  if (!file || !field) return;
+  var status = byId('broadcastConfigStatus');
+  var reader = new FileReader();
+  reader.onload = function () {
+    postJson('/api/uploads/logo', { name: file.name, data: String(reader.result || '') }).then(function (data) {
+      if (!data || !data.ok || !data.path) throw new Error((data && data.error) || 'upload_failed');
+      field.value = data.path;
+      setLogoPreview(previewId, data.path);
+      if (status) status.textContent = '队标已上传：' + data.path;
+    }).catch(function (error) {
+      if (status) status.textContent = '队标上传失败：' + ((error && error.message) || error);
+    });
+  };
+  reader.onerror = function () { if (status) status.textContent = '队标读取失败'; };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+function switchConfigTab(name) {
+  document.querySelectorAll('#broadcastConfigForm [data-config-tab]').forEach(function (button) {
+    button.classList.toggle('active', button.getAttribute('data-config-tab') === name);
+  });
+  document.querySelectorAll('#broadcastConfigForm [data-config-panel]').forEach(function (panel) {
+    panel.classList.toggle('active', panel.getAttribute('data-config-panel') === name);
+  });
+}
+function bindConfigForm() {
+  var form = byId('broadcastConfigForm');
+  if (!form || form.getAttribute('data-bound') === '1') return;
+  form.setAttribute('data-bound', '1');
+  form.addEventListener('input', function (event) {
+    var id = event.target && event.target.id;
+    if (id === 'teamBlueLogo') setLogoPreview('teamBlueLogoPreview', event.target.value.trim());
+    if (id === 'teamRedLogo') setLogoPreview('teamRedLogoPreview', event.target.value.trim());
+  });
+  form.addEventListener('change', function (event) {
+    var id = event.target && event.target.id;
+    if (id === 'teamBlueLogoFile') uploadLogoFile(event.target, 'teamBlueLogo', 'teamBlueLogoPreview');
+    if (id === 'teamRedLogoFile') uploadLogoFile(event.target, 'teamRedLogo', 'teamRedLogoPreview');
+    if (id === 'hudKeyHook') toggleHudKeyHook(event.target.checked);
+  });
+  form.addEventListener('click', function (event) {
+    var target = event.target && event.target.closest ? event.target.closest('[data-config-tab], [data-sponsor-remove], #broadcastSponsorAdd') : null;
+    if (!target) return;
+    if (target.hasAttribute('data-config-tab')) {
+      switchConfigTab(target.getAttribute('data-config-tab'));
+      return;
+    }
+    if (target.id === 'broadcastSponsorAdd') {
+      var box = byId('sponsorEditors');
+      if (box) box.insertAdjacentHTML('beforeend', sponsorRowMarkup({ name: '', slot: 'bottom' }));
+      return;
+    }
+    var row = target.closest('.sponsor-row');
+    if (!row) return;
+    var rows = document.querySelectorAll('#sponsorEditors [data-sponsor-row]');
+    if (rows.length > 1) row.remove();
+    else row.querySelectorAll('input,select').forEach(function (field) {
+      if (field.tagName === 'SELECT') field.value = 'bottom';
+      else field.value = '';
+    });
+  });
+}
+function renderConfigForm(config) {
+  config = cloneConfig(config);
+  broadcastConfigDraft = config;
+  var teams = config.teams || {};
+  var blue = teams.blue || {};
+  var red = teams.red || {};
+  var series = config.series || {};
+  var records = series.records || {};
+  var fearless = config.fearless || {};
+  var blueCoach = coachFor(config, 'blue');
+  var redCoach = coachFor(config, 'red');
+  setFieldValue('seriesName', series.name);
+  setFieldValue('seriesStage', series.stage);
+  setFieldValue('seriesPatch', series.patch);
+  setFieldValue('seriesBestOf', series.bestOf);
+  setFieldValue('recordBlue', records.blue);
+  setFieldValue('recordRed', records.red);
+  setFieldValue('teamBlueName', blue.name);
+  setFieldValue('teamBlueShort', blue.shortName);
+  setFieldValue('teamBlueRegion', blue.region);
+  setFieldValue('teamBlueRank', blue.rank);
+  setFieldValue('teamBlueColor', blue.color || '#3B82F6');
+  setFieldValue('teamBlueLogo', blue.logo);
+  setLogoPreview('teamBlueLogoPreview', blue.logo);
+  setFieldValue('teamRedName', red.name);
+  setFieldValue('teamRedShort', red.shortName);
+  setFieldValue('teamRedRegion', red.region);
+  setFieldValue('teamRedRank', red.rank);
+  setFieldValue('teamRedColor', red.color || '#EF4444');
+  setFieldValue('teamRedLogo', red.logo);
+  setLogoPreview('teamRedLogoPreview', red.logo);
+  setFieldValue('fearlessPbPct', fearless.pbPct);
+  setFieldValue('fearlessPickPct', fearless.pickPct);
+  setFieldValue('fearlessWins', fearless.wins);
+  setFieldValue('fearlessLosses', fearless.losses);
+  setFieldValue('coachBlueName', blueCoach.name);
+  setFieldValue('coachBlueRole', blueCoach.role || 'HEAD COACH');
+  setFieldValue('coachRedName', redCoach.name);
+  setFieldValue('coachRedRole', redCoach.role || 'HEAD COACH');
+  var cover = config.coverCard && typeof config.coverCard === 'object' ? config.coverCard : {};
+  setFieldValue('coverTitle', cover.title);
+  setFieldValue('coverLines', Array.isArray(cover.lines) ? cover.lines.join('\n') : '');
+  setFieldValue('coverHtml', cover.html);
+  var standby = config.standbyCard && typeof config.standbyCard === 'object' ? config.standbyCard : {};
+  setFieldValue('standbyTitle', standby.title);
+  setFieldValue('standbyLines', Array.isArray(standby.lines) ? standby.lines.join('\n') : '');
+  var hudKey = byId('hudKeyHook');
+  if (hudKey) hudKey.checked = config.hudKeyHook !== false;
+  renderSponsorRows(config.sponsors);
+  renderPlayerRows(config.players);
+  var jsonBox = byId('broadcastConfigJson');
+  if (jsonBox) jsonBox.value = JSON.stringify(config, null, 2);
+  bindConfigForm();
+}
+function collectBroadcastConfig() {
+  var base = cloneConfig(broadcastConfigDraft || {});
+  var teams = base.teams || (base.teams = {});
+  function readTeam(side, prefix) {
+    var team = teams[side] || (teams[side] = {});
+    team.name = readFieldValue(prefix + 'Name');
+    team.shortName = readFieldValue(prefix + 'Short');
+    team.region = readFieldValue(prefix + 'Region');
+    team.rank = readFieldValue(prefix + 'Rank');
+    team.color = readFieldValue(prefix + 'Color');
+    if (!team.color) team.color = side === 'blue' ? '#3B82F6' : '#EF4444';
+    team.logo = readFieldValue(prefix + 'Logo');
+  }
+  readTeam('blue', 'teamBlue');
+  readTeam('red', 'teamRed');
+  var series = base.series || (base.series = {});
+  series.name = readFieldValue('seriesName');
+  series.stage = readFieldValue('seriesStage');
+  series.patch = readFieldValue('seriesPatch');
+  series.bestOf = readFieldNumber('seriesBestOf', 3);
+  if (!series.records || typeof series.records !== 'object') series.records = {};
+  series.records.blue = readFieldNumber('recordBlue', 0);
+  series.records.red = readFieldNumber('recordRed', 0);
+  var fearless = base.fearless || (base.fearless = {});
+  fearless.pbPct = readFieldNumber('fearlessPbPct', 0);
+  fearless.pickPct = readFieldNumber('fearlessPickPct', 0);
+  fearless.wins = readFieldNumber('fearlessWins', 0);
+  fearless.losses = readFieldNumber('fearlessLosses', 0);
+  var cover = {};
+  var coverTitle = readFieldValue('coverTitle');
+  var coverLines = (byId('coverLines') ? byId('coverLines').value : '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
+  var coverHtml = readFieldValue('coverHtml');
+  if (coverTitle) cover.title = coverTitle;
+  if (coverLines.length) cover.lines = coverLines;
+  if (coverHtml) cover.html = coverHtml;
+  if (cover.title || cover.lines || cover.html) base.coverCard = cover;
+  else delete base.coverCard;
+  var standby = {};
+  var standbyTitle = readFieldValue('standbyTitle');
+  var standbyLines = (byId('standbyLines') ? byId('standbyLines').value : '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
+  if (standbyTitle) standby.title = standbyTitle;
+  if (standbyLines.length) standby.lines = standbyLines;
+  if (standby.title || standby.lines) base.standbyCard = standby;
+  else delete base.standbyCard;
+  var hudKeyBox = byId('hudKeyHook');
+  if (hudKeyBox) base.hudKeyHook = hudKeyBox.checked === true;
+  var sponsors = [];
+  document.querySelectorAll('#sponsorEditors [data-sponsor-row]').forEach(function (row, index) {
+    var name = row.querySelector('.sponsor-name') ? row.querySelector('.sponsor-name').value.trim() : '';
+    var slot = row.querySelector('.sponsor-slot') ? row.querySelector('.sponsor-slot').value : 'bottom';
+    var source = Array.isArray(base.sponsors) && base.sponsors[index] ? base.sponsors[index] : {};
+    if (name) sponsors.push({ name: name, image: source.image || '', slot: slot });
+  });
+  base.sponsors = sponsors;
+  var players = [];
+  document.querySelectorAll('#playerEditors [data-player-row]').forEach(function (row, index) {
+    var source = Array.isArray(base.players) && base.players[index] ? base.players[index] : {};
+    var displayName = row.querySelector('.player-display') ? row.querySelector('.player-display').value.trim() : '';
+    var team = row.querySelector('.player-team') ? row.querySelector('.player-team').value : (index < 5 ? 'blue' : 'red');
+    var role = row.querySelector('.player-role') ? row.querySelector('.player-role').value : '';
+    var gameName = source.gameName || displayName;
+    players.push({ gameName: gameName, displayName: displayName || gameName, team: team, role: role, photo: source.photo || '' });
+  });
+  if (players.length) base.players = players;
+  var coaches = Array.isArray(base.coaches) ? base.coaches : [];
+  function readCoach(team, prefix) {
+    var name = readFieldValue(prefix + 'Name');
+    var role = readFieldValue(prefix + 'Role') || 'HEAD COACH';
+    var index = -1;
+    for (var i = 0; i < coaches.length; i += 1) { if (coaches[i] && coaches[i].team === team) { index = i; break; } }
+    var coach = index >= 0 ? coaches[index] : { team: team, photo: '' };
+    coach.name = name;
+    coach.team = team;
+    coach.role = role;
+    if (index < 0) coaches.push(coach);
+  }
+  readCoach('blue', 'coachBlue');
+  readCoach('red', 'coachRed');
+  base.coaches = coaches;
+  return base;
+}
+function applyBroadcastJsonToForm() {
+  var box = byId('broadcastConfigJson');
+  var status = byId('broadcastConfigStatus');
+  if (!box) return;
+  try {
+    var parsed = JSON.parse(box.value || '{}');
+    if (parsed && parsed.config) parsed = parsed.config;
+    renderConfigForm(parsed);
+    if (status) status.textContent = 'JSON 已导入表单 · ' + nowClock();
+    toast('JSON 已导入表单');
+  } catch (error) {
+    if (status) status.textContent = 'JSON 格式错误：' + error.message;
+    toast('广播配置 JSON 格式错误', true);
+  }
+}
+function toggleHudKeyHook(checked) {
+  var status = byId('broadcastConfigStatus');
+  var parsed = byId('broadcastConfigForm') ? collectBroadcastConfig() : null;
+  if (!parsed) return;
+  parsed.hudKeyHook = checked === true;
+  postJson('/api/broadcast-config', parsed).then(function (data) {
+    if (data && data.ok) {
+      broadcastConfigDraft = data.config || parsed;
+      if (latestState) latestState.broadcastConfig = data.config || parsed;
+      if (status) status.textContent = '局内 A 键钩子' + (checked ? '已启用' : '已禁用') + ' · ' + nowClock();
+      toast('局内 A 键隐藏 HUD 已' + (checked ? '启用' : '禁用'));
+    } else if (status) status.textContent = 'A 键开关保存失败：' + ((data && data.error) || '未知错误');
+  }).catch(function (error) {
+    if (status) status.textContent = 'A 键开关保存失败：' + error.message;
+  });
+}
+function loadBroadcastConfig() {
+  var status = byId('broadcastConfigStatus');
+  fetchJson('/api/broadcast-config').then(function (data) {
+    if (!data || data.ok === false) throw new Error((data && data.error) || '读取失败');
+    renderConfigForm(data);
+    if (status) status.textContent = '已读取 · ' + nowClock() + ' · 表单与 JSON 已同步';
+  }).catch(function (error) {
+    if (status) status.textContent = '读取失败：' + (error.message || String(error));
+  });
+}
+function saveBroadcastConfig() {
+  var status = byId('broadcastConfigStatus');
+  var parsed;
+  try {
+    parsed = byId('broadcastConfigForm') ? collectBroadcastConfig() : JSON.parse((byId('broadcastConfigJson') || {}).value || '{}');
+  } catch (error) {
+    if (status) status.textContent = '配置格式错误：' + error.message;
+    toast('广播配置格式错误', true);
+    return;
+  }
+  postJson('/api/broadcast-config', parsed).then(function (data) {
+    if (data && data.ok) {
+      broadcastConfigDraft = data.config || parsed;
+      renderConfigForm(broadcastConfigDraft);
+      if (latestState) latestState.broadcastConfig = data.config || parsed;
+      if (status) status.textContent = '已保存 · ' + nowClock() + ' · 广播页将随 SSE 刷新';
+      toast('广播配置已保存');
+    } else {
+      if (status) status.textContent = '保存失败：' + ((data && data.error) || '未知错误');
+      toast('广播配置保存失败：' + ((data && data.error) || '未知错误'), true);
+    }
+  });
+}
+function isTypingTarget(target) {
+  if (!target) return false;
+  var tag = String(target.tagName || '').toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable === true;
+}
+function bindShortcuts() {
+  document.addEventListener('keydown', function (event) {
+    if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isTypingTarget(event.target)) return;
+    var type = SHORTCUT_CUES[event.key];
+    if (!type) return;
+    event.preventDefault();
+    cueCommand(type, null);
+  });
+}
+function syncGalleryLink() {
+  var link = byId('screenshotGallery');
+  if (link) link.href = 'http://' + (location.hostname || '127.0.0.1') + ':3220/';
+}
+function fallbackCopy(text) {
+  var area = document.createElement('textarea');
+  area.value = text;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  try { document.execCommand('copy'); } catch (error) {}
+  document.body.removeChild(area);
+}
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { toast('已复制：' + text); }).catch(function () { fallbackCopy(text); toast('已复制：' + text); });
+  } else {
+    fallbackCopy(text);
+    toast('已复制：' + text);
+  }
+}
+function bindControls() {
+  document.querySelectorAll('#phase-switch [data-phase]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      button.disabled = true;
+      postJson('/api/phase', { phase: button.getAttribute('data-phase') }).then(function (data) {
+        button.disabled = false;
+        if (data.ok) toast('阶段已切换：' + phaseText(data.phase));
+        else toast('阶段切换失败：' + data.error, true);
+      });
+    });
+  });
+  document.querySelectorAll('#mode-switch [data-mode]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      button.disabled = true;
+      postJson('/api/config', { mode: button.getAttribute('data-mode') }).then(function (data) {
+        button.disabled = false;
+        if (data.ok) toast('数据模式：' + button.getAttribute('data-mode'));
+        else toast('模式切换失败：' + data.error, true);
+      });
+    });
+  });
+  var save = byId('save');
+  if (save) save.addEventListener('click', function () {
+    postJson('/api/config', { tournamentName: byId('tournament').value }).then(function (data) {
+      if (data.ok) toast('赛事名称已保存'); else toast('保存失败：' + data.error, true);
+    });
+  });
+  var connect = byId('obsConnect');
+  if (connect) connect.addEventListener('click', function () {
+    connect.disabled = true;
+    var status = byId('obsStatus');
+    if (status) status.textContent = '连接中…';
+    postJson('/api/obs/connect', { url: byId('obsUrl').value, password: byId('obsPass').value }).then(function (data) {
+      connect.disabled = false;
+      if (data.ok) {
+        toast('OBS 已连接');
+        if (!latestState) latestState = {};
+        latestState.obs = data.obs;
+        renderObs(latestState);
+      } else {
+        if (status) status.textContent = '连接失败：' + data.error;
+        toast('OBS 连接失败：' + data.error, true);
+      }
+    });
+  });
+  var rebrandButton = byId('obsRebrand');
+  if (rebrandButton) rebrandButton.addEventListener('click', function () {
+    rebrandButton.disabled = true;
+    postJson('/api/obs/rebrand', {}).then(function (data) {
+      rebrandButton.disabled = false;
+      if (data.ok) {
+        var rebrand = data.rebrand || {};
+        var parts = [];
+        if (rebrand.renamed.length) parts.push('改名 ' + rebrand.renamed.length + ' 个');
+        if (rebrand.repointed.length) parts.push('URL 重指 ' + rebrand.repointed.length + ' 个');
+        if (rebrand.skipped.length) parts.push('跳过 ' + rebrand.skipped.length + ' 个');
+        toast(parts.length ? '一键换源完成：' + parts.join('，') : '无需换源，全部已是最新配置');
+      } else toast('一键换源失败：' + data.error, true);
+    });
+  });
+
+  document.querySelectorAll('[data-obs-record]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var action = button.getAttribute('data-obs-record');
+      obsCommand('/api/obs/record', { action: action }, '录制' + (action === 'start' ? '开始' : '停止'));
+    });
+  });
+  document.querySelectorAll('[data-obs-stream]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var action = button.getAttribute('data-obs-stream');
+      obsCommand('/api/obs/stream', { action: action }, '推流' + (action === 'start' ? '开始' : '停止'));
+    });
+  });
+  document.querySelectorAll('[data-obs-replay]').forEach(function (button) {
+    button.addEventListener('click', function () { obsCommand('/api/obs/replay-buffer', { action: 'save' }, '保存回放'); });
+  });
+  document.querySelectorAll('[data-replay]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      postReplay('/api/replay/playback', { paused: button.getAttribute('data-replay') === 'pause' }, '回放' + (button.getAttribute('data-replay') === 'pause' ? '暂停' : '播放'));
+    });
+  });
+  document.querySelectorAll('[data-speed]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      postReplay('/api/replay/playback', { speed: Number(button.getAttribute('data-speed')) }, '速度 ' + button.getAttribute('data-speed') + '×');
+    });
+  });
+  document.querySelectorAll('[data-fov]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      postReplay('/api/replay/camera', { fieldOfView: Number(button.getAttribute('data-fov')) }, '镜头 ' + button.getAttribute('data-fov') + '°');
+    });
+  });
+  document.querySelectorAll('#bo-quick [data-bo]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var n = Number(button.getAttribute('data-bo')) || 3;
+      var input = byId('seriesBestOf');
+      if (input) input.value = n;
+      document.querySelectorAll('#bo-quick [data-bo]').forEach(function (other) { other.classList.toggle('active', other === button); });
+      saveBroadcastConfig();
+      toast('赛制已切换为 BO' + n + '，广播页实时生效');
+    });
+  });
+  var refresh = byId('refreshSources');
+  if (refresh) refresh.addEventListener('click', function () { refreshSources(true); toast('正在重新探测数据源…'); });
+  document.querySelectorAll('[data-cue]').forEach(function (button) {
+    button.addEventListener('click', function () { cueCommand(button.getAttribute('data-cue'), button); });
+  });
+  var configLoad = byId('broadcastConfigLoad');
+  if (configLoad) configLoad.addEventListener('click', loadBroadcastConfig);
+  var configSave = byId('broadcastConfigSave');
+  if (configSave) configSave.addEventListener('click', saveBroadcastConfig);
+  var configApply = byId('broadcastConfigJsonApply');
+  if (configApply) configApply.addEventListener('click', applyBroadcastJsonToForm);
+  var mvpSend = byId('mvp-send');
+  if (mvpSend) mvpSend.addEventListener('click', function () {
+    if (!mvpPick.name) return;
+    mvpSend.disabled = true;
+    postJson('/api/mvp', { name: mvpPick.name, team: mvpPick.team }).then(function (data) {
+      mvpSend.disabled = false;
+      if (data && data.ok) toast('MVP 已发送：' + mvpPick.name);
+      else toast('MVP 发送失败：' + ((data && data.error) || '未知错误'), true);
+    });
+  });
+  var mvpClear = byId('mvp-clear');
+  if (mvpClear) mvpClear.addEventListener('click', function () {
+    mvpClear.disabled = true;
+    postJson('/api/mvp', { name: '' }).then(function (data) {
+      mvpClear.disabled = false;
+      if (data && data.ok) toast('MVP 已清除');
+      else toast('清除失败：' + ((data && data.error) || '未知错误'), true);
+    });
+  });
+  bindDirectorPanel();
+}
+function init() {
+  buildUrls();
+  buildBroadcastUrls();
+  syncGalleryLink();
+  bindShortcuts();
+  bindControls();
+  loadBroadcastConfig();
+  bindDirectorPanel();
+  loadDirectorRules();
+  renderFeed();
+  refreshSources();
+  loadReplay();
+  loadObs();
+  fetchJson('/api/state').then(applyState).catch(function () {});
+  try {
+    var source = new EventSource('/events');
+    source.onopen = function () { setConnection(true); };
+    source.onerror = function () { setConnection(false); };
+    source.onmessage = function (event) {
+      try { applyState(JSON.parse(event.data)); } catch (error) { /* 单帧异常不影响下一页 */ }
+    };
+  } catch (error) {
+    setConnection(false);
+  }
+  window.addEventListener('riftbroadcast:service-down', function (event) {
+    var detail = (event && event.detail) || {};
+    setConnection(false);
+    toast('本地服务已断开' + (detail.retryable ? '，正在尝试重连…' : '，请重启 Khada Jhin'), true);
+  });
+  window.addEventListener('riftbroadcast:service-up', function () { setConnection(true); });
+  // 数据源探测会拉起 PowerShell/HTTP 探测，只在页面可见时低频刷新；强制刷新走按钮。
+  setInterval(function () { if (document.visibilityState !== 'hidden') refreshSources(); }, 30000);
+  setInterval(function () { if (document.visibilityState !== 'hidden') loadReplay(); }, 10000);
+  setInterval(function () { if (document.visibilityState !== 'hidden') loadObs(); }, 30000);
+}
+init();
+`;
+
+function consolePage(port) {
+  return htmlShell('Khada Jhin 控台', `<style data-console-theme>${consoleCss()}</style>
+<main class="console-shell" id="console-shell" data-port="${port}">
+  <header class="console-topbar">
+    <div class="brand-block">
+      <span class="brand-mark">RB</span>
+      <div class="brand-copy">
+        <span class="eyebrow">KHADA JHIN / LOCAL CONTROL</span>
+        <h1>赛事导播控台</h1>
+      </div>
+    </div>
+    <div class="topbar-stats">
+      <div class="top-stat"><small>赛事</small><b id="tournamentLabel">连接中…</b></div>
+      <div class="top-stat"><small>比赛时间</small><b id="gameClock">--:--</b></div>
+      <div class="top-stat"><small>阶段</small><b id="phaseLabel">--</b></div>
+      <div class="topbar-mode mock" id="topbarMode">MOCK</div>
+      <div class="topbar-health" id="topbarHealth" aria-label="数据源健康灯">
+        <span class="topbar-health-item idle" id="hlLcu" title="LCU 客户端：等待探测"><i></i>LCU</span>
+        <span class="topbar-health-item idle" id="hlLive" title="Live Client Data：等待探测"><i></i>LIVE CLIENT</span>
+        <span class="topbar-health-item idle" id="hlObs" title="OBS WebSocket：未配置"><i></i>OBS</span>
+      </div>
+      <span class="conn-pill" id="connectionState"><i></i>连接中</span>
+      <a class="gallery-link" id="screenshotGallery" href="#" target="_blank" rel="noopener noreferrer">截图相册</a>
+    </div>
+  </header>
+
+  <div class="console-columns">
+    <aside class="console-col left-col">
+      <section class="panel" id="quick-start">
+        <div class="panel-head"><h2>快速开始</h2><span class="kicker">GUIDE</span></div>
+        <ol class="quick-steps">
+          <li><b>配置赛事</b><small>右侧「赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
+          <li><b>选数据模式</b><small>调试用「模拟数据」，正式比赛用「实战数据」</small></li>
+          <li><b>OBS 添加广播页</b><small>把下方「广播页」URL 添加为 OBS 浏览器源；推荐聚合舞台页（单 URL 全流程自动切换）</small></li>
+          <li><b>开赛导播</b><small>「广播控制」按钮或快捷键 1/2/3/4 切换 BP / 局内 / 赛后</small></li>
+        </ol>
+      </section>
+
+      <section class="panel control-panel" id="control-panel">
+        <div class="panel-head"><h2>阶段与模式</h2><span class="kicker">CONTROL</span></div>
+        <div class="field-label">比赛阶段</div>
+        <div class="segmented" id="phase-switch">
+          <button type="button" data-phase="draft">赛前 BP</button>
+          <button type="button" data-phase="in_game">局内</button>
+          <button type="button" data-phase="post_game">赛后</button>
+        </div>
+        <div class="field-label">数据模式</div>
+        <div class="segmented compact" id="mode-switch">
+          <button type="button" data-mode="mock">模拟数据</button>
+          <button type="button" data-mode="live">实战数据</button>
+        </div>
+        <label class="field">赛事名称<input id="tournament" value="Khada Jhin 校园赛 · 半决赛" autocomplete="off"></label>
+        <button type="button" id="save" class="btn primary wide">保存赛事名称</button>
+        <div class="footnote" id="phaseNote">模拟数据 · 每秒刷新，可直接用于 OBS 测试</div>
+      </section>
+
+      <section class="panel" id="broadcast-pages">
+        <div class="panel-head"><h2>广播页</h2><span class="kicker">BROADCAST</span></div>
+        <div class="url-list broadcast-url-list" id="broadcast-urls"></div>
+      </section>
+
+      <section class="panel" id="broadcast-control">
+        <div class="panel-head"><h2>广播控制</h2><span class="kicker">MANUAL CUE</span></div>
+        <div class="cue-status"><span>当前 Cue</span><b id="cueType">待机</b><em id="cueSeq">SEQ --</em></div>
+        <div class="cue-grid">
+          <button type="button" data-cue="bp-in" class="btn primary">BP 入场</button>
+          <button type="button" data-cue="hud-in">局内入场</button>
+          <button type="button" data-cue="result-in">赛后庆祝</button>
+          <button type="button" data-cue="wipe">转场</button>
+          <button type="button" data-cue="reset">重置</button>
+        </div>
+        <div class="footnote">手动触发广播页动画；POST /api/broadcast/cue · 快捷键 1/2/3/4 · Esc 重置</div>
+      </section>
+
+      <section class="panel" id="mvp-panel">
+        <div class="panel-head"><h2>MVP 评选</h2><span class="kicker">MVP</span></div>
+        <div class="mvp-candidates" id="mvp-candidates"><span class="empty">等待局内/赛后选手数据</span></div>
+        <div class="mvp-actions">
+          <button type="button" id="mvp-send" class="btn primary" disabled>发送 MVP</button>
+          <button type="button" id="mvp-clear" class="btn ghost">清除</button>
+        </div>
+        <div class="footnote" id="mvp-note">未评选</div>
+      </section>
+
+      <section class="panel" id="source-health">
+        <div class="panel-head"><h2>数据源健康</h2><span class="kicker" id="healthUpdated">--</span></div>
+        <div class="health-list">
+          <div class="health-row idle" data-health="lcu"><span class="health-dot"></span><div class="health-copy"><b>LCU 客户端</b><small>等待探测</small></div><em>--</em></div>
+          <div class="health-row idle" data-health="live"><span class="health-dot"></span><div class="health-copy"><b>Live Client</b><small>等待探测</small></div><em>--</em></div>
+          <div class="health-row idle" data-health="obs"><span class="health-dot"></span><div class="health-copy"><b>OBS WebSocket</b><small>未配置</small></div><em>--</em></div>
+          <div class="health-row idle" data-health="replay"><span class="health-dot"></span><div class="health-copy"><b>Replay API</b><small>未检测到回放</small></div><em>--</em></div>
+        </div>
+        <button type="button" id="refreshSources" class="btn ghost wide">重新探测数据源</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>OBS 场景快捷</h2><span class="kicker">SCENES</span></div>
+        <div class="scene-quick" id="scene-shortcuts"><span class="empty">连接 OBS 后显示场景</span></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Overlay 浏览器源</h2><span class="kicker">SOURCES</span></div>
+        <div class="url-list" id="urls"></div>
+      </section>
+    </aside>
+
+    <section class="console-col center-col">
+      <section class="match-card" id="match-card">
+        <div class="match-top">
+          <div><span class="eyebrow">CURRENT MATCH</span><h2 id="matchTitle">当前比赛</h2></div>
+          <span class="phase-badge" id="phaseBadge">--</span>
+        </div>
+        <div class="match-body" id="matchBody"><div class="match-placeholder">正在连接本地数据链路…</div></div>
+      </section>
+
+      <section class="panel roster-panel" id="roster-panel">
+        <div class="panel-head"><h2>实时选手 · KDA / 装备</h2><span class="kicker" id="rosterCount">0 / 10</span></div>
+        <div class="roster-body" id="rosterBody"><div class="roster-empty">等待选手数据…</div></div>
+      </section>
+
+      <section class="panel feed-panel">
+        <div class="panel-head"><h2>实时事件流</h2><span class="kicker" id="feedCount">0 / 30</span></div>
+        <div class="event-feed" id="event-feed"><div class="feed-empty">等待比赛事件…</div></div>
+      </section>
+    </section>
+
+    <aside class="console-col right-col">
+      <section class="panel" id="obs-panel">
+        <div class="panel-head"><h2>OBS 控制</h2><span class="status-badge offline" id="obsBadge">未连接</span></div>
+        <label class="field">WebSocket 地址<input id="obsUrl" value="ws://127.0.0.1:4455" autocomplete="off"></label>
+        <label class="field">密码<input id="obsPass" type="password" placeholder="OBS → 工具 → WebSocket 服务器设置" autocomplete="off"></label>
+        <button type="button" id="obsConnect" class="btn primary wide">连接 OBS</button>
+        <button type="button" id="obsRebrand" class="btn wide">一键换源（改名 + 重指 URL）</button>
+        <div class="status-line" id="obsStatus">未连接</div>
+        <div class="stat-grid">
+          <div><small>当前场景</small><b id="obsCurrent">--</b></div>
+          <div><small>录制状态</small><b id="obsRecording">未接入</b></div>
+          <div><small>推流状态</small><b id="obsStream">--</b></div>
+          <div><small>回放缓冲</small><b id="obsReplay">--</b></div>
+        </div>
+        <div class="button-grid">
+          <button type="button" data-obs-record="start">开始录制</button>
+          <button type="button" data-obs-record="stop">停止录制</button>
+          <button type="button" data-obs-stream="start">开始推流</button>
+          <button type="button" data-obs-stream="stop">停止推流</button>
+          <button type="button" data-obs-replay="save">保存回放</button>
+        </div>
+        <div class="field-label">场景列表</div>
+        <div class="scene-grid" id="obsScenes"><span class="empty">暂无场景</span></div>
+        <div class="field-label">阶段自动切换</div>
+        <div class="obs-auto"><span class="empty">连接 OBS 后可配置自动切换</span></div>
+      </section>
+
+      <section class="panel" id="replay-panel">
+        <div class="panel-head"><h2>回放镜头</h2><span class="status-badge offline" id="replayBadge">未连接</span></div>
+        <div class="status-line" id="replayStatus">未检测到回放</div>
+        <div class="button-grid">
+          <button type="button" data-replay="pause">暂停</button>
+          <button type="button" data-replay="play">播放</button>
+          <button type="button" data-speed="0.5">0.5×</button>
+          <button type="button" data-speed="1">1×</button>
+          <button type="button" data-speed="2">2×</button>
+          <button type="button" data-speed="4">4×</button>
+          <button type="button" data-fov="30">近景 30°</button>
+          <button type="button" data-fov="45">标准 45°</button>
+          <button type="button" data-fov="60">广角 60°</button>
+        </div>
+        <div class="replay-details" id="replayDetails"><div class="detail-row"><span>播放位置</span><b>--</b></div><div class="detail-row"><span>镜头 FOV</span><b>--</b></div></div>
+      </section>
+
+      <section class="panel director-panel" id="director-panel">
+        <div class="panel-head"><h2>自动导播</h2><span class="status-badge offline" id="directorBadge">读取中</span></div>
+        <div class="director-hint"><i></i><span>规则引擎仅在 live 模式生效</span></div>
+        <label class="director-toggle">
+          <span class="director-toggle-copy"><b>启用规则引擎</b><small>高光分数达到阈值时自动触发广播 CUE</small></span>
+          <input id="directorEnabled" type="checkbox" checked>
+        </label>
+        <div class="director-threshold">
+          <label class="director-field"><span>高光阈值</span><input id="directorThreshold" type="number" min="0" max="100000" step="1" value="50"></label>
+          <input id="directorThresholdRange" type="range" min="0" max="100" step="1" value="50" aria-label="高光阈值滑杆">
+        </div>
+        <div class="director-grid">
+          <label class="director-field"><span>高光触发 CUE</span><select id="directorCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
+          <label class="director-field"><span>冷却（秒）</span><input id="directorCooldown" type="number" min="0" max="86400" step="0.1" value="15"></label>
+        </div>
+        <div class="director-grid director-phase-grid">
+          <label class="director-field"><span>BP 阶段 CUE</span><select id="directorDraftCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
+          <label class="director-field"><span>赛后阶段 CUE</span><select id="directorPostCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
+        </div>
+        <div class="director-runtime">
+          <div class="director-runtime-row wide"><span>上次触发</span><b id="directorLastTrigger">暂无触发</b></div>
+          <div class="director-runtime-row"><span>冷却剩余</span><b id="directorCooldownRemaining" class="director-cooldown ready">就绪</b></div>
+        </div>
+        <div class="config-actions director-actions">
+          <button type="button" id="directorReload" class="btn ghost">重新读取</button>
+          <button type="button" id="directorSave" class="btn primary">保存规则</button>
+        </div>
+        <div class="status-line" id="directorStatus">从 /api/director/rules 读取</div>
+      </section>
+
+      <section class="panel config-panel" id="broadcast-config">
+        <div class="panel-head"><h2>赛事配置</h2><span class="kicker">TEAMS / SERIES / PLAYERS</span></div>
+        <div class="config-form" id="broadcastConfigForm">
+          <div class="config-tabs">
+            <button type="button" class="active" data-config-tab="overview">赛事</button>
+            <button type="button" data-config-tab="teams">队伍</button>
+            <button type="button" data-config-tab="players">选手</button>
+          </div>
+          <div class="config-tab-panel active" data-config-panel="overview">
+            <div class="config-section">
+              <h3>系列赛</h3>
+              <div class="config-grid">
+                <label class="config-field wide"><span>赛事名称</span><input id="seriesName" autocomplete="off"></label>
+                <label class="config-field"><span>阶段</span><input id="seriesStage" autocomplete="off"></label>
+                <label class="config-field"><span>游戏版本</span><input id="seriesPatch" autocomplete="off"></label>
+                <label class="config-field"><span>Best of（几局几胜）</span><input id="seriesBestOf" type="number" min="1" step="1" value="3"></label>
+                <div class="config-field"><span>赛制快捷</span>
+                  <div class="segmented compact" id="bo-quick">
+                    <button type="button" data-bo="1">BO1</button>
+                    <button type="button" data-bo="3" class="active">BO3</button>
+                    <button type="button" data-bo="5">BO5</button>
+                  </div>
+                </div>
+                <label class="config-field"><span>蓝方战绩</span><input id="recordBlue" type="number" step="1" value="0"></label>
+                <label class="config-field"><span>红方战绩</span><input id="recordRed" type="number" step="1" value="0"></label>
+              </div>
+            </div>
+            <div class="config-section">
+              <h3>左下角遮挡卡</h3>
+              <div class="config-grid">
+                <label class="config-field wide"><span>标题（留空 = 赛事名称）</span><input id="coverTitle" autocomplete="off"></label>
+                <label class="config-field wide"><span>内容行（每行一条，留空 = 版本 / 阶段）</span><textarea id="coverLines" rows="3" spellcheck="false"></textarea></label>
+                <label class="config-field wide"><span>自定义 HTML（可选，优先级最高）</span><textarea id="coverHtml" rows="3" spellcheck="false" placeholder="&lt;div&gt;…&lt;/div&gt;"></textarea></label>
+              </div>
+              <div class="footnote">全部留空 = 使用默认内容（赛事名称 + 游戏版本 + 阶段）。保存后广播页实时刷新。</div>
+            </div>
+            <div class="config-section">
+              <h3>局内快捷键</h3>
+              <div class="config-grid">
+                <label class="config-field wide config-check"><input type="checkbox" id="hudKeyHook"><span>局内 A 键隐藏 HUD（全局键盘钩子）</span></label>
+              </div>
+              <div class="footnote">勾选状态点击即保存生效：局内（in_game 阶段）按 A 同时触发 LoL 走砍与 HUD 显隐；关掉后按 A 只走砍、不再隐藏 HUD。</div>
+            </div>
+            <div class="config-section">
+              <h3>待机屏（聚合舞台页）</h3>
+              <div class="config-grid">
+                <label class="config-field wide"><span>标题（留空 = 赛事名称）</span><input id="standbyTitle" autocomplete="off"></label>
+                <label class="config-field wide"><span>内容行（每行一条，留空 = 对局即将开始 / 版本）</span><textarea id="standbyLines" rows="2" spellcheck="false"></textarea></label>
+              </div>
+              <div class="footnote">BP 结束后、对局数据就绪前的等待期显示；仅 /broadcast/stage 聚合舞台页使用。</div>
+            </div>
+            <div class="config-section">
+              <h3>Fearless / BP</h3>
+              <div class="config-grid four">
+                <label class="config-field"><span>PB %</span><input id="fearlessPbPct" type="number" step="0.1" value="0"></label>
+                <label class="config-field"><span>PICK %</span><input id="fearlessPickPct" type="number" step="0.1" value="0"></label>
+                <label class="config-field"><span>胜场</span><input id="fearlessWins" type="number" step="1" value="0"></label>
+                <label class="config-field"><span>负场</span><input id="fearlessLosses" type="number" step="1" value="0"></label>
+              </div>
+            </div>
+            <div class="config-section">
+              <div class="config-section-head"><h3>赞助商</h3><button type="button" id="broadcastSponsorAdd" class="mini-btn">+ 添加</button></div>
+              <div id="sponsorEditors" class="sponsor-editors"></div>
+            </div>
+          </div>
+          <div class="config-tab-panel" data-config-panel="teams">
+            <div class="config-section">
+              <h3>队伍信息</h3>
+              <div class="team-config blue">
+                <div class="team-config-head"><span class="team-dot"></span><b>蓝方 BLUE</b></div>
+                <div class="config-grid">
+                  <label class="config-field wide"><span>队伍名称</span><input id="teamBlueName" autocomplete="off"></label>
+                  <label class="config-field"><span>简称</span><input id="teamBlueShort" autocomplete="off"></label>
+                  <label class="config-field"><span>赛区</span><input id="teamBlueRegion" autocomplete="off"></label>
+                  <label class="config-field"><span>排名</span><input id="teamBlueRank" autocomplete="off"></label>
+                  <label class="config-field"><span>主色</span><input id="teamBlueColor" type="color" value="#3B82F6"></label>
+                  <label class="config-field wide"><span>队标 URL / 路径（留空 = 简称首字母徽章）</span><input id="teamBlueLogo" autocomplete="off" placeholder="https://… 或 /logo-blue.png"></label>
+                  <label class="config-field wide logo-upload"><span>本地上传队标（png / jpg / webp / gif / svg）</span><input id="teamBlueLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+                  <img id="teamBlueLogoPreview" class="team-logo-preview" alt="队标预览">
+                </div>
+              </div>
+              <div class="team-config red">
+                <div class="team-config-head"><span class="team-dot"></span><b>红方 RED</b></div>
+                <div class="config-grid">
+                  <label class="config-field wide"><span>队伍名称</span><input id="teamRedName" autocomplete="off"></label>
+                  <label class="config-field"><span>简称</span><input id="teamRedShort" autocomplete="off"></label>
+                  <label class="config-field"><span>赛区</span><input id="teamRedRegion" autocomplete="off"></label>
+                  <label class="config-field"><span>排名</span><input id="teamRedRank" autocomplete="off"></label>
+                  <label class="config-field"><span>主色</span><input id="teamRedColor" type="color" value="#EF4444"></label>
+                  <label class="config-field wide"><span>队标 URL / 路径（留空 = 简称首字母徽章）</span><input id="teamRedLogo" autocomplete="off" placeholder="https://… 或 /logo-red.png"></label>
+                  <label class="config-field wide logo-upload"><span>本地上传队标（png / jpg / webp / gif / svg）</span><input id="teamRedLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+                  <img id="teamRedLogoPreview" class="team-logo-preview" alt="队标预览">
+                </div>
+              </div>
+            </div>
+            <div class="config-section">
+              <h3>教练</h3>
+              <div class="config-grid">
+                <label class="config-field"><span>蓝方教练</span><input id="coachBlueName" autocomplete="off"></label>
+                <label class="config-field"><span>蓝方角色</span><input id="coachBlueRole" autocomplete="off"></label>
+                <label class="config-field"><span>红方教练</span><input id="coachRedName" autocomplete="off"></label>
+                <label class="config-field"><span>红方角色</span><input id="coachRedRole" autocomplete="off"></label>
+              </div>
+            </div>
+          </div>
+          <div class="config-tab-panel" data-config-panel="players">
+            <div class="player-editor-head"><span>#</span><span>选手 ID</span><span>队伍</span><span>分路</span></div>
+            <div id="playerEditors" class="player-editors"></div>
+            <div class="footnote">共 10 名选手；队伍与分路会直接写入广播页数据。</div>
+          </div>
+        </div>
+        <div class="config-actions">
+          <button type="button" id="broadcastConfigLoad" class="btn ghost">重新读取</button>
+          <button type="button" id="broadcastConfigSave" class="btn primary">保存配置</button>
+        </div>
+        <div class="status-line" id="broadcastConfigStatus">从 /api/broadcast-config 读取</div>
+        <details class="config-json-details">
+          <summary>高级 JSON（可选）</summary>
+          <textarea id="broadcastConfigJson" spellcheck="false" rows="7" placeholder="队伍 / 选手 / 教练 / 赞助商配置 JSON"></textarea>
+          <button type="button" id="broadcastConfigJsonApply" class="btn ghost wide">导入 JSON 到表单</button>
+        </details>
+      </section>
+
+      <details class="panel diag-panel">
+        <summary>运行诊断</summary>
+        <pre id="state">连接中…</pre>
+      </details>
+    </aside>
+  </div>
+
+  <div class="console-toast" id="console-toast" role="status"></div>
+</main>`, CONSOLE_SCRIPT);
+}
+
+module.exports = { consolePage };

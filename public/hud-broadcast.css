@@ -1,0 +1,1645 @@
+/* Khada Jhin · 局内 HUD 广播页
+   1080p 透明背景覆盖层：顶部约 55% 宽比分条 + 底部左右镜像 10 人记分板。
+   仅使用纯 CSS，无外部依赖；1920 优先，1366 通过媒体查询保持可用。 */
+
+html.hb-html,
+html.hb-html body,
+body.hb-body {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.hud-broadcast {
+  --hb-bg: #05070a;
+  --hb-panel: #0b0f14;
+  --hb-cyan: #22d3ee;
+  --hb-blue: #3b82f6;
+  --hb-red: #ef4444;
+  --hb-gold: #f5c451;
+  --hb-text: #e5e7eb;
+  --hb-muted: #94a3b8;
+  --hb-line: rgba(120, 170, 205, 0.28);
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  min-width: 1280px;
+  min-height: 720px;
+  overflow: hidden;
+  background: transparent;
+  color: var(--hb-text);
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: 0.3px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.hud-broadcast *,
+.hud-broadcast *::before,
+.hud-broadcast *::after {
+  box-sizing: border-box;
+}
+
+.hb-loading {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 24px;
+  border: 1px solid var(--hb-line);
+  border-radius: 8px;
+  background: rgba(5, 7, 10, 0.82);
+  color: var(--hb-muted);
+  font-size: 15px;
+  letter-spacing: 2px;
+  z-index: 30;
+}
+
+.hb-ready .hb-loading { display: none; }
+
+/* ---------- 顶部比分条 ---------- */
+
+.hb-top {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: min(56vw, 1180px);
+  transform: translate(-50%, -18px);
+  opacity: 0;
+  z-index: 12;
+}
+
+.hb-top.hb-in {
+  animation: hb-top-in 0.55s cubic-bezier(0.18, 0.8, 0.24, 1) forwards;
+}
+
+@keyframes hb-top-in {
+  from { opacity: 0; transform: translate(-50%, -26px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.hb-scorebar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px minmax(0, 1fr);
+  align-items: stretch;
+  height: 80px;
+  padding: 0 10px;
+  border: 1px solid rgba(100, 165, 205, 0.4);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(18, 28, 40, 0.97), rgba(6, 10, 15, 0.97)),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.16), transparent 28%, transparent 72%, rgba(239, 68, 68, 0.16));
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(180, 225, 255, 0.12);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+
+.hb-scorebar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.85), transparent);
+  pointer-events: none;
+}
+
+.hb-side {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 18px);
+  min-width: 0;
+}
+
+.hb-side.blue { justify-content: flex-start; padding-left: 6px; }
+.hb-side.red { justify-content: flex-end; padding-right: 6px; }
+
+.hb-team-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hb-side.red .hb-team-block { flex-direction: row-reverse; text-align: right; }
+
+.hb-logo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(160, 200, 230, 0.4);
+  border-radius: 8px;
+  background: linear-gradient(145deg, #16283b, #060a0e);
+  overflow: hidden;
+}
+
+.hb-logo-fb {
+  font-size: 25px;
+  font-weight: 900;
+  color: rgba(225, 240, 255, 0.78);
+  line-height: 1;
+}
+
+/* 有真实队标图时去掉底色和边框，纯透明 logo 直接浮在画面上 */
+.hb-logo:has(img) { background: none; border-color: transparent; }
+.hb-logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+/* 有图时隐藏首字母，避免透过透明 PNG 露出来 */
+.hb-logo:has(img) .hb-logo-fb { display: none; }
+
+.hb-team-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.hb-team-text b {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #f1f6fb;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.hb-team-text small {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  color: var(--hb-muted);
+  text-transform: uppercase;
+}
+
+.hb-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-width: 42px;
+  justify-content: center;
+}
+
+.hb-stat i {
+  display: inline-flex;
+  align-items: center;
+  width: 17px;
+  height: 17px;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.hb-stat.hb-gold i { color: var(--hb-gold); }
+
+.hb-stat i svg, .hb-clock-label svg, .hb-gold-diff i svg, .hb-obj i svg, .hb-timer i svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: currentColor;
+}
+
+.hb-stat i img, .hb-gold-diff i img, .hb-timer i img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.hb-stat b {
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1;
+  color: #f4f8fc;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-side.blue .hb-kills b { color: #7db4ff; }
+.hb-side.red .hb-kills b { color: #ff8f97; }
+.hb-stat.hb-gold b { font-size: 22px; color: var(--hb-gold); }
+.hb-stat.hb-towers b { font-size: 23px; }
+
+.hb-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-left: 1px solid rgba(100, 165, 205, 0.22);
+  border-right: 1px solid rgba(100, 165, 205, 0.22);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent);
+}
+
+.hb-clock {
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 35px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.42);
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-clock-label {
+  display: inline-flex;
+  width: 13px;
+  height: 13px;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.hb-gold-diff {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.hb-gold-diff i {
+  display: inline-flex;
+  align-items: center;
+  width: 12px;
+  height: 12px;
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.hb-gold-diff b {
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: rgba(226, 235, 246, 0.8);
+}
+
+.hb-gold-diff.blue b { color: #7db4ff; }
+.hb-gold-diff.red b { color: #ff9299; }
+
+.hb-objective-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 88%;
+  margin: 5px auto 0;
+  padding: 4px 10px;
+  border: 1px solid rgba(100, 165, 205, 0.2);
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(10, 16, 23, 0.9), rgba(5, 8, 12, 0.78));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.hb-objectives {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-objectives.red { justify-content: flex-end; }
+
+.hb-obj {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(150, 195, 225, 0.32);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, rgba(64, 100, 130, 0.55), rgba(9, 14, 20, 0.95) 70%);
+  color: rgba(226, 238, 249, 0.82);
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.55);
+}
+
+.hb-obj.blue { border-color: rgba(96, 156, 255, 0.48); }
+.hb-obj.red { border-color: rgba(255, 118, 128, 0.48); }
+
+.hb-obj i {
+  display: flex;
+  width: 15px;
+  height: 15px;
+  opacity: 0.86;
+}
+
+.hb-obj b {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 2px;
+  border-radius: 7px;
+  background: #111b26;
+  border: 1px solid rgba(150, 195, 225, 0.4);
+  color: #ffffff;
+  font-size: 9px;
+  line-height: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-timers {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hb-timer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid rgba(100, 165, 205, 0.22);
+  border-radius: 11px;
+  background: rgba(6, 10, 15, 0.78);
+  white-space: nowrap;
+}
+
+.hb-timer i {
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  color: rgba(148, 163, 184, 0.84);
+}
+
+.hb-timer em {
+  font-style: normal;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #dce8f4;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-timer.hb-ready em { color: #5eead4; }
+.hb-timer.hb-pulse em { animation: hb-timer-pulse 0.85s ease-in-out infinite; }
+
+@keyframes hb-timer-pulse {
+  0%, 100% { color: #dce8f4; text-shadow: none; }
+  50% { color: #fca5a5; text-shadow: 0 0 10px rgba(248, 113, 113, 0.7); }
+}
+
+/* ---------- 底部记分板 ---------- */
+/* 一整块中心对称：1920×1080 基准下顶边 y≈817、总高 263px（5 行 × 52.6px 行高）、中线 x=960。
+   参考图 2332×1309 量到行高 63px，按 1080/1309 折算到 1080p 即 52.6px；所有行高走 --hb-row-h，
+   改一个变量整块等比缩放。左侧信息塔（赛事信息 + 赞助位，均可编辑）与记分板共用同一基线，
+   右侧留同宽空列，保证整块严格以屏幕中线对称。 */
+
+.hb-bottom-stage {
+  /* 1920×1080 设计画布：1366/1600/2560 全部按 --hb-scale 等比缩放同一套版式，
+     不再用媒体查询逐项缩字号（否则会出现「行高缩了字没缩」的错位）。 */
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1920px;
+  height: 1080px;
+  transform: scale(var(--hb-scale, 1));
+  transform-origin: bottom left;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.hb-bottom {
+  /* 行高直接绑原生行距：两套网格必须同高，否则孔位对不上原生装备栏。
+     参考图是 52.6px，比原生 40.7px 大 29%，物理上无法同时成立 —— 以原生为准（captain 实测）。 */
+  --hb-row-h: var(--hb-native-row-pitch);
+  --hb-mid-w: 48px;
+  /* 名字 / CS / KDA / 三条状态条这一格的宽度上限（原生孔带内侧到中线只有 138px） */
+  --hb-info-max: 138px;
+  /* ---------- 原生 HUD 挖孔几何（默认值 = 2560×1440 自动标定 × 0.75 → 1920×1080） ----------
+     装备栏与视野饰品栏由游戏原生绘制（自带层数角标 / 冷却转圈 / 可主动高亮），
+     我们只在这块区域挖一个全透明孔，绝不自己画图标。
+     所有值都能被 URL query 覆盖（见 src/pages/hud-broadcast.js 的 applyNativeVars），
+     OBS 现场可用 /broadcast/hud?hbNativeItemPitch=24.4&hbNativeBlueX=672 之类微调。 */
+  /* 默认 = 用户实机 1920x1080 原生观战截图逐像素实测（2026-11-15）：
+     装备带蓝 643-794 / 红 1140-1291（pitch 25.6、图标 24px）、行中心 876.5 + 43.4×i、
+     饰品蓝框 612-642 / 红框 1294-1320。与 hud-broadcast.js NATIVE_DEFAULTS 保持一致。 */
+  --hb-native-item-size: 24px;
+  --hb-native-item-pitch: 25.6px;
+  --hb-native-row-pitch: 43.4px;
+  --hb-native-blue-x: 643px;
+  --hb-native-red-x: 1140px;
+  --hb-native-row1-y: 876.5px;
+  --hb-native-trinket-blue-x: 619px;
+  --hb-native-trinket-red-x: 1294px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* 顶盖延伸：板体向上加高 E 后，行依然从原位置起排（E 全部落在 padding 顶盖区）。 */
+  height: calc(var(--hb-row-h) * 5 + var(--hb-board-extend, 0px) + var(--hb-board-foot, 0px));
+  display: grid;
+  /* 记分板用 1fr 中列：左右两侧空列等宽，整块严格以屏幕中线对称（1920 下 l=313 / r=1607）。 */
+  grid-template-columns: minmax(210px, 280px) minmax(0, 1fr) minmax(210px, 280px);
+  gap: 12px;
+  padding: 0 20px;
+  z-index: 12;
+}
+
+/* 左信息塔：只保留「赛事信息 + 赞助位」两层，镜头层与地图层按需求去掉。 */
+.hb-left-rail {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  max-width: 280px;
+}
+
+.hb-tower {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  min-height: 0;
+  padding: 12px 16px;
+  border: 1px solid rgba(100, 165, 205, 0.3);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(12, 18, 26, 0.97), rgba(5, 8, 12, 0.97)),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0) 65%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(180, 220, 250, 0.07);
+  overflow: hidden;
+}
+
+.hb-tower::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.9), rgba(59, 130, 246, 0.15));
+}
+
+.hb-tower-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-tower-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22d3ee;
+  box-shadow: 0 0 9px rgba(34, 211, 238, 0.9);
+}
+
+.hb-tower-live em {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2.4px;
+  color: rgba(94, 234, 212, 0.92);
+}
+
+.hb-tower-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1.15;
+  color: #f1f6fb;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.75);
+}
+
+.hb-tower-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  color: rgba(148, 163, 184, 0.85);
+  text-transform: uppercase;
+}
+
+.hb-sponsor {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(100, 165, 205, 0.2);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(12, 19, 27, 0.94), rgba(6, 10, 14, 0.94));
+  overflow: hidden;
+}
+
+.hb-sponsor-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2.6px;
+  color: rgba(200, 218, 235, 0.72);
+  text-transform: uppercase;
+}
+
+.hb-sponsor img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 94%;
+  max-height: 90%;
+  object-fit: contain;
+}
+
+/* 中央记分板：蓝队 5 行 | 中线对位经济差 | 红队 5 行（完全镜像）。
+   近黑不透明底 + 上下蓝→红渐变光带 + 行间细灰线。 */
+.hb-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--hb-mid-w) minmax(0, 1fr);
+  min-width: 0;
+  /* 顶盖延伸（--hb-board-extend 由 syncBottomOffset 按原生面板顶边算出）：
+     板体只包 5 行，会在顶部露出原生记分板面板的金边与首行内容上沿，用 padding 盖住。 */
+  padding-top: var(--hb-board-extend, 0px);
+  border: 1px solid rgba(100, 165, 205, 0.26);
+  border-radius: 8px;
+  /* 底板本身不铺色：每一行自己铺底并在装备栏处留全透明挖孔，
+     否则底板颜色会从孔里透出来把原生装备栏盖住。 */
+  background: transparent;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.58);
+  /* 板体左右边界收窄（native 模式由 syncLayout 写 --hb-clip-x）：内容/孔位几何全部钉死不动，
+     只用 clip 把板体左右外缘裁掉——被裁掉的区域是纯游戏画面（原生记分板面板从 ~x590 才开始），
+     板边界随缩进视觉收进来；默认 0px 不裁，默认渲染与 visual-baseline 零变化。 */
+  clip-path: inset(0 var(--hb-clip-x, 0px) 0 var(--hb-clip-x, 0px));
+  overflow: hidden;
+}
+
+.hb-board::before,
+.hb-board::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.92), rgba(34, 211, 238, 0.28) 50%, rgba(239, 68, 68, 0.92));
+  /* 挖孔模式：首行紧贴板顶、末行紧贴板底，横线会压进首/末行装备孔（原生记分板没有描边）。
+     给横线加 clip-path，只在孔带以外的左右两侧可见。 */
+  clip-path: var(--hb-edge-line-clip, none);
+}
+
+.hb-board::before { top: 0; }
+.hb-board::after { bottom: 0; }
+
+/* 顶盖条：与板体同色的不透明条，铺在 padding 区（首行孔带之上，绝不碰孔），
+   盖住原生面板顶边；板体 overflow:hidden + 圆角会把它裁成同形状。 */
+.hb-board-cover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--hb-board-extend, 0px);
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(10, 15, 22), rgb(6, 10, 15));
+}
+
+/* 底脚条：板体（含下边界线）已延伸到视口底，行区之下这段用与半区底色渐变
+   终点同色的实心条补齐（syncBottomOffset 设 --hb-board-foot = 旧 bottom 偏移），
+   让「HUD 最下方的边界线」落在屏幕最底边而不是悬在行区下沿。 */
+.hb-board-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hb-board-foot, 0px);
+  z-index: 0;
+  pointer-events: none;
+  background: rgb(4, 7, 11);
+}
+
+.hb-half {
+  position: relative;
+  display: grid;
+  grid-auto-rows: var(--hb-row-h);
+  align-content: start;
+  min-width: 0;
+  /* 板体总高含底脚区（--hb-board-foot），半区必须钉在 5 行高，
+     否则孔 mask（mask-size 100% 100% 按半区盒比例）会被拉伸错位。 */
+  height: calc(var(--hb-row-h) * 5);
+}
+
+/* 半区底板：底色 + 侧色光带 + 行间细灰线全部由 ::before 这一层独占绘制，
+   并在这一层上用 mask 挖掉「原生装备栏 / 饰品栏」所在的矩形，孔里 alpha = 0，
+   游戏原生 HUD 就能从孔里透出来。
+   要点：mask 只作用于这一层我们自己的底色，绝不作用在 .hb-board / .hb-row / 任何内容元素上，
+   所以原生头像、血条、装备图标，以及我们自己的文字和状态条都完全不受影响。 */
+.hb-half::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--hb-row-h) - 1px), rgba(148, 163, 184, 0.12) calc(var(--hb-row-h) - 1px), rgba(148, 163, 184, 0.12) var(--hb-row-h)),
+    /* 底色必须完全不透明：0.97 会把底下明亮的原生文字（如设置菜单金字）以 ~3% 透成灰影；
+   孔内 alpha 仍由 mask 精确归零，不受影响。 */
+    linear-gradient(180deg, rgb(8, 12, 18), rgb(4, 7, 11));
+  -webkit-mask-image: var(--hb-hole-mask, none);
+  mask-image: var(--hb-hole-mask, none);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.hb-half.blue::before {
+  background:
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--hb-row-h) - 1px), rgba(148, 163, 184, 0.12) calc(var(--hb-row-h) - 1px), rgba(148, 163, 184, 0.12) var(--hb-row-h)),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0) 62%),
+    /* 底色必须完全不透明：0.97 会把底下明亮的原生文字（如设置菜单金字）以 ~3% 透成灰影；
+   孔内 alpha 仍由 mask 精确归零，不受影响。 */
+    linear-gradient(180deg, rgb(8, 12, 18), rgb(4, 7, 11));
+}
+
+.hb-half.red::before {
+  background:
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--hb-row-h) - 1px), rgba(148, 163, 184, 0.12) calc(var(--hb-row-h) - 1px), rgba(148, 163, 184, 0.12) var(--hb-row-h)),
+    linear-gradient(270deg, rgba(239, 68, 68, 0.16), rgba(239, 68, 68, 0) 62%),
+    /* 底色必须完全不透明：0.97 会把底下明亮的原生文字（如设置菜单金字）以 ~3% 透成灰影；
+   孔内 alpha 仍由 mask 精确归零，不受影响。 */
+    linear-gradient(180deg, rgb(8, 12, 18), rgb(4, 7, 11));
+}
+
+.hb-mid {
+  display: grid;
+  grid-auto-rows: var(--hb-row-h);
+  align-content: start;
+  border-left: 1px solid rgba(148, 163, 184, 0.16);
+  border-right: 1px solid rgba(148, 163, 184, 0.16);
+  /* 中缝列也必须全不透明：原生蓝红血条横穿中缝（x≈928-988），92% 底色会漏 8% 灰影。 */
+  background: linear-gradient(180deg, rgb(9, 14, 20), rgb(6, 10, 14));
+}
+
+/* 单行改 CSS Grid：列宽写死 1920 设计基准，DOM 顺序即视觉顺序，天然不会重叠。
+   蓝方 623px = 34 + 38 + 24 + 202 + 207(孔带) + 114(三条状态条) + 4(空隙)；
+   红方按屏幕中线镜像。孔带是真正的空列，任何自绘内容都不放进去。 */
+.hb-row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-items: center;
+  height: var(--hb-row-h);
+  /* 行本身不铺底、不画分隔线：底色与行线统一由 .hb-half::before 绘制，才能整体挖孔。 */
+  background: none;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* 原生挖孔模式下 --hb-grid-* 由 syncLayout 按标定计算：名字块（蓝第 4 列）右缘必须让出饰品孔；
+ * 蓝尾隙（blue-tail）与红首隙（red-lead）互为镜像、红名字列宽（red-info-w）与蓝严格同宽，
+ * 两侧状态条到中线的距离才对称；缺省值 = 原版静态模板（自绘装备模式用）。 */
+.hb-row.blue { grid-template-columns: var(--hb-grid-blue-vision-w, 34px) 38px 24px var(--hb-grid-info-w, 202px) var(--hb-grid-blue-band-w, 207px) 114px var(--hb-grid-blue-tail-w, 4px); }
+.hb-row.red { grid-template-columns: var(--hb-grid-red-lead-w, 4px) 114px var(--hb-grid-red-band-w, 207px) var(--hb-grid-red-info-w, 202px) 24px 38px var(--hb-grid-red-tail-w, 34px); }
+
+/* 显式列位：DOM 顺序固定为 视野/可选/头像/等级/可选自绘装备/名字/空孔带/状态条。 */
+.hb-row.blue > .hb-vision { grid-column: 1; }
+.hb-row.blue > .hb-champ { grid-column: 2; }
+/* 等级数字已改为头像角标（absolute 叠在头像角上，见 .hb-level）；此列保留 24px 空占位。 */
+.hb-row.blue > .hb-info { grid-column: 4; }
+.hb-row.blue > .hb-band { grid-column: 5; }
+.hb-row.blue > .hb-bars { grid-column: 6; }
+.hb-row.red > .hb-vision { grid-column: 7; }
+.hb-row.red > .hb-champ { grid-column: 6; }
+.hb-row.red > .hb-info { grid-column: 4; }
+.hb-row.red > .hb-band { grid-column: 3; }
+.hb-row.red > .hb-bars { grid-column: 2; }
+/* 红方 DOM 顺序的列号是递减的（7→2），默认 sparse 自动放置会把每个子项挤到新的一行；
+   显式钉死 grid-row:1，保证 7 个格子始终在同一行。 */
+.hb-row > .hb-vision,
+.hb-row > .hb-champ,
+.hb-row > .hb-level,
+.hb-row > .hb-info,
+.hb-row > .hb-band,
+.hb-row > .hb-bars { grid-row: 1; }
+.hb-row > .hb-band { display: block; min-width: 0; }
+
+/* 可选层（符文/技能/大招、自绘装备）默认关闭；开了也绝对定位，不占 grid 列。 */
+.hb-row > .hb-extras,
+.hb-row > .hb-items { position: absolute; top: 50%; transform: translateY(-50%); }
+
+.hb-half .hb-row:last-child { border-bottom: 0; }
+
+.hb-row.hb-in { animation: hb-row-in 0.42s cubic-bezier(0.2, 0.75, 0.25, 1) forwards; }
+
+.hb-half .hb-row:nth-child(2) { animation-delay: 45ms; }
+.hb-half .hb-row:nth-child(3) { animation-delay: 90ms; }
+.hb-half .hb-row:nth-child(4) { animation-delay: 135ms; }
+.hb-half .hb-row:nth-child(5) { animation-delay: 180ms; }
+
+@keyframes hb-row-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hb-row.dead {
+  opacity: 0.44;
+  filter: grayscale(0.9);
+}
+
+/* 外沿：视野得分 + 金色徽记 */
+.hb-vision {
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hb-vision b {
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: #e8f1fa;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-vision i {
+  font-style: normal;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--hb-gold);
+  opacity: 0.9;
+}
+
+/* 装备 / 消耗品 / 饰品栏：由游戏原生 HUD 自己绘制（自带层数角标、冷却转圈、可主动高亮），
+   我们这里一格图标都不画 —— 只按 items 的数量算出「原生栏位占多宽」，把那块区域挖成透明孔。
+   孔位用绝对定位的空 div 描述（.hb-native-hole，唯一几何来源，?hbDebugHoles=1 可描边检查），
+   真正把底色抠掉的是 .hb-half::before 上的 mask。 */
+.hb-holes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.hb-native-hole {
+  position: absolute;
+  display: block;
+  background: transparent;
+}
+
+.hb-holes.hb-debug .hb-native-hole {
+  outline: 1px dashed rgba(34, 211, 238, 0.85);
+  outline-offset: -1px;
+}
+
+/* 降级模式 ?hbNativeItems=0：不挖孔，自己画 6 格装备 + 饰品（原生 HUD 不在时的兜底）。
+   默认是挖孔，让原生装备栏透出来（原生自带叠层角标 / 冷却转圈 / 可主动高亮）。 */
+.hb-items {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  align-items: center;
+}
+
+.hb-item {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  max-height: var(--hb-native-item-size, 22.5px);
+  border: 1px solid rgba(120, 160, 190, 0.16);
+  border-radius: 2px;
+  background: rgba(8, 12, 17, 0.8);
+  overflow: hidden;
+}
+
+.hb-item .icon { width: 100%; height: 100%; }
+
+.hb-item.empty { display: grid; place-items: center; }
+.hb-item.empty i { font-style: normal; font-size: 8px; color: rgba(148, 163, 184, 0.35); }
+
+.hb-item-count {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 8px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+}
+
+/* 可选装饰列（?hbExtras=1）：符文基石 / 分路任务 / 召唤师技能 / 大招圆徽。
+   40.7px 行高默认塞不下，按 captain 的决定默认不渲染，代码保留备用。 */
+.hb-extras {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+}
+
+.hb-extras .hb-vert { height: auto; max-height: calc(var(--hb-row-h) - 6px); }
+
+/* 两列竖排格：远头像列 = 符文基石 + 分路任务，近头像列 = 两个召唤师技能 */
+.hb-vert {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-content: center;
+  gap: 2px;
+  height: 100%;
+  max-height: 44px;
+  min-width: 0;
+}
+
+.hb-cell {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(150, 195, 225, 0.22);
+  border-radius: 3px;
+  background: rgba(8, 12, 17, 0.86);
+  overflow: hidden;
+}
+
+.hb-cell .icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  border-color: transparent;
+}
+
+.hb-cell i {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.55);
+}
+
+.hb-cell.unknown {
+  border-style: dashed;
+  border-color: rgba(148, 163, 184, 0.3);
+  background: rgba(8, 12, 17, 0.6);
+}
+
+.hb-champ {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+}
+
+.hb-champ .icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  border-color: rgba(150, 195, 225, 0.32);
+}
+
+/* 头像与名字之间的彩色圆徽 = 英雄大招；官方十人数据拿不到 → dashed unknown 占位 */
+.hb-ult-cell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.hb-ult {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(34, 211, 238, 0.78);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, rgba(34, 211, 238, 0.36), rgba(6, 12, 18, 0.96) 72%);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.55);
+}
+
+.hb-ult i {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  color: #e8f7ff;
+}
+
+.hb-ult.ready { box-shadow: 0 0 10px rgba(34, 211, 238, 0.6), inset 0 0 6px rgba(0, 0, 0, 0.55); }
+
+.hb-ult.cooling {
+  border-color: rgba(245, 196, 81, 0.8);
+  background: radial-gradient(circle at 34% 28%, rgba(245, 196, 81, 0.3), rgba(6, 12, 18, 0.96) 72%);
+}
+
+.hb-ult.cooling i { color: #fde9b8; }
+
+.hb-ult.unknown {
+  border-style: dashed;
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(8, 12, 17, 0.6);
+}
+
+.hb-ult.unknown i { color: rgba(148, 163, 184, 0.6); }
+
+/* 等级角标：叠压在头像角上（蓝右下 / 红左下，轴对称），不再占独立 grid 列。 */
+.hb-level {
+  position: absolute;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid rgba(150, 195, 225, 0.35);
+  border-radius: 3px;
+  background: #0b1219;
+  color: #d7e5f2;
+  font-family: "Bahnschrift", "DIN Alternate", sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  z-index: 2;
+}
+.hb-row.blue .hb-level { right: -2px; }
+.hb-row.red .hb-level { left: -2px; }
+
+/* 名字块 202px：第 1 行「名字 · 分路」，第 2 行「180 CS · 2/4/3」；10px / 9px，line-height 1.05。 */
+.hb-info {
+  display: flex;
+  flex-direction: column;
+  /* 名字行在上、统计行在行中心附近（测量脚本的 rowFit 以 .hb-cs/.hb-kda 中心为准）。 */
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  /* 原生挖孔模式下跟随 grid 第 4 列宽（syncLayout --hb-grid-info-w），让出饰品孔；否则 202px。 */
+  width: var(--hb-grid-info-w, 202px);
+  min-width: 0;
+  height: 100%;
+}
+
+.hb-name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  line-height: 1.05;
+}
+
+.hb-name-line b {
+  /* 名字占剩余空间，但分路标签紧跟其后；不要 flex-grow，否则「打野」会被推到 202px 块最右端。 */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.05;
+  color: #eef5fb;
+}
+
+.hb-name-line small {
+  flex: 0 0 auto;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.05;
+  color: rgba(148, 163, 184, 0.78);
+}
+
+/* 第二行：CS · KDA · 视野，全部走文本流，不再用绝对定位叠在名字上。 */
+.hb-stat-line {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+  line-height: 1.05;
+  white-space: nowrap;
+  font-size: 9px;
+  color: rgba(185, 199, 214, 0.9);
+}
+
+.hb-stat-line b {
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-stat-line .hb-cs b { color: var(--hb-gold); }
+.hb-stat-line .hb-kda b { color: #e8eef6; }
+.hb-stat-unit { font-size: 8px; color: rgba(148, 163, 184, 0.7); }
+.hb-stat-sep { font-style: normal; color: rgba(148, 163, 184, 0.5); }
+.hb-vision-text { font-size: 8px; color: rgba(148, 163, 184, 0.85); }
+.hb-vision-text b { font-size: 8px; }
+.hb-row.red .hb-stat-line { flex-direction: row-reverse; }
+
+.hb-bars {
+  /* 独立 grid 列：宽 114px，三条粗细分层（血 7px / 资源 5.25px / 经验 4px）+ 2px 空隙 = 20.25px。 */
+  position: relative;
+  display: grid;
+  gap: 2px;
+  width: 114px;
+  max-width: none;
+}
+
+.hb-bar {
+  position: relative;
+  display: block;
+  /* 粗细分层参考原生观战截图（用户 m13142）：血条最粗、资源条次之、经验条最细。 */
+  height: 5.25px;
+  border-radius: 1.5px;
+  background: rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+}
+
+.hb-bar.hp { height: 7px; }
+.hb-bar.res { height: 5.25px; }
+.hb-bar.xp { height: 4px; }
+
+/* 填充层：left:0 固定（原生两侧都从左往右填）。红方轨道整体 scaleX(-1) 镜像（见 .hb-row.red .hb-bar）：
+   填充视觉上锚到右端（贴中线侧），消耗从左往右收。
+   渐变锚点：原生是「整条轨道一条固定渐变，按填充长度裁切」，不是渐变铺满当前填充宽，
+   因此页面脚本给每段填充写 background-size: (100/pct)% 100%（pct 为 0..1 小数），
+   让渐变以整条轨道为基准取值 —— 否则半血条的尖端会变成满血颜色。 */
+/* 深色渐变（参考原生记分板截图实测，用户 m13205 纠正方向）：填充层上方叠两层渐变——
+   ①垂直：上亮下暗的高光/暗部；②水平：填充起点亮 → 领先边缘最深（原生蓝侧血条
+   G 通道 194→141 沿填充方向递减，蓝侧暗端在右=领先缘；红方轨道 scaleX(-1) 镜像后
+   自动变成「左端（领先缘）暗」，与原生红侧一致）。 */
+.hb-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0) 15%, rgba(0, 0, 0, 0.45) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 45%, rgba(0, 0, 0, 0.30));
+  pointer-events: none;
+}
+
+.hb-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  background-repeat: no-repeat;
+  border-radius: 1.5px;
+  /* 像素读条 10Hz，原生是逐帧连续动画；90ms 线性过渡只做渲染平滑（不改任何数值），
+     让条在两个采样点之间推移而不是以 2% 为步长跳。unknown 占位条不加过渡。 */
+  transition: width 90ms linear;
+}
+
+/* 护盾叠加段（t15 像素读条的 shieldPx）：接在「生命填充的右端之后」，绝不并入生命百分比。
+   原生：血 60% + 盾 10% → 盾画在 60%~70% 处，不是贴在整条右端。
+   所以 left/width 都由页面脚本按 hpPct 写内联样式，这里只固定垂直方向与外观；
+   超出轨道右端由 .hb-bar 的 overflow:hidden 裁掉。
+   满宽基准 38px（51px @2560x1440 × 0.75），见页面脚本 PIXEL_BAR_FULL_PX。 */
+/* 经验条不确定性区间（t26）：实心紫条画到低界，这段半透明带从低界画到高界。 */
+.hb-bar-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  border-radius: 1.5px;
+  background: rgba(168, 85, 247, 0.35);
+  pointer-events: none;
+}
+
+/* .hb-bar-shield 已移除：原生观战 UI 不显示护盾段（shieldPx 保留在 payload schema）。 */
+
+/* 掉血残影（原生动画形式的核心特征）：主填充立刻缩短，浅色残影约 0.4s 内追上来。
+   只有生命条有这一层；经验条与资源条不加（原生没有）。
+   初始宽度 = 掉血前的旧百分比，页面脚本在下一帧把它改成新百分比，靠 transition 自然追上。 */
+.hb-bar-lag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  border-radius: 1.5px;
+  background: rgba(226, 255, 232, 0.55);
+  transition: width 400ms ease-out;
+}
+
+.hb-bar.xp .hb-bar-fill { background: linear-gradient(90deg, #a855f7, #d8b4fe); }
+/* 原生实测（t35，2560×1440 逐像素）：满条起点 #10A142、末端 #00FB52，亮度跃迁集中在 50%~90%。 */
+.hb-bar.hp .hb-bar-fill { background: linear-gradient(90deg, #10a142 0%, #00b348 55%, #00fb52 100%); }
+
+/* 资源条颜色按英雄资源类型（partype）区分；无资源英雄（如 Garen）整条不绘制。 */
+.hb-bar.res.mana .hb-bar-fill { background: linear-gradient(90deg, #2165de, #46bff7); }
+.hb-bar.res.energy .hb-bar-fill { background: linear-gradient(90deg, #a88c22, #d4b53b); }
+.hb-bar.res.rage .hb-bar-fill { background: linear-gradient(90deg, #a02f28, #d4433b); }
+.hb-bar.res.heat .hb-bar-fill { background: linear-gradient(90deg, #b35c17, #e07a2a); }
+.hb-bar.res.sword .hb-bar-fill { background: linear-gradient(90deg, #6fa8bb, #9fd8e8); }
+.hb-bar.res.valor .hb-bar-fill { background: linear-gradient(90deg, #a87c22, #d4a03b); }
+.hb-bar.res.shield .hb-bar-fill { background: linear-gradient(90deg, #635c86, #8a7fb0); }
+.hb-bar.res.blood .hb-bar-fill { background: linear-gradient(90deg, #6b1f1f, #8c2b2b); }
+.hb-bar.res.haughty .hb-bar-fill { background: linear-gradient(90deg, #a04a17, #d4662a); }
+.hb-bar.res.savagery .hb-bar-fill { background: linear-gradient(90deg, #6f2f9b, #9b4fd4); }
+.hb-bar.res.crimson .hb-bar-fill { background: linear-gradient(90deg, #7d1c34, #b02b4a); }
+
+/* 无数据：极淡斜纹空条。绝不画满条（会被误读成满血/满蓝），也不显示任何编造的数字。 */
+.hb-bar.unknown {
+  background: repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.10) 0 2px, rgba(148, 163, 184, 0.03) 2px 4px);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.1);
+}
+
+/* 占位条没有数值，不能有「慢慢缩回去」的假动画。 */
+.hb-bar.unknown .hb-bar-fill,
+.hb-bar.unknown .hb-bar-shield,
+.hb-bar.unknown .hb-bar-lag { transition: none; }
+
+/* 分段资源条（Rengar 残暴 4 层）：原生是 4 段 pips 而不是连续条，
+   段数与点亮规则由 resource-bar-spec.json 的 resourceMax 驱动，这里不写死英雄名。 */
+/* 原生实测（t35）：4 格每格宽 ≈ 条宽 15.4%、格间距 ≈ 9%（最后一格无间距），
+   每格是斜平行四边形（skewX(-8deg)），不是等分 4 段。 */
+.hb-bar.hb-pips {
+  display: flex;
+  gap: 0;
+  background: none;
+  overflow: visible;
+}
+
+.hb-bar.hb-pips .hb-pip {
+  display: block;
+  flex: 0 0 auto;
+  width: 15.4%;
+  margin-right: 9%;
+  border-radius: 1.5px;
+  transform: skewX(-8deg);
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.hb-bar.hb-pips .hb-pip:last-child { margin-right: 0; }
+
+/* 刻度线（Rumble 热量上限 150 → 50 处是危险区分界 = 33.3% 位置）：
+   位置由 spec.thresholds 的 at / resourceMax 换算，颜色固定白色半透明。 */
+.hb-bar-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+/* 行内落位由 .hb-row 的 grid 列宽决定（见上方 .hb-row.blue/.red），不再写绝对坐标。
+   红方镜像文字方向与条目对齐；状态条轨道整体 scaleX(-1)：填充/残影锚到右端（贴中线侧），
+   渐变、护盾段、经验区间、刻度、分段 pips 全部随之镜像，消耗从左往右收。 */
+.hb-row.red .hb-info { align-items: flex-end; }
+.hb-row.red .hb-name-line { flex-direction: row-reverse; }
+.hb-row.red .hb-bar { transform: scaleX(-1); }
+.hb-vision { width: 34px; }
+.hb-extras { left: 34%; }
+.hb-champ { width: 38px; height: 38px; }
+.hb-items { left: 47.8331%; width: 33.2263%; height: var(--hb-native-item-size, 22.5px); }
+.hb-row.red .hb-items { left: 18.9406%; width: 33.2263%; }
+
+/* KDA 走名字块第二行，等宽数字；CS 数值按需求下掉，KDA 12px 稍放大。 */
+.hb-cs,
+.hb-kda {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 0;
+  font-style: normal;
+}
+
+.hb-cs i,
+.hb-kda i { display: none; }
+
+.hb-cs b {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--hb-gold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hb-stat-line b.hb-kda {
+  font-size: 12px;
+}
+
+.hb-kda b {
+  font-size: 12px;
+  font-weight: 800;
+  color: #e8eef6;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hb-row.red .hb-cs,
+.hb-row.red .hb-kda {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+/* 中线：对位经济差，指示条指向领先方 */
+.hb-diff-cell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.hb-diff-cell:last-child { border-bottom: 0; }
+
+.hb-diff {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.hb-diff b {
+  position: relative;
+  z-index: 2;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+  /* 对位经济差数字：白色中性（像原生记分板），领先方用侧边旗标表达 */
+  color: rgba(228, 234, 243, 0.92);
+}
+
+/* 领先方旗标（照抄原生观战记分板）：全行高细竖条贴在领先侧的分界线上，
+   三角尖端朝外指向领先一方（红领先 → 条在右缘、尖朝右；蓝领先 → 条在左缘、尖朝左）。
+   颜色取自原生截图实测：红 rgb(187,28,8)、蓝 rgb(2,114,215)；条宽 4px + 尖 5px。 */
+.hb-diff-bar {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 9px;
+  opacity: 0;
+}
+
+.hb-diff.blue .hb-diff-bar {
+  /* 旗标骑在分界线上（条心对齐线，尖端伸进蓝侧） */
+  left: -5px;
+  z-index: 3;
+  opacity: 1;
+  background: rgb(2, 114, 215);
+  clip-path: polygon(56% 0, 100% 0, 100% 100%, 56% 100%, 56% 68%, 0 50%, 56% 32%);
+}
+
+.hb-diff.red .hb-diff-bar {
+  /* 旗标骑在分界线上（条心对齐线，尖端伸进红侧） */
+  right: -5px;
+  z-index: 3;
+  opacity: 1;
+  background: rgb(187, 28, 8);
+  clip-path: polygon(0 0, 44% 0, 44% 32%, 100% 50%, 44% 68%, 44% 100%, 0 100%);
+}
+
+.hb-diff.unknown b { color: rgba(148, 163, 184, 0.55); }
+
+/* ---------- 动画反馈 ---------- */
+
+.hb-stat b.hb-bump {
+  animation: hb-score-bump 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes hb-score-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.32); color: #ffffff; text-shadow: 0 0 14px rgba(34, 211, 238, 0.8); }
+  100% { transform: scale(1); }
+}
+
+.hb-obj.hb-flash {
+  animation: hb-objective-flash 0.72s ease-out;
+}
+
+@keyframes hb-objective-flash {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.85), inset 0 0 8px rgba(0, 0, 0, 0.55); transform: scale(1); }
+  40% { box-shadow: 0 0 22px 8px rgba(34, 211, 238, 0.55), inset 0 0 8px rgba(0, 0, 0, 0.55); transform: scale(1.18); }
+  100% { box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.55); transform: scale(1); }
+}
+
+.rb-scene-wipe {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 20%, rgba(34, 211, 238, 0.2) 45%, rgba(255, 255, 255, 0.34) 52%, rgba(34, 211, 238, 0.18) 58%, transparent 78%);
+  transform: translateX(-110%);
+  animation: rb-hud-wipe 0.42s ease-out forwards;
+}
+
+.rb-scene-wipe.hb-wipe-blue {
+  background: linear-gradient(105deg, transparent 20%, rgba(59, 130, 246, 0.26) 45%, rgba(190, 220, 255, 0.34) 52%, rgba(59, 130, 246, 0.2) 58%, transparent 78%);
+}
+
+.rb-scene-wipe.hb-wipe-red {
+  background: linear-gradient(105deg, transparent 20%, rgba(239, 68, 68, 0.26) 45%, rgba(255, 210, 210, 0.34) 52%, rgba(239, 68, 68, 0.2) 58%, transparent 78%);
+}
+
+@keyframes rb-hud-wipe {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(110%); }
+}
+
+/* ---------- 适配 ---------- */
+
+@media (max-width: 1600px) {
+  .hb-top { width: min(62vw, 1060px); }
+  .hb-scorebar { height: 70px; grid-template-columns: minmax(0, 1fr) 168px minmax(0, 1fr); }
+  .hb-logo { width: 40px; height: 40px; }
+  .hb-logo-fb { font-size: 21px; }
+  .hb-team-text b { font-size: 18px; max-width: 140px; }
+  .hb-stat b { font-size: 23px; }
+  .hb-stat.hb-gold b { font-size: 19px; }
+  .hb-clock { font-size: 30px; }
+  /* 底部记分板整块由 .hb-bottom-stage 的 --hb-scale 等比缩放，这里不再改任何 --hb-native-* 或字号。 */
+  .hb-obj { width: 27px; height: 27px; font-size: 9px; }
+  .hb-timer em { font-size: 13px; }
+}
+
+@media (max-width: 1366px) {
+  .hb-top { width: min(66vw, 900px); }
+  .hb-scorebar { height: 62px; grid-template-columns: minmax(0, 1fr) 146px minmax(0, 1fr); padding: 0 7px; }
+  .hb-team-block { gap: 7px; }
+  .hb-logo { width: 34px; height: 34px; }
+  .hb-team-text b { font-size: 16px; max-width: 112px; }
+  .hb-team-text small { font-size: 8px; }
+  .hb-stat b { font-size: 20px; }
+  .hb-stat.hb-gold b { font-size: 16px; }
+  .hb-clock { font-size: 25px; }
+  .hb-clock-label { font-size: 7px; }
+  .hb-objective-row { width: 94%; gap: 6px; padding: 3px 7px; }
+  .hb-obj { width: 24px; height: 24px; font-size: 8px; }
+  .hb-obj b { min-width: 11px; height: 11px; line-height: 9px; font-size: 8px; }
+  .hb-timer { padding: 2px 5px; }
+  .hb-timer em { font-size: 11px; }
+  /* 底部记分板整块等比缩放，这里不再重复缩小任何底部字号。 */
+}
+
+@media (max-height: 820px) {
+  .hb-top { top: 12px; }
+  .hb-objective-row { margin-top: 4px; }
+}
+
+/* 行高不按窗口高度压缩：它必须等于原生行距，否则孔位会逐行错开。 */
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-broadcast *,
+  .hud-broadcast *::before,
+  .hud-broadcast *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .hb-top { opacity: 1; transform: none; }
+  .hb-row { opacity: 1; transform: none; }
+}
+/* ---------- v49: 顶栏照抄赛事直播布局（中央簇两行 + 两端队徽 + 屏角计时盒） ---------- */
+.hb-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  width: auto;
+  transform: none;
+}
+
+.hb-top.hb-in {
+  animation: hb-top-in-2 0.55s cubic-bezier(0.18, 0.8, 0.24, 1) forwards;
+}
+
+@keyframes hb-top-in-2 {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.hb-scorebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  width: min(50vw, 1080px);
+  height: 88px;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: 0 0 6px 6px;
+}
+
+.hb-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 10px;
+  min-width: 168px;
+}
+
+.hb-badge.red { flex-direction: row; justify-content: flex-end; text-align: right; padding: 8px 10px 8px 16px; }
+
+.hb-badge .hb-accent {
+  width: 5px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #3aa0ff, #1c62d8);
+}
+
+.hb-badge.red .hb-accent { background: linear-gradient(180deg, #ff5d64, #c8281e); }
+.hb-badge .hb-team-text b { font-size: 24px; max-width: 150px; }
+.hb-badge.blue .hb-team-text b { color: #7db4ff; }
+.hb-badge.red .hb-team-text b { color: #ff5d64; }
+.hb-badge .hb-team-text small { font-size: 12px; letter-spacing: 1px; color: #dfe7f2; }
+
+.hb-cluster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 12px 10px;
+  min-width: 0;
+}
+
+.hb-row1 {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.hb-row1 .hb-stat { display: flex; align-items: center; gap: 7px; }
+.hb-row1 .hb-stat i { display: flex; width: 16px; height: 16px; color: rgba(199, 212, 227, 0.9); }
+.hb-row1 .hb-stat i svg { width: 100%; height: 100%; }
+.hb-row1 .hb-stat b {
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  color: #f6f9fd;
+  font-variant-numeric: tabular-nums;
+}
+.hb-row1 .hb-stat.hb-gold b { font-size: 26px; color: var(--hb-gold, #f2c14e); }
+
+.hb-killnum {
+  min-width: 46px;
+  text-align: center;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-killicon { display: flex; width: 30px; height: 30px; color: #e8eef6; }
+.hb-killicon svg { width: 100%; height: 100%; }
+
+.hb-gold-diff {
+  position: absolute;
+  top: calc(100% - 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: block;
+  margin: 0;
+  padding: 1px 7px;
+  border-radius: 3px;
+  background: #3a4552;
+}
+.hb-gold-diff.blue { background: #1d63d1; }
+.hb-gold-diff.red { background: #c8281e; }
+.hb-gold-diff i { display: none; }
+.hb-gold-diff b {
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-row2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.hb-row2 .hb-clock { font-size: 26px; text-shadow: 0 0 10px rgba(34, 211, 238, 0.35); }
+
+.hb-stack { display: flex; align-items: center; gap: 3px; min-height: 18px; }
+.hb-stack:empty { display: none; }
+.hb-stack img { width: 18px; height: 18px; object-fit: contain; }
+
+.hb-herald {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: #e8eef6;
+}
+.hb-herald i { display: flex; width: 16px; height: 16px; }
+.hb-herald i img { width: 100%; height: 100%; object-fit: contain; }
+
+/* 左下角原生控件遮挡板：盖住导播镜头/战争迷雾面板，不碰上方选手详情面板（其底缘 y≈962） */
+.hb-native-cover { position: absolute; background: rgb(8, 12, 17); border: 1px solid rgba(175, 141, 66, 0.55); border-radius: 3px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); }
+.hb-native-cover.hb-left { left: 4px; bottom: 2px; width: 308px; height: 112px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; gap: 6px; overflow: hidden; }
+.hb-cover-title { color: #e8c877; font-size: 17px; font-weight: 600; letter-spacing: 1px; line-height: 1.2; }
+.hb-cover-line { color: rgba(197, 208, 220, 0.85); font-size: 13px; letter-spacing: 2px; line-height: 1.3; }
+.hb-timerboxes { position: absolute; top: 12px; display: flex; gap: 10px; align-items: stretch; }
+/* 计时盒贴在记分条两端外侧 12px（参考图布局），bar 半宽 = min(29vw, 620px)。 */
+.hb-timerboxes.hb-left-boxes { left: 20px; right: auto; }
+.hb-buff-slot { position: absolute; top: 12px; display: flex; gap: 10px; align-items: stretch; }
+.hb-buff-slot.hb-left { right: calc(50% + min(25vw, 540px) + 12px); flex-direction: row-reverse; }
+.hb-buff-slot.hb-right { left: calc(50% + min(25vw, 540px) + 12px); }
+.hb-timerbox.hb-onfield { padding: 6px 10px; }
+.hb-timerbox.hb-onfield em { max-width: 0; opacity: 0; }
+.hb-buff-elder .hb-buff-sigil { background: rgba(190, 150, 40, 0.4); }
+.hb-buff-elder .hb-buff-progress { background: linear-gradient(90deg, #ffd479, #b8860b); }
+
+.hb-timerbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px;
+  transition: padding .3s ease;
+  border: 1px solid rgba(130, 160, 190, 0.35);
+  border-radius: 4px;
+  background: rgba(7, 11, 17, 0.9);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.hb-timerbox i { display: flex; width: 24px; height: 24px; }
+.hb-timerbox i img { width: 100%; height: 100%; object-fit: contain; }
+.hb-timerbox em {
+  font-style: normal;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: max-width .3s ease, opacity .3s ease;
+}
+.hb-timerbox.hb-ready em { color: #5eead4; }
+.hb-timerbox.hb-pulse em { animation: hb-timer-pulse 0.85s ease-in-out infinite; }
+
+/* 大龙 buff 盒（Worlds 标识 + 男爵 sigil + 经济差/剩余时间 + 底部进度条） */
+.hb-baron-buff {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 64px;
+  border: 1px solid rgba(130, 160, 190, 0.35);
+  border-radius: 4px;
+  background: rgba(7, 11, 17, 0.9);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: hb-buff-in .3s ease;
+}
+@keyframes hb-buff-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.hb-buff-sigil { display: flex; align-items: center; justify-content: center; width: 52px; background: rgba(88, 58, 200, 0.35); }
+.hb-buff-sigil img { width: 30px; height: 30px; object-fit: contain; }
+.hb-buff-text { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 14px; }
+.hb-buff-text b { font-size: 17px; font-weight: 800; color: #ffd479; font-variant-numeric: tabular-nums; }
+.hb-buff-text em { font-style: normal; font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", Arial, sans-serif; font-size: 21px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; }
+.hb-buff-progress { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: linear-gradient(90deg, #7b5cff, #5433d8); transition: width 0.4s linear; }
+
+/* 小局比分 pips：队徽外缘侧竖排 3 格，赢一场填一格。 */
+.hb-pips { display: flex; flex-direction: column; gap: 3px; }
+.hb-pips i { width: 12px; height: 17px; border-radius: 2px; border: 1px solid rgba(130, 160, 190, 0.4); background: rgba(7, 11, 17, 0.6); }
+.hb-pips i.filled { border-color: #5ea1ff; }
+#hb-pips-blue i.filled { background: #2f6fed; }
+#hb-pips-red i.filled { background: #d33a34; border-color: #ff7a72; }
+
+@media (max-width: 1600px) {
+  .hb-scorebar { width: 100%; height: 74px; margin-top: 0; }
+  .hb-killnum { font-size: 33px; min-width: 40px; }
+  .hb-row1 .hb-stat b { font-size: 25px; }
+  .hb-row1 .hb-stat.hb-gold b { font-size: 21px; }
+  .hb-row2 .hb-clock { font-size: 22px; }
+  .hb-badge { min-width: 140px; }
+}
+
+/* 按 A 键一键隐藏/恢复全部 HUD 覆盖层（.hb-hud-hidden 由 hud-broadcast.js keydown 切换） */
+#hud-broadcast > * { transition: opacity .3s ease, visibility .3s ease; }
+#hud-broadcast.hb-hud-hidden > * { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }

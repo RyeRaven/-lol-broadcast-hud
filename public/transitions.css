@@ -1,0 +1,44 @@
+/* Khada Jhin — 场景转场垫片：0.35s 斜切 wipe（OBS 浏览器源） */
+:root{--tr-color:#22d3ee;--tr-accent:#f5c451;--tr-duration:350ms;--tr-ink:#05070a}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:transparent}
+html.tr-html,html.tr-html body,body.tr-body{background:transparent!important;overflow:hidden}
+body{color:#e5e7eb;font-family:"Segoe UI","Microsoft YaHei",Arial,sans-serif;font-variant-numeric:tabular-nums}
+.overlay-transition{position:relative;isolation:isolate;width:100vw;height:100vh;min-width:1280px;min-height:720px;overflow:hidden;background:transparent}
+.tr-layer{position:absolute;top:-18%;bottom:-18%;left:-30%;width:160%;transform:translateX(125%) skewX(-12deg);will-change:transform;pointer-events:none}
+.tr-layer-back{background:linear-gradient(100deg,rgba(5,7,10,0) 0%,rgba(5,7,10,.92) 22%,#05070a 60%,#0b0f14 100%);box-shadow:0 0 90px rgba(0,0,0,.75)}
+.tr-layer-front{background:linear-gradient(100deg,var(--tr-color) 0%,var(--tr-color) 2.5%,#0b0f14 8%,#05070a 55%,rgba(5,7,10,.94) 100%);border-left:6px solid var(--tr-color);box-shadow:-16px 0 60px var(--tr-color),0 0 0 1px rgba(255,255,255,.04) inset}
+.tr-layer-front::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(115deg,rgba(255,255,255,.055) 0 2px,transparent 2px 26px);opacity:.7}
+.tr-layer-front::after{content:"";position:absolute;left:0;top:0;bottom:0;width:14px;background:linear-gradient(90deg,var(--tr-color),rgba(255,255,255,.85),var(--tr-color));filter:blur(1px);opacity:.9}
+.tr-brand{position:absolute;left:50%;top:50%;z-index:5;transform:translate(-50%,-46%);text-align:center;opacity:0;transition:opacity .16s ease .12s;pointer-events:none;white-space:nowrap}
+.tr-brand b{display:block;font-size:44px;font-weight:900;letter-spacing:14px;color:#f8fafc;text-shadow:0 0 50px rgba(0,0,0,.85)}
+.tr-brand small{display:block;margin-top:10px;font-size:10px;letter-spacing:7px;color:var(--tr-color);font-weight:700;text-transform:uppercase}
+.tr-brand i{display:block;width:90px;height:2px;margin:16px auto 0;background:linear-gradient(90deg,transparent,var(--tr-accent),transparent)}
+.tr-play .tr-brand{opacity:1}
+.tr-play[data-direction="left"] .tr-layer{animation:tr-wipe-left var(--tr-duration) cubic-bezier(.65,.05,.36,1) forwards}
+.tr-play[data-direction="right"] .tr-layer{animation:tr-wipe-right var(--tr-duration) cubic-bezier(.65,.05,.36,1) forwards}
+.tr-play[data-direction="up"] .tr-layer{animation:tr-wipe-up var(--tr-duration) cubic-bezier(.65,.05,.36,1) forwards}
+.tr-play[data-direction="down"] .tr-layer{animation:tr-wipe-down var(--tr-duration) cubic-bezier(.65,.05,.36,1) forwards}
+@keyframes tr-wipe-left{0%{transform:translateX(125%) skewX(-12deg)}100%{transform:translateX(-8%) skewX(-12deg)}}
+@keyframes tr-wipe-right{0%{transform:translateX(-145%) skewX(-12deg)}100%{transform:translateX(-8%) skewX(-12deg)}}
+@keyframes tr-wipe-up{0%{transform:translateY(125%) skewY(-7deg)}100%{transform:translateY(-4%) skewY(-7deg)}}
+@keyframes tr-wipe-down{0%{transform:translateY(-135%) skewY(-7deg)}100%{transform:translateY(-4%) skewY(-7deg)}}
+/* pass 模式：扫过整屏后离开，页面恢复透明（用于测试 / 双场景切换） */
+.overlay-transition[data-mode="pass"].tr-play[data-direction="left"] .tr-layer{animation-name:tr-pass-left}
+.overlay-transition[data-mode="pass"].tr-play[data-direction="right"] .tr-layer{animation-name:tr-pass-right}
+.overlay-transition[data-mode="pass"].tr-play[data-direction="up"] .tr-layer{animation-name:tr-pass-up}
+.overlay-transition[data-mode="pass"].tr-play[data-direction="down"] .tr-layer{animation-name:tr-pass-down}
+@keyframes tr-pass-left{0%{transform:translateX(125%) skewX(-12deg)}100%{transform:translateX(-160%) skewX(-12deg)}}
+@keyframes tr-pass-right{0%{transform:translateX(-145%) skewX(-12deg)}100%{transform:translateX(125%) skewX(-12deg)}}
+@keyframes tr-pass-up{0%{transform:translateY(125%) skewY(-7deg)}100%{transform:translateY(-145%) skewY(-7deg)}}
+@keyframes tr-pass-down{0%{transform:translateY(-135%) skewY(-7deg)}100%{transform:translateY(125%) skewY(-7deg)}}
+/* preview 模式：冻结在 wipe 中段，方便截图与人工校验（?preview=1） */
+.overlay-transition[data-preview="1"] .tr-layer{animation-play-state:paused!important;animation-delay:calc(var(--tr-duration) * -0.55)!important}
+.overlay-transition[data-preview="1"] .tr-brand{opacity:1}
+/* 调试信息：仅 ?debug=1 时显示 */
+.tr-debug{position:absolute;left:24px;bottom:20px;z-index:9;display:none;padding:6px 10px;background:rgba(5,7,10,.8);border-left:2px solid var(--tr-color);font-size:10px;letter-spacing:1px;color:#9fb0c2;white-space:nowrap}
+.overlay-transition[data-debug="1"] .tr-debug{display:block}
+@media (prefers-reduced-motion: reduce){
+  .tr-layer{animation-duration:1ms!important}
+  .tr-brand{opacity:1}
+}

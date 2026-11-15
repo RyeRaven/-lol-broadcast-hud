@@ -1,0 +1,581 @@
+{
+  "ok": true,
+  "generatedAt": "2026-11-15T09:20:12.702Z",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "totalDurationMs": 8922,
+  "shots": [
+    {
+      "state": "full",
+      "file": "C:\\Users\\RyeRaven\\Documents\\Codex\\2026-11-12\\windows-lol-mvp-1-lol-2\\test\\visual-baseline\\hud-full-1920x1080.png",
+      "bytes": 201899,
+      "width": 1920,
+      "height": 1080,
+      "contentSize": [
+        1920,
+        1080
+      ],
+      "rows": 10,
+      "visibleRows": 10,
+      "clock": "19:57",
+      "ssePlayers": 10,
+      "rects": [
+        {
+          "id": "hb-row-blue-0",
+          "x": 313,
+          "y": 826.65625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-1",
+          "x": 313,
+          "y": 867.34375,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-2",
+          "x": 313,
+          "y": 908.03125,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-3",
+          "x": 313,
+          "y": 948.71875,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-4",
+          "x": 313,
+          "y": 989.40625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-0",
+          "x": 984,
+          "y": 826.65625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-1",
+          "x": 984,
+          "y": 867.34375,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-2",
+          "x": 984,
+          "y": 908.03125,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-3",
+          "x": 984,
+          "y": 948.71875,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-4",
+          "x": 984,
+          "y": 989.40625,
+          "width": 623,
+          "height": 40.6875
+        }
+      ],
+      "cells": [
+        {
+          "id": "hb-row-blue-0",
+          "vision": null,
+          "kda": "2/4/0",
+          "fillPx": [
+            0,
+            114,
+            105.1
+          ]
+        },
+        {
+          "id": "hb-row-blue-1",
+          "vision": null,
+          "kda": "4/5/4",
+          "fillPx": [
+            0,
+            100.5,
+            89.4
+          ]
+        },
+        {
+          "id": "hb-row-blue-2",
+          "vision": null,
+          "kda": "2/7/3",
+          "fillPx": [
+            114,
+            24.6,
+            34.8
+          ]
+        },
+        {
+          "id": "hb-row-blue-3",
+          "vision": null,
+          "kda": "5/6/2",
+          "fillPx": [
+            0,
+            73.8,
+            69.8
+          ]
+        },
+        {
+          "id": "hb-row-blue-4",
+          "vision": null,
+          "kda": "1/2/3",
+          "fillPx": [
+            0,
+            49.1,
+            51.4
+          ]
+        },
+        {
+          "id": "hb-row-red-0",
+          "vision": null,
+          "kda": "4/2/1",
+          "fillPx": [
+            0,
+            114,
+            105.1
+          ]
+        },
+        {
+          "id": "hb-row-red-1",
+          "vision": null,
+          "kda": "5/3/5",
+          "fillPx": [
+            89.3,
+            100.5,
+            89.4
+          ]
+        },
+        {
+          "id": "hb-row-red-2",
+          "vision": null,
+          "kda": "2/6/8",
+          "fillPx": [
+            114,
+            24.6,
+            34.8
+          ]
+        },
+        {
+          "id": "hb-row-red-3",
+          "vision": null,
+          "kda": "12/1/2",
+          "fillPx": [
+            8.4,
+            73.8,
+            69.8
+          ]
+        },
+        {
+          "id": "hb-row-red-4",
+          "vision": null,
+          "kda": "1/2/4",
+          "fillPx": [
+            114,
+            49.1,
+            51.4
+          ]
+        }
+      ],
+      "capturedAt": "2026-11-15T09:20:06.489Z"
+    },
+    {
+      "state": "degraded",
+      "file": "C:\\Users\\RyeRaven\\Documents\\Codex\\2026-11-12\\windows-lol-mvp-1-lol-2\\test\\visual-baseline\\hud-degraded-1920x1080.png",
+      "bytes": 194142,
+      "width": 1920,
+      "height": 1080,
+      "contentSize": [
+        1920,
+        1080
+      ],
+      "rows": 10,
+      "visibleRows": 10,
+      "clock": "19:57",
+      "ssePlayers": 10,
+      "rects": [
+        {
+          "id": "hb-row-blue-0",
+          "x": 313,
+          "y": 826.65625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-1",
+          "x": 313,
+          "y": 867.34375,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-2",
+          "x": 313,
+          "y": 908.03125,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-3",
+          "x": 313,
+          "y": 948.71875,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-4",
+          "x": 313,
+          "y": 989.40625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-0",
+          "x": 984,
+          "y": 826.65625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-1",
+          "x": 984,
+          "y": 867.34375,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-2",
+          "x": 984,
+          "y": 908.03125,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-3",
+          "x": 984,
+          "y": 948.71875,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-4",
+          "x": 984,
+          "y": 989.40625,
+          "width": 623,
+          "height": 40.6875
+        }
+      ],
+      "cells": [
+        {
+          "id": "hb-row-blue-0",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-1",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-2",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-3",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-4",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-0",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-1",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-2",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-3",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-4",
+          "vision": null,
+          "kda": "—",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "capturedAt": "2026-11-15T09:20:09.000Z"
+    },
+    {
+      "state": "edge",
+      "file": "C:\\Users\\RyeRaven\\Documents\\Codex\\2026-11-12\\windows-lol-mvp-1-lol-2\\test\\visual-baseline\\hud-edge-1920x1080.png",
+      "bytes": 196255,
+      "width": 1920,
+      "height": 1080,
+      "contentSize": [
+        1920,
+        1080
+      ],
+      "rows": 10,
+      "visibleRows": 10,
+      "clock": "19:57",
+      "ssePlayers": 10,
+      "rects": [
+        {
+          "id": "hb-row-blue-0",
+          "x": 313,
+          "y": 826.65625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-1",
+          "x": 313,
+          "y": 867.34375,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-2",
+          "x": 313,
+          "y": 908.03125,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-3",
+          "x": 313,
+          "y": 948.71875,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-blue-4",
+          "x": 313,
+          "y": 989.40625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-0",
+          "x": 984,
+          "y": 826.65625,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-1",
+          "x": 984,
+          "y": 867.34375,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-2",
+          "x": 984,
+          "y": 908.03125,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-3",
+          "x": 984,
+          "y": 948.71875,
+          "width": 623,
+          "height": 40.6875
+        },
+        {
+          "id": "hb-row-red-4",
+          "x": 984,
+          "y": 989.40625,
+          "width": 623,
+          "height": 40.6875
+        }
+      ],
+      "cells": [
+        {
+          "id": "hb-row-blue-0",
+          "vision": null,
+          "kda": "2/4/0",
+          "fillPx": [
+            0,
+            114,
+            114
+          ]
+        },
+        {
+          "id": "hb-row-blue-1",
+          "vision": null,
+          "kda": "4/5/4",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-2",
+          "vision": null,
+          "kda": "2/7/3",
+          "fillPx": [
+            0,
+            114,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-3",
+          "vision": null,
+          "kda": "5/6/2",
+          "fillPx": [
+            0,
+            63.4,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-blue-4",
+          "vision": null,
+          "kda": "1/2/3",
+          "fillPx": [
+            0,
+            0.9,
+            13.4
+          ]
+        },
+        {
+          "id": "hb-row-red-0",
+          "vision": null,
+          "kda": "4/2/1",
+          "fillPx": [
+            0,
+            114,
+            114
+          ]
+        },
+        {
+          "id": "hb-row-red-1",
+          "vision": null,
+          "kda": "5/3/5",
+          "fillPx": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-2",
+          "vision": null,
+          "kda": "2/6/8",
+          "fillPx": [
+            0,
+            114,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-3",
+          "vision": null,
+          "kda": "12/1/2",
+          "fillPx": [
+            0,
+            63.4,
+            0
+          ]
+        },
+        {
+          "id": "hb-row-red-4",
+          "vision": null,
+          "kda": "1/2/4",
+          "fillPx": [
+            0,
+            0.9,
+            13.4
+          ]
+        }
+      ],
+      "capturedAt": "2026-11-15T09:20:12.701Z"
+    }
+  ]
+}

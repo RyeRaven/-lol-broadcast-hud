@@ -1,0 +1,134 @@
+{
+  "teams": {
+    "blue": {
+      "name": "蓝方学院",
+      "shortName": "BLUE",
+      "region": "CN",
+      "rank": "LPL #1",
+      "logo": "",
+      "color": "#3B82F6"
+    },
+    "red": {
+      "name": "红方社群",
+      "shortName": "RED",
+      "region": "CN",
+      "rank": "LPL #2",
+      "logo": "",
+      "color": "#EF4444"
+    }
+  },
+  "players": [
+    {
+      "gameName": "TopStar",
+      "displayName": "TopStar",
+      "team": "blue",
+      "role": "TOP",
+      "photo": ""
+    },
+    {
+      "gameName": "RiftKing",
+      "displayName": "RiftKing",
+      "team": "blue",
+      "role": "JUNGLE",
+      "photo": ""
+    },
+    {
+      "gameName": "Midnight",
+      "displayName": "Midnight",
+      "team": "blue",
+      "role": "MID",
+      "photo": ""
+    },
+    {
+      "gameName": "CrispAim",
+      "displayName": "CrispAim",
+      "team": "blue",
+      "role": "ADC",
+      "photo": ""
+    },
+    {
+      "gameName": "Anchor",
+      "displayName": "Anchor",
+      "team": "blue",
+      "role": "SUPPORT",
+      "photo": ""
+    },
+    {
+      "gameName": "RedTop",
+      "displayName": "RedTop",
+      "team": "red",
+      "role": "TOP",
+      "photo": ""
+    },
+    {
+      "gameName": "JungleX",
+      "displayName": "JungleX",
+      "team": "red",
+      "role": "JUNGLE",
+      "photo": ""
+    },
+    {
+      "gameName": "FoxMid",
+      "displayName": "FoxMid",
+      "team": "red",
+      "role": "MID",
+      "photo": ""
+    },
+    {
+      "gameName": "MoonShot",
+      "displayName": "MoonShot",
+      "team": "red",
+      "role": "ADC",
+      "photo": ""
+    },
+    {
+      "gameName": "Shield",
+      "displayName": "Shield",
+      "team": "red",
+      "role": "SUPPORT",
+      "photo": ""
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Blue Coach",
+      "team": "blue",
+      "role": "HEAD COACH",
+      "photo": ""
+    },
+    {
+      "name": "Red Coach",
+      "team": "red",
+      "role": "HEAD COACH",
+      "photo": ""
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "HYPERX",
+      "image": "",
+      "slot": "top"
+    },
+    {
+      "name": "Rift Energy",
+      "image": "",
+      "slot": "bottom"
+    }
+  ],
+  "series": {
+    "name": "RiftBroadcast 校园赛 · 半决赛",
+    "stage": "半决赛",
+    "patch": "26.20",
+    "bestOf": 3,
+    "records": {
+      "blue": 1,
+      "red": 0
+    }
+  },
+  "fearless": {
+    "pbPct": 73.3,
+    "pickPct": 26.7,
+    "wins": 16,
+    "losses": 8
+  }
+}

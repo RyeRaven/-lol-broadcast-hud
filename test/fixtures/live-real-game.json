@@ -1,0 +1,1919 @@
+{
+  "activePlayer": {
+    "abilities": {
+      "E": {
+        "abilityLevel": 3,
+        "displayName": "厄运钟摆",
+        "id": "ThreshE",
+        "rawDescription": "GeneratedTip_Spell_ThreshE_Description",
+        "rawDisplayName": "GeneratedTip_Spell_ThreshE_DisplayName"
+      },
+      "Passive": {
+        "displayName": "地狱诅咒",
+        "id": "ThreshPassiveSouls",
+        "rawDescription": "GeneratedTip_Passive_ThreshPassiveSouls_Description",
+        "rawDisplayName": "GeneratedTip_Passive_ThreshPassiveSouls_DisplayName"
+      },
+      "Q": {
+        "abilityLevel": 5,
+        "displayName": "死亡判决",
+        "id": "ThreshQ",
+        "rawDescription": "GeneratedTip_Spell_ThreshQ_Description",
+        "rawDisplayName": "GeneratedTip_Spell_ThreshQ_DisplayName"
+      },
+      "R": {
+        "abilityLevel": 1,
+        "displayName": "幽冥监牢",
+        "id": "ThreshRPenta",
+        "rawDescription": "GeneratedTip_Spell_ThreshRPenta_Description",
+        "rawDisplayName": "GeneratedTip_Spell_ThreshRPenta_DisplayName"
+      },
+      "W": {
+        "abilityLevel": 1,
+        "displayName": "魂引之灯",
+        "id": "ThreshW",
+        "rawDescription": "GeneratedTip_Spell_ThreshW_Description",
+        "rawDisplayName": "GeneratedTip_Spell_ThreshW_DisplayName"
+      }
+    },
+    "championStats": {
+      "abilityHaste": 20,
+      "abilityPower": 47,
+      "armor": 131.25,
+      "armorPenetrationFlat": 0,
+      "armorPenetrationPercent": 1,
+      "attackDamage": 81.8280029296875,
+      "attackRange": 450,
+      "attackSpeed": 0.7943124771118164,
+      "bonusArmorPenetrationPercent": 1,
+      "bonusMagicPenetrationPercent": 1,
+      "critChance": 0,
+      "critDamage": 200,
+      "currentHealth": 2336.554931640625,
+      "healShieldPower": 0,
+      "healthRegenRate": 3.9399499893188477,
+      "lifeSteal": 0,
+      "magicLethality": 0,
+      "magicPenetrationFlat": 0,
+      "magicPenetrationPercent": 1,
+      "magicResist": 96.59684753417969,
+      "maxHealth": 2338.800048828125,
+      "moveSpeed": 385,
+      "omnivamp": 0,
+      "physicalLethality": 0,
+      "physicalVamp": 0,
+      "resourceMax": 614.5599975585938,
+      "resourceRegenRate": 4.267199993133545,
+      "resourceType": "MANA",
+      "resourceValue": 614.5599975585938,
+      "spellVamp": 0,
+      "tenacity": 5
+    },
+    "currentGold": 546.3641967773438,
+    "fullRunes": {
+      "generalRunes": [
+        {
+          "displayName": "冰川增幅",
+          "id": 8351,
+          "rawDescription": "perk_tooltip_GlacialAugment",
+          "rawDisplayName": "perk_displayname_GlacialAugment"
+        },
+        {
+          "displayName": "海克斯科技闪现罗网",
+          "id": 8306,
+          "rawDescription": "perk_tooltip_HextechFlashtraption",
+          "rawDisplayName": "perk_displayname_HextechFlashtraption"
+        },
+        {
+          "displayName": "饼干配送",
+          "id": 8345,
+          "rawDescription": "perk_tooltip_BiscuitDelivery",
+          "rawDisplayName": "perk_displayname_BiscuitDelivery"
+        },
+        {
+          "displayName": "星界洞悉",
+          "id": 8347,
+          "rawDescription": "perk_tooltip_CosmicInsight",
+          "rawDisplayName": "perk_displayname_CosmicInsight"
+        },
+        {
+          "displayName": "坚定",
+          "id": 8242,
+          "rawDescription": "perk_tooltip_Unflinching",
+          "rawDisplayName": "perk_displayname_Unflinching"
+        },
+        {
+          "displayName": "骸骨镀层",
+          "id": 8473,
+          "rawDescription": "perk_tooltip_BonePlatingTooltip",
+          "rawDisplayName": "perk_displayname_BonePlating"
+        }
+      ],
+      "keystone": {
+        "displayName": "冰川增幅",
+        "id": 8351,
+        "rawDescription": "perk_tooltip_GlacialAugment",
+        "rawDisplayName": "perk_displayname_GlacialAugment"
+      },
+      "primaryRuneTree": {
+        "displayName": "启迪",
+        "id": 8300,
+        "rawDescription": "perkstyle_tooltip_7203",
+        "rawDisplayName": "perkstyle_displayname_7203"
+      },
+      "secondaryRuneTree": {
+        "displayName": "坚决",
+        "id": 8400,
+        "rawDescription": "perkstyle_tooltip_7204",
+        "rawDisplayName": "perkstyle_displayname_7204"
+      },
+      "statRunes": [
+        {
+          "id": 5008,
+          "rawDescription": "perk_tooltip_StatModAdaptive"
+        },
+        {
+          "id": 5008,
+          "rawDescription": "perk_tooltip_StatModAdaptive"
+        },
+        {
+          "id": 5001,
+          "rawDescription": "perk_tooltip_StatModHealthScaling"
+        }
+      ]
+    },
+    "level": 10,
+    "riotId": "Player1",
+    "riotIdGameName": "Player1",
+    "riotIdTagLine": "31021",
+    "summonerName": "Player1",
+    "teamRelativeColors": true
+  },
+  "allPlayers": [
+    {
+      "championName": "蛮族之王",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "狂热",
+          "itemID": 3086,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_3086_Description",
+          "rawDisplayName": "Item_3086_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "狂战士胫甲",
+          "itemID": 3006,
+          "price": 300,
+          "rawDescription": "GeneratedTip_Item_3006_Description",
+          "rawDisplayName": "Item_3006_Name",
+          "slot": 1
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "贪欲九头蛇",
+          "itemID": 3074,
+          "price": 150,
+          "rawDescription": "GeneratedTip_Item_3074_Description",
+          "rawDisplayName": "Item_3074_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "短剑",
+          "itemID": 1042,
+          "price": 250,
+          "rawDescription": "GeneratedTip_Item_1042_Description",
+          "rawDisplayName": "Item_1042_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "短剑",
+          "itemID": 1042,
+          "price": 250,
+          "rawDescription": "GeneratedTip_Item_1042_Description",
+          "rawDisplayName": "Item_1042_Name",
+          "slot": 4
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "神谕透镜",
+          "itemID": 3364,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3364_Description",
+          "rawDisplayName": "Item_3364_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "TOP",
+      "rawChampionName": "game_character_displayname_Tryndamere",
+      "rawSkinName": "game_character_skin_displayname_Tryndamere_16",
+      "respawnTimer": 0,
+      "riotId": "Player2",
+      "riotIdGameName": "Player2",
+      "riotIdTagLine": "30820",
+      "runes": {
+        "keystone": {
+          "displayName": "致命节奏",
+          "id": 8008,
+          "rawDescription": "perk_tooltip_LethalTempo",
+          "rawDisplayName": "perk_displayname_LethalTempo"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "坚决",
+          "id": 8400,
+          "rawDescription": "perkstyle_tooltip_7204",
+          "rawDisplayName": "perkstyle_displayname_7204"
+        }
+      },
+      "scores": {
+        "assists": 0,
+        "creepScore": 160,
+        "deaths": 4,
+        "kills": 2,
+        "wardScore": 10.649405479431152
+      },
+      "skinID": 16,
+      "skinName": "腥红之月 泰达米尔 鹤雪",
+      "summonerName": "Player2",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "净化",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerBoost_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerBoost_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "幽灵疾步",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "解脱者",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "影焰",
+          "itemID": 4645,
+          "price": 900,
+          "rawDescription": "GeneratedTip_Item_4645_Description",
+          "rawDisplayName": "Item_4645_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "增幅典籍",
+          "itemID": 1052,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1052_Description",
+          "rawDisplayName": "Item_1052_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "法师之靴",
+          "itemID": 3020,
+          "price": 800,
+          "rawDescription": "GeneratedTip_Item_3020_Description",
+          "rawDisplayName": "Item_3020_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "巫妖之祸",
+          "itemID": 3100,
+          "price": 250,
+          "rawDescription": "GeneratedTip_Item_3100_Description",
+          "rawDisplayName": "Item_3100_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "布甲",
+          "itemID": 1029,
+          "price": 300,
+          "rawDescription": "GeneratedTip_Item_1029_Description",
+          "rawDisplayName": "Item_1029_Name",
+          "slot": 4
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "神谕透镜",
+          "itemID": 3364,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3364_Description",
+          "rawDisplayName": "Item_3364_Name",
+          "slot": 6
+        }
+      ],
+      "level": 12,
+      "position": "JUNGLE",
+      "rawChampionName": "game_character_displayname_Sylas",
+      "rawSkinName": "game_character_displayname_Sylas",
+      "respawnTimer": 0,
+      "riotId": "Player3",
+      "riotIdGameName": "Player3",
+      "riotIdTagLine": "78527",
+      "runes": {
+        "keystone": {
+          "displayName": "黑暗收割",
+          "id": 8128,
+          "rawDescription": "perk_tooltip_DarkHarvest",
+          "rawDisplayName": "perk_displayname_DarkHarvest"
+        },
+        "primaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        },
+        "secondaryRuneTree": {
+          "displayName": "启迪",
+          "id": 8300,
+          "rawDescription": "perkstyle_tooltip_7203",
+          "rawDisplayName": "perkstyle_displayname_7203"
+        }
+      },
+      "scores": {
+        "assists": 4,
+        "creepScore": 60,
+        "deaths": 5,
+        "kills": 4,
+        "wardScore": 16.90795135498047
+      },
+      "skinID": 0,
+      "skinName": "解脱者",
+      "summonerName": "Player3",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "原初惩戒",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarOffensive_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarOffensive_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "疾风剑豪",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "不朽盾弓",
+          "itemID": 6673,
+          "price": 825,
+          "rawDescription": "GeneratedTip_Item_6673_Description",
+          "rawDisplayName": "Item_6673_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "炮铜胫甲",
+          "itemID": 3172,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3172_Description",
+          "rawDisplayName": "Item_3172_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "灵巧披风",
+          "itemID": 1018,
+          "price": 600,
+          "rawDescription": "GeneratedTip_Item_1018_Description",
+          "rawDisplayName": "Item_1018_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "破败王者之刃",
+          "itemID": 3153,
+          "price": 725,
+          "rawDescription": "GeneratedTip_Item_3153_Description",
+          "rawDisplayName": "Item_3153_Name",
+          "slot": 3
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "远见改造",
+          "itemID": 3363,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3363_Description",
+          "rawDisplayName": "Item_3363_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "MIDDLE",
+      "rawChampionName": "game_character_displayname_Yasuo",
+      "rawSkinName": "game_character_skin_displayname_Yasuo_5",
+      "respawnTimer": 0,
+      "riotId": "Player4",
+      "riotIdGameName": "Player4",
+      "riotIdTagLine": "83494",
+      "runes": {
+        "keystone": {
+          "displayName": "致命节奏",
+          "id": 8008,
+          "rawDescription": "perk_tooltip_LethalTempo",
+          "rawDisplayName": "perk_displayname_LethalTempo"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "坚决",
+          "id": 8400,
+          "rawDescription": "perkstyle_tooltip_7204",
+          "rawDisplayName": "perkstyle_displayname_7204"
+        }
+      },
+      "scores": {
+        "assists": 2,
+        "creepScore": 160,
+        "deaths": 6,
+        "kills": 5,
+        "wardScore": 12.981606483459473
+      },
+      "skinID": 5,
+      "skinName": "西部牛仔 亚索 日落狂沙",
+      "summonerName": "Player4",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "虚弱",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerExhaust_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "星籁歌姬",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之戒",
+          "itemID": 1056,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1056_Description",
+          "rawDisplayName": "Item_1056_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "女神之泪",
+          "itemID": 3070,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_3070_Description",
+          "rawDisplayName": "Item_3070_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "卢登的回声",
+          "itemID": 6655,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_6655_Description",
+          "rawDisplayName": "Item_6655_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "遗失的章节",
+          "itemID": 3802,
+          "price": 250,
+          "rawDescription": "GeneratedTip_Item_3802_Description",
+          "rawDisplayName": "Item_3802_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "恶魔法典",
+          "itemID": 3108,
+          "price": 200,
+          "rawDescription": "GeneratedTip_Item_3108_Description",
+          "rawDisplayName": "Item_3108_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 12,
+      "position": "BOTTOM",
+      "rawChampionName": "Character_Seraphine_Name",
+      "rawSkinName": "game_character_displayname_Seraphine",
+      "respawnTimer": 0,
+      "riotId": "Player5",
+      "riotIdGameName": "Player5",
+      "riotIdTagLine": "28037",
+      "runes": {
+        "keystone": {
+          "displayName": "奥术彗星",
+          "id": 8229,
+          "rawDescription": "perk_tooltip_ArcaneComet",
+          "rawDisplayName": "perk_displayname_ArcaneComet"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        }
+      },
+      "scores": {
+        "assists": 3,
+        "creepScore": 140,
+        "deaths": 2,
+        "kills": 1,
+        "wardScore": 5.988096714019775
+      },
+      "skinID": 0,
+      "skinName": "星籁歌姬",
+      "summonerName": "Player5",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "解封的传送",
+          "rawDescription": "GeneratedTip_SummonerSpell_S12_SummonerTeleportUpgrade_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_S12_SummonerTeleportUpgrade_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "光辉女郎",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "扎兹沙克的溃口",
+          "itemID": 3871,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3871_Description",
+          "rawDisplayName": "Item_3871_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "黑暗封印",
+          "itemID": 1082,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_1082_Description",
+          "rawDisplayName": "Item_1082_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "明朗之靴",
+          "itemID": 3158,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_3158_Description",
+          "rawDisplayName": "Item_3158_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "残疫",
+          "itemID": 3118,
+          "price": 650,
+          "rawDescription": "GeneratedTip_Item_3118_Description",
+          "rawDisplayName": "Item_3118_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "增幅典籍",
+          "itemID": 1052,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1052_Description",
+          "rawDisplayName": "Item_1052_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "神谕透镜",
+          "itemID": 3364,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3364_Description",
+          "rawDisplayName": "Item_3364_Name",
+          "slot": 6
+        }
+      ],
+      "level": 9,
+      "position": "UTILITY",
+      "rawChampionName": "game_character_displayname_Lux",
+      "rawSkinName": "game_character_displayname_Lux",
+      "respawnTimer": 0,
+      "riotId": "Player6",
+      "riotIdGameName": "Player6",
+      "riotIdTagLine": "16852",
+      "runes": {
+        "keystone": {
+          "displayName": "黑暗收割",
+          "id": 8128,
+          "rawDescription": "perk_tooltip_DarkHarvest",
+          "rawDisplayName": "perk_displayname_DarkHarvest"
+        },
+        "primaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        },
+        "secondaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        }
+      },
+      "scores": {
+        "assists": 3,
+        "creepScore": 20,
+        "deaths": 7,
+        "kills": 2,
+        "wardScore": 35.101898193359375
+      },
+      "skinID": 0,
+      "skinName": "光辉女郎",
+      "summonerName": "Player6",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "治疗术",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHeal_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHeal_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "迅捷斥候",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": true,
+          "consumable": true,
+          "count": 1,
+          "displayName": "生命药水",
+          "itemID": 2003,
+          "price": 50,
+          "rawDescription": "GeneratedTip_Item_2003_Description",
+          "rawDisplayName": "Item_2003_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "狂战士胫甲",
+          "itemID": 3006,
+          "price": 300,
+          "rawDescription": "GeneratedTip_Item_3006_Description",
+          "rawDisplayName": "Item_3006_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "纳什之牙",
+          "itemID": 3115,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_3115_Description",
+          "rawDisplayName": "Item_3115_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "斯塔缇克电刃",
+          "itemID": 3087,
+          "price": 625,
+          "rawDescription": "GeneratedTip_Item_3087_Description",
+          "rawDisplayName": "Item_3087_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之戒",
+          "itemID": 1056,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1056_Description",
+          "rawDisplayName": "Item_1056_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "反曲之弓",
+          "itemID": 1043,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1043_Description",
+          "rawDisplayName": "Item_1043_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 16,
+      "position": "TOP",
+      "rawChampionName": "game_character_displayname_Teemo",
+      "rawSkinName": "game_character_skin_displayname_Teemo_5",
+      "respawnTimer": 0,
+      "riotId": "Player7",
+      "riotIdGameName": "Player7",
+      "riotIdTagLine": "12894",
+      "runes": {
+        "keystone": {
+          "displayName": "致命节奏",
+          "id": 8008,
+          "rawDescription": "perk_tooltip_LethalTempo",
+          "rawDisplayName": "perk_displayname_LethalTempo"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        }
+      },
+      "scores": {
+        "assists": 1,
+        "creepScore": 220,
+        "deaths": 2,
+        "kills": 4,
+        "wardScore": 17.575626373291016
+      },
+      "skinID": 5,
+      "skinName": "兔宝宝 提莫",
+      "summonerName": "Player7",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "引燃",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "齐天大圣",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "公理圆弧",
+          "itemID": 6696,
+          "price": 363,
+          "rawDescription": "GeneratedTip_Item_6696_Description",
+          "rawDisplayName": "Item_6696_Name",
+          "slot": 0
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "幽梦之灵",
+          "itemID": 3142,
+          "price": 675,
+          "rawDescription": "GeneratedTip_Item_3142_Description",
+          "rawDisplayName": "Item_3142_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "带翼的月板甲",
+          "itemID": 3066,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_3066_Description",
+          "rawDisplayName": "Item_3066_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "轻灵之靴",
+          "itemID": 3009,
+          "price": 700,
+          "rawDescription": "GeneratedTip_Item_3009_Description",
+          "rawDisplayName": "Item_3009_Name",
+          "slot": 3
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 12,
+      "position": "JUNGLE",
+      "rawChampionName": "game_character_displayname_MonkeyKing",
+      "rawSkinName": "game_character_skin_displayname_MonkeyKing_16",
+      "respawnTimer": 0,
+      "riotId": "Player8",
+      "riotIdGameName": "Player8",
+      "riotIdTagLine": "71145",
+      "runes": {
+        "keystone": {
+          "displayName": "风暴掠袭者的狂涌",
+          "id": 8230,
+          "rawDescription": "perk_tooltip_PhaseRush",
+          "rawDisplayName": "perk_displayname_PhaseRush"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        }
+      },
+      "scores": {
+        "assists": 5,
+        "creepScore": 140,
+        "deaths": 3,
+        "kills": 5,
+        "wardScore": 20.979970932006836
+      },
+      "skinID": 16,
+      "skinName": "永恒之森 孙悟空",
+      "summonerName": "Player8",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "原初惩戒",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarUtility_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarUtility_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "暗黑元首",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之戒",
+          "itemID": 1056,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1056_Description",
+          "rawDisplayName": "Item_1056_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "黯炎火炬",
+          "itemID": 2503,
+          "price": 700,
+          "rawDescription": "GeneratedTip_Item_2503_Description",
+          "rawDisplayName": "Item_2503_Name",
+          "slot": 1
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "探索者的护臂",
+          "itemID": 2420,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_2420_Description",
+          "rawDisplayName": "Item_2420_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "黑暗封印",
+          "itemID": 1082,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_1082_Description",
+          "rawDisplayName": "Item_1082_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "猩红明朗",
+          "itemID": 3171,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3171_Description",
+          "rawDisplayName": "Item_3171_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "影焰",
+          "itemID": 4645,
+          "price": 900,
+          "rawDescription": "GeneratedTip_Item_4645_Description",
+          "rawDisplayName": "Item_4645_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "MIDDLE",
+      "rawChampionName": "game_character_displayname_Syndra",
+      "rawSkinName": "game_character_skin_displayname_Syndra_1",
+      "respawnTimer": 0,
+      "riotId": "Player?#10009",
+      "riotIdGameName": "Player9",
+      "riotIdTagLine": "22485",
+      "runes": {
+        "keystone": {
+          "displayName": "奥术彗星",
+          "id": 8229,
+          "rawDescription": "perk_tooltip_ArcaneComet",
+          "rawDisplayName": "perk_displayname_ArcaneComet"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "启迪",
+          "id": 8300,
+          "rawDescription": "perkstyle_tooltip_7203",
+          "rawDisplayName": "perkstyle_displayname_7203"
+        }
+      },
+      "scores": {
+        "assists": 2,
+        "creepScore": 130,
+        "deaths": 1,
+        "kills": 12,
+        "wardScore": 11.41718864440918
+      },
+      "skinID": 1,
+      "skinName": "仲裁圣女 辛德拉",
+      "summonerName": "Player?#10009",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "幽灵疾步",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "逆羽",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之弓",
+          "itemID": 1086,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1086_Description",
+          "rawDisplayName": "Item_1086_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "萃取",
+          "itemID": 1083,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1083_Description",
+          "rawDisplayName": "Item_1083_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "育恩塔尔荒野箭",
+          "itemID": 3032,
+          "price": 750,
+          "rawDescription": "GeneratedTip_Item_3032_Description",
+          "rawDisplayName": "Item_3032_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "纳沃利烁刃",
+          "itemID": 6675,
+          "price": 950,
+          "rawDescription": "GeneratedTip_Item_6675_Description",
+          "rawDisplayName": "Item_6675_Name",
+          "slot": 3
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 11,
+      "position": "BOTTOM",
+      "rawChampionName": "game_character_displayname_Xayah",
+      "rawSkinName": "game_character_displayname_Xayah",
+      "respawnTimer": 0,
+      "riotId": "Player10",
+      "riotIdGameName": "Player10",
+      "riotIdTagLine": "32916",
+      "runes": {
+        "keystone": {
+          "displayName": "致命节奏",
+          "id": 8008,
+          "rawDescription": "perk_tooltip_LethalTempo",
+          "rawDisplayName": "perk_displayname_LethalTempo"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "启迪",
+          "id": 8300,
+          "rawDescription": "perkstyle_tooltip_7203",
+          "rawDisplayName": "perkstyle_displayname_7203"
+        }
+      },
+      "scores": {
+        "assists": 4,
+        "creepScore": 150,
+        "deaths": 2,
+        "kills": 1,
+        "wardScore": 14.629511833190918
+      },
+      "skinID": 0,
+      "skinName": "逆羽",
+      "summonerName": "Player10",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "屏障",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerBarrier_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerBarrier_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "魂锁典狱长",
+      "isBot": false,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "星界据守",
+          "itemID": 3869,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3869_Description",
+          "rawDisplayName": "Item_3869_Name",
+          "slot": 0
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "钢铁烈阳之匣",
+          "itemID": 3190,
+          "price": 700,
+          "rawDescription": "GeneratedTip_Item_3190_Description",
+          "rawDisplayName": "Item_3190_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "轻灵之靴",
+          "itemID": 3009,
+          "price": 700,
+          "rawDescription": "GeneratedTip_Item_3009_Description",
+          "rawDisplayName": "Item_3009_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "抗魔斗篷",
+          "itemID": 1033,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1033_Description",
+          "rawDisplayName": "Item_1033_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "布甲",
+          "itemID": 1029,
+          "price": 300,
+          "rawDescription": "GeneratedTip_Item_1029_Description",
+          "rawDisplayName": "Item_1029_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "燃烧宝石",
+          "itemID": 3067,
+          "price": 150,
+          "rawDescription": "GeneratedTip_Item_3067_Description",
+          "rawDisplayName": "Item_3067_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "神谕透镜",
+          "itemID": 3364,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3364_Description",
+          "rawDisplayName": "Item_3364_Name",
+          "slot": 6
+        }
+      ],
+      "level": 10,
+      "position": "UTILITY",
+      "rawChampionName": "game_character_displayname_Thresh",
+      "rawSkinName": "game_character_skin_displayname_Thresh_17",
+      "respawnTimer": 0,
+      "riotId": "Player1",
+      "riotIdGameName": "Player1",
+      "riotIdTagLine": "31021",
+      "runes": {
+        "keystone": {
+          "displayName": "冰川增幅",
+          "id": 8351,
+          "rawDescription": "perk_tooltip_GlacialAugment",
+          "rawDisplayName": "perk_displayname_GlacialAugment"
+        },
+        "primaryRuneTree": {
+          "displayName": "启迪",
+          "id": 8300,
+          "rawDescription": "perkstyle_tooltip_7203",
+          "rawDisplayName": "perkstyle_displayname_7203"
+        },
+        "secondaryRuneTree": {
+          "displayName": "坚决",
+          "id": 8400,
+          "rawDescription": "perkstyle_tooltip_7204",
+          "rawDisplayName": "perkstyle_displayname_7204"
+        }
+      },
+      "scores": {
+        "assists": 8,
+        "creepScore": 20,
+        "deaths": 6,
+        "kills": 2,
+        "wardScore": 52.123138427734375
+      },
+      "skinID": 17,
+      "skinName": "灵魂莲华 锤石",
+      "summonerName": "Player1",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "海克斯闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlashPerksHextechFlashtraptionV2_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlashPerksHextechFlashtraptionV2_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "引燃",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerDot_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    }
+  ],
+  "events": {
+    "Events": [
+      {
+        "EventID": 0,
+        "EventName": "GameStart",
+        "EventTime": 0.02373499982059002
+      },
+      {
+        "EventID": 1,
+        "EventName": "MinionsSpawning",
+        "EventTime": 30.036212921142578
+      },
+      {
+        "Assisters": [],
+        "EventID": 2,
+        "EventName": "ChampionKill",
+        "EventTime": 111.89537811279297,
+        "KillerName": "Player7",
+        "VictimName": "Player2"
+      },
+      {
+        "EventID": 3,
+        "EventName": "FirstBlood",
+        "EventTime": 111.89537811279297,
+        "Recipient": "Player7"
+      },
+      {
+        "Assisters": [
+          "Player9"
+        ],
+        "EventID": 4,
+        "EventName": "ChampionKill",
+        "EventTime": 115.04025268554688,
+        "KillerName": "Player1",
+        "VictimName": "Player4"
+      },
+      {
+        "Assisters": [
+          "Player10"
+        ],
+        "EventID": 5,
+        "EventName": "ChampionKill",
+        "EventTime": 209.86940002441406,
+        "KillerName": "Player8",
+        "VictimName": "Player5"
+      },
+      {
+        "Assisters": [],
+        "EventID": 6,
+        "EventName": "ChampionKill",
+        "EventTime": 267.4090881347656,
+        "KillerName": "Player7",
+        "VictimName": "Player2"
+      },
+      {
+        "Assisters": [
+          "Player1"
+        ],
+        "EventID": 7,
+        "EventName": "ChampionKill",
+        "EventTime": 306.1731872558594,
+        "KillerName": "Player9",
+        "VictimName": "Player4"
+      },
+      {
+        "Assisters": [],
+        "EventID": 8,
+        "EventName": "ChampionKill",
+        "EventTime": 353.1709899902344,
+        "KillerName": "Player10",
+        "VictimName": "Player5"
+      },
+      {
+        "Assisters": [],
+        "EventID": 9,
+        "EventName": "ChampionKill",
+        "EventTime": 368.0794982910156,
+        "KillerName": "Player3",
+        "VictimName": "Player8"
+      },
+      {
+        "Assisters": [
+          "Player8"
+        ],
+        "EventID": 10,
+        "EventName": "ChampionKill",
+        "EventTime": 369.6092529296875,
+        "KillerName": "Player10",
+        "VictimName": "Player3"
+      },
+      {
+        "Assisters": [],
+        "EventID": 11,
+        "EventName": "HordeKill",
+        "EventTime": 487.2959899902344,
+        "KillerName": "Player8",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [],
+        "DragonType": "Fire",
+        "EventID": 12,
+        "EventName": "DragonKill",
+        "EventTime": 488.5556335449219,
+        "KillerName": "Player3",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [],
+        "EventID": 13,
+        "EventName": "HordeKill",
+        "EventTime": 500.3985595703125,
+        "KillerName": "Player8",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [],
+        "EventID": 14,
+        "EventName": "ChampionKill",
+        "EventTime": 503.500732421875,
+        "KillerName": "Player7",
+        "VictimName": "Player2"
+      },
+      {
+        "Assisters": [],
+        "EventID": 15,
+        "EventName": "HordeKill",
+        "EventTime": 509.1783447265625,
+        "KillerName": "Player8",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "Player4"
+        ],
+        "EventID": 16,
+        "EventName": "ChampionKill",
+        "EventTime": 562.1084594726562,
+        "KillerName": "Player6",
+        "VictimName": "Player9"
+      },
+      {
+        "Assisters": [],
+        "EventID": 17,
+        "EventName": "ChampionKill",
+        "EventTime": 572.362548828125,
+        "KillerName": "Player7",
+        "VictimName": "Player2"
+      },
+      {
+        "Assisters": [
+          "Player1"
+        ],
+        "EventID": 18,
+        "EventName": "ChampionKill",
+        "EventTime": 574.177978515625,
+        "KillerName": "Player8",
+        "VictimName": "Player4"
+      },
+      {
+        "Assisters": [],
+        "EventID": 19,
+        "EventName": "ChampionKill",
+        "EventTime": 587.107177734375,
+        "KillerName": "Player3",
+        "VictimName": "Player10"
+      },
+      {
+        "Assisters": [
+          "Player10",
+          "Player9"
+        ],
+        "EventID": 20,
+        "EventName": "ChampionKill",
+        "EventTime": 672.3905639648438,
+        "KillerName": "Player8",
+        "VictimName": "Player3"
+      },
+      {
+        "Assisters": [
+          "Player3",
+          "Player4"
+        ],
+        "EventID": 21,
+        "EventName": "ChampionKill",
+        "EventTime": 674.2906494140625,
+        "KillerName": "Player5",
+        "VictimName": "Player8"
+      },
+      {
+        "Assisters": [],
+        "EventID": 22,
+        "EventName": "TurretKilled",
+        "EventTime": 677.7317504882812,
+        "KillerName": "Player7",
+        "TurretKilled": "Turret_TOrder_L2_P3_1509986696_0"
+      },
+      {
+        "EventID": 23,
+        "EventName": "FirstBrick",
+        "EventTime": 677.7317504882812,
+        "KillerName": "Player7"
+      },
+      {
+        "Assisters": [
+          "Player8",
+          "Player9"
+        ],
+        "EventID": 24,
+        "EventName": "ChampionKill",
+        "EventTime": 681.7830810546875,
+        "KillerName": "Player10",
+        "VictimName": "Player5"
+      },
+      {
+        "Assisters": [
+          "Player5"
+        ],
+        "EventID": 25,
+        "EventName": "ChampionKill",
+        "EventTime": 688.5874633789062,
+        "KillerName": "Player4",
+        "VictimName": "Player9"
+      },
+      {
+        "Assisters": [
+          "Player9"
+        ],
+        "EventID": 26,
+        "EventName": "ChampionKill",
+        "EventTime": 692.9600219726562,
+        "KillerName": "Player10",
+        "VictimName": "Player4"
+      },
+      {
+        "Assisters": [
+          "Player3"
+        ],
+        "EventID": 27,
+        "EventName": "ChampionKill",
+        "EventTime": 718.3184204101562,
+        "KillerName": "Player2",
+        "VictimName": "Player7"
+      },
+      {
+        "Assisters": [
+          "Player1"
+        ],
+        "EventID": 28,
+        "EventName": "ChampionKill",
+        "EventTime": 781.108154296875,
+        "KillerName": "Player9",
+        "VictimName": "Player4"
+      },
+      {
+        "Assisters": [],
+        "EventID": 29,
+        "EventName": "ChampionKill",
+        "EventTime": 786.4058837890625,
+        "KillerName": "Player8",
+        "VictimName": "Player3"
+      },
+      {
+        "Assisters": [
+          "Player6"
+        ],
+        "EventID": 30,
+        "EventName": "ChampionKill",
+        "EventTime": 800.0098266601562,
+        "KillerName": "Player5",
+        "VictimName": "Player1"
+      },
+      {
+        "Assisters": [],
+        "EventID": 31,
+        "EventName": "ChampionKill",
+        "EventTime": 801.1082763671875,
+        "KillerName": "Player10",
+        "VictimName": "Player6"
+      },
+      {
+        "Assisters": [
+          "Player6"
+        ],
+        "EventID": 32,
+        "EventName": "ChampionKill",
+        "EventTime": 806.163330078125,
+        "KillerName": "Player5",
+        "VictimName": "Player8"
+      },
+      {
+        "EventID": 33,
+        "EventName": "Multikill",
+        "EventTime": 806.163330078125,
+        "KillStreak": 2,
+        "KillerName": "Player5"
+      },
+      {
+        "Assisters": [
+          "Player6"
+        ],
+        "EventID": 34,
+        "EventName": "ChampionKill",
+        "EventTime": 808.9966430664062,
+        "KillerName": "Player5",
+        "VictimName": "Player9"
+      },
+      {
+        "EventID": 35,
+        "EventName": "Multikill",
+        "EventTime": 808.9966430664062,
+        "KillStreak": 3,
+        "KillerName": "Player5"
+      },
+      {
+        "Assisters": [],
+        "EventID": 36,
+        "EventName": "ChampionKill",
+        "EventTime": 817.4579467773438,
+        "KillerName": "Player10",
+        "VictimName": "Player5"
+      },
+      {
+        "Assisters": [],
+        "EventID": 37,
+        "EventName": "ChampionKill",
+        "EventTime": 866.4165649414062,
+        "KillerName": "Player3",
+        "VictimName": "Player1"
+      },
+      {
+        "Assisters": [
+          "Player9"
+        ],
+        "EventID": 38,
+        "EventName": "ChampionKill",
+        "EventTime": 869.2005615234375,
+        "KillerName": "Player10",
+        "VictimName": "Player6"
+      },
+      {
+        "Assisters": [],
+        "EventID": 39,
+        "EventName": "ChampionKill",
+        "EventTime": 892.58349609375,
+        "KillerName": "Player3",
+        "VictimName": "Player9"
+      },
+      {
+        "Assisters": [],
+        "EventID": 40,
+        "EventName": "ChampionKill",
+        "EventTime": 892.58349609375,
+        "KillerName": "Player10",
+        "VictimName": "Player4"
+      },
+      {
+        "Assisters": [
+          "Player9"
+        ],
+        "EventID": 41,
+        "EventName": "ChampionKill",
+        "EventTime": 893.5355834960938,
+        "KillerName": "Player8",
+        "VictimName": "Player3"
+      },
+      {
+        "Assisters": [],
+        "EventID": 42,
+        "EventName": "TurretKilled",
+        "EventTime": 900.0531005859375,
+        "KillerName": "Player5",
+        "TurretKilled": "Turret_TChaos_L1_P3_2254202041_0"
+      },
+      {
+        "Assisters": [
+          "Player10"
+        ],
+        "DragonType": "Earth",
+        "EventID": 43,
+        "EventName": "DragonKill",
+        "EventTime": 920.1611328125,
+        "KillerName": "Player8",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [],
+        "EventID": 44,
+        "EventName": "TurretKilled",
+        "EventTime": 950.84326171875,
+        "KillerName": "Player1",
+        "TurretKilled": "Turret_TOrder_L1_P3_1242677625_0"
+      },
+      {
+        "Assisters": [
+          "Player3"
+        ],
+        "EventID": 45,
+        "EventName": "ChampionKill",
+        "EventTime": 952.9031982421875,
+        "KillerName": "Player5",
+        "VictimName": "Player9"
+      },
+      {
+        "Assisters": [
+          "Player7"
+        ],
+        "EventID": 46,
+        "EventName": "ChampionKill",
+        "EventTime": 969.6904296875,
+        "KillerName": "Player10",
+        "VictimName": "Player3"
+      },
+      {
+        "Assisters": [
+          "Player3"
+        ],
+        "EventID": 47,
+        "EventName": "ChampionKill",
+        "EventTime": 973.1280517578125,
+        "KillerName": "Player4",
+        "VictimName": "Player7"
+      },
+      {
+        "Assisters": [
+          "Player1"
+        ],
+        "EventID": 48,
+        "EventName": "HeraldKill",
+        "EventTime": 982.2089233398438,
+        "KillerName": "Player8",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "Player8",
+          "Player1",
+          "Player9"
+        ],
+        "EventID": 49,
+        "EventName": "ChampionKill",
+        "EventTime": 998.4510498046875,
+        "KillerName": "Player10",
+        "VictimName": "Player5"
+      },
+      {
+        "Assisters": [
+          "Player8",
+          "Player9"
+        ],
+        "EventID": 50,
+        "EventName": "ChampionKill",
+        "EventTime": 1003.95947265625,
+        "KillerName": "Player10",
+        "VictimName": "Player4"
+      },
+      {
+        "EventID": 51,
+        "EventName": "Multikill",
+        "EventTime": 1003.95947265625,
+        "KillStreak": 2,
+        "KillerName": "Player10"
+      },
+      {
+        "Assisters": [],
+        "EventID": 52,
+        "EventName": "TurretKilled",
+        "EventTime": 1008.9342041015625,
+        "KillerName": "Player2",
+        "TurretKilled": "Turret_TChaos_L2_P3_2521511112_0"
+      },
+      {
+        "Assisters": [
+          "Player5",
+          "Player4"
+        ],
+        "EventID": 53,
+        "EventName": "ChampionKill",
+        "EventTime": 1055.34130859375,
+        "KillerName": "Player2",
+        "VictimName": "Player9"
+      },
+      {
+        "Assisters": [],
+        "EventID": 54,
+        "EventName": "TurretKilled",
+        "EventTime": 1081.2430419921875,
+        "KillerName": "Player7",
+        "TurretKilled": "Turret_TOrder_L2_P2_1526764315_0"
+      },
+      {
+        "Assisters": [
+          "Player8"
+        ],
+        "EventID": 55,
+        "EventName": "ChampionKill",
+        "EventTime": 1090.4600830078125,
+        "KillerName": "Player10",
+        "VictimName": "Player5"
+      },
+      {
+        "Assisters": [
+          "Player9"
+        ],
+        "EventID": 56,
+        "EventName": "TurretKilled",
+        "EventTime": 1133.4599609375,
+        "KillerName": "Player1",
+        "TurretKilled": "Turret_TOrder_L0_P3_3795288474_0"
+      },
+      {
+        "EventID": 57,
+        "EventName": "GameEnd",
+        "EventTime": 1196.824462890625,
+        "Result": "Win"
+      }
+    ]
+  },
+  "gameData": {
+    "gameMode": "CLASSIC",
+    "gameTime": 1197.1185302734375,
+    "mapName": "Map11",
+    "mapNumber": 11,
+    "mapTerrain": "Default"
+  }
+}

@@ -1,0 +1,126 @@
+/* MVP 时刻页（PLAYER OF THE GAME）：1920×1080 场景页，LCK 金黑风。
+   由 src/pages/mvp-broadcast.js 内联注入，无独立静态路由。 */
+.mvp-html, .mv-body { margin: 0; padding: 0; background: #0a0e13; }
+.mvp-broadcast {
+  position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: hidden;
+  font-family: 'Rift Broadcast', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  color: #f4f2ee; background: radial-gradient(120% 140% at 50% 30%, #131a24 0%, #0a0e13 58%, #060a0e 100%);
+  opacity: 0; transition: opacity .5s ease;
+}
+.mvp-broadcast.mv-in { opacity: 1; }
+.mvp-broadcast .mv-bg { position: absolute; inset: 0; pointer-events: none; }
+.mvp-broadcast .mv-beam {
+  position: absolute; width: 60vw; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(200,170,110,.28), transparent);
+  transform: rotate(-14deg);
+}
+.mvp-broadcast .mv-beam.b1 { top: 30%; left: -8vw; }
+.mvp-broadcast .mv-beam.b2 { top: 62%; left: 24vw; opacity: .6; }
+
+/* 顶栏：左选手名+分路，右标题+MVP 徽标 */
+.mvp-broadcast .mv-top {
+  position: absolute; top: 0; left: 0; right: 0; height: 15vh;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 3.2vw; z-index: 3;
+}
+.mvp-broadcast .mv-name {
+  margin: 0; font-size: 4.6vh; font-weight: 900; letter-spacing: .06em; line-height: 1.05;
+  color: #f4f2ee; text-transform: uppercase;
+}
+.mvp-broadcast .mv-sub { display: flex; align-items: center; gap: 1.4vh; margin-top: 1vh; }
+.mvp-broadcast .mv-pos { width: 3.4vh; height: 3.4vh; display: inline-flex; }
+.mvp-broadcast .mv-pos img { width: 100%; height: 100%; object-fit: contain; }
+.mvp-broadcast .mv-pos-fb { font-size: 2.4vh; color: rgba(232,236,242,.55); font-style: normal; }
+.mvp-broadcast .mv-champ { font-size: 2.2vh; font-weight: 700; letter-spacing: .12em; color: #c8aa6e; text-transform: uppercase; }
+.mvp-broadcast .mv-award { text-align: right; }
+.mvp-broadcast .mv-kicker { display: block; font-size: 4.2vh; font-weight: 900; letter-spacing: .08em; line-height: 1; color: #f4f2ee; }
+.mvp-broadcast .mv-badge {
+  display: inline-block; margin-top: 1vh; padding: .5vh 1.6vh;
+  font-size: 2.2vh; font-weight: 900; letter-spacing: .3em; text-indent: .3em;
+  color: #0a0e13; background: linear-gradient(180deg, #f0dfae, #c8aa6e);
+  border-radius: 1vh;
+}
+
+/* 中央舞台：英雄原画大面板 + 右侧 ITEMS 列 */
+.mvp-broadcast .mv-stage {
+  position: absolute; top: 16vh; left: 3.2vw; right: 3.2vw; bottom: 26vh;
+  display: flex; align-items: stretch; gap: 2.4vw; z-index: 2;
+}
+.mvp-broadcast .mv-art {
+  position: relative; flex: 1 1 auto; overflow: hidden;
+  border: 1px solid rgba(200,170,110,.35); border-radius: 1.2vh;
+  background: linear-gradient(135deg, #16202e, #0c1219);
+  box-shadow: 0 2vh 6vh rgba(0,0,0,.55);
+}
+.mvp-broadcast .mv-art-img, .mv-art-img img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mvp-broadcast .mv-art-img img { object-fit: cover; object-position: center 22%; }
+.mvp-broadcast .mv-art::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(6,10,14,.72) 0%, rgba(6,10,14,.12) 38%, rgba(6,10,14,0) 60%);
+  pointer-events: none;
+}
+/* K/D/A 叠在原画左下 */
+.mvp-broadcast .mv-kda {
+  position: absolute; left: 2.6vw; bottom: 2.6vh; z-index: 3;
+  display: flex; align-items: baseline; gap: 1.2vh;
+  text-shadow: 0 .4vh 1.6vh rgba(0,0,0,.85);
+}
+.mvp-broadcast .mv-kda-num { display: inline-flex; align-items: baseline; gap: .6vh; }
+.mvp-broadcast .mv-kda-num b { font-size: 7.2vh; font-weight: 900; line-height: 1; color: #f4f2ee; }
+.mvp-broadcast .mv-kda-num i { font-size: 1.8vh; font-style: normal; font-weight: 700; letter-spacing: .18em; color: rgba(232,236,242,.72); }
+.mvp-broadcast .mv-kda-sep { font-size: 5vh; font-weight: 900; color: rgba(232,236,242,.4); }
+
+/* ITEMS 列 */
+.mvp-broadcast .mv-items-panel {
+  flex: 0 0 13vw; display: flex; flex-direction: column; gap: 1.6vh;
+  padding: 2vh 1.6vw; border: 1px solid rgba(200,170,110,.28); border-radius: 1.2vh;
+  background: rgba(10,14,19,.72);
+}
+.mvp-broadcast .mv-items-panel h3 {
+  margin: 0; font-size: 1.9vh; font-weight: 900; letter-spacing: .3em; color: #c8aa6e;
+}
+.mvp-broadcast .mv-item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2vh; flex: 1; }
+.mvp-broadcast .mv-item-slot {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1; border-radius: .9vh; overflow: hidden;
+  background: rgba(22,32,46,.9); border: 1px solid rgba(200,170,110,.22);
+}
+.mvp-broadcast .mv-item-slot.trinket { border-color: rgba(200,170,110,.45); }
+.mvp-broadcast .mv-item-slot .icon, .mv-item-slot .icon img { width: 100%; height: 100%; }
+.mvp-broadcast .mv-item-slot img { object-fit: cover; }
+.mvp-broadcast .mv-item-slot .icon-fb { color: rgba(232,236,242,.35); font-style: normal; }
+
+/* 底部统计条 */
+.mvp-broadcast .mv-stats {
+  position: absolute; left: 3.2vw; right: 3.2vw; bottom: 3.2vh; height: 19vh;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 2vw; z-index: 3;
+}
+.mvp-broadcast .mv-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4vh;
+  border-top: 1px solid rgba(200,170,110,.3);
+  padding-top: 1.6vh;
+}
+.mvp-broadcast .mv-stat-val { font-size: 5.6vh; font-weight: 900; line-height: 1; color: #f4f2ee; }
+.mvp-broadcast .mv-stat-val:empty::after { content: '—'; color: rgba(232,236,242,.4); }
+.mvp-broadcast .mv-stat.pos .mv-stat-val { color: #7bd88f; }
+.mvp-broadcast .mv-stat.neg .mv-stat-val { color: #e07a7a; }
+.mvp-broadcast .mv-stat-label { font-size: 1.9vh; font-weight: 800; letter-spacing: .22em; color: #c8aa6e; }
+.mvp-broadcast .mv-stat-note { font-size: 1.5vh; color: rgba(232,236,242,.55); }
+
+/* 待评选占位 */
+.mvp-broadcast .mv-waiting {
+  position: absolute; inset: 16vh 3.2vw 26vh 3.2vw; z-index: 4;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6,10,14,.55); border-radius: 1.2vh;
+  opacity: 0; pointer-events: none; transition: opacity .4s ease;
+}
+.mvp-broadcast .mv-waiting span { font-size: 3.4vh; font-weight: 800; letter-spacing: .3em; color: rgba(232,236,242,.8); }
+.mvp-broadcast[data-state="waiting"] .mv-waiting { opacity: 1; }
+
+/* DEMO 徽标 */
+.mvp-broadcast .mv-demo-badge {
+  position: absolute; right: 1.6vw; bottom: 1.6vh; z-index: 5;
+  padding: .4vh 1vh; font-size: 1.4vh; font-weight: 800; letter-spacing: .18em;
+  color: #c8aa6e; border: 1px solid rgba(200,170,110,.55); border-radius: .6vh;
+}
+.mvp-broadcast .mv-demo-badge[hidden] { display: none; }

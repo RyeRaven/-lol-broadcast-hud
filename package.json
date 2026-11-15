@@ -1,0 +1,65 @@
+{
+  "name": "khada-jhin",
+  "version": "0.2.2",
+  "private": true,
+  "description": "Windows 本地 LoL 赛事导播 MVP：模拟数据、OBS Overlay 与控台",
+  "author": "Khada Jhin Team",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "server": "node src/main.js",
+    "dev": "electron .",
+    "dist": "electron-builder --win nsis --x64",
+    "dist:dir": "electron-builder --win dir --x64",
+    "test": "node --test",
+    "shot": "node tools/shot-overlays.cjs",
+    "setup-obs": "node tools/setup-obs-scenes.js"
+  },
+  "build": {
+    "appId": "com.khadjhin.mvp",
+    "productName": "Khada Jhin",
+    "asar": false,
+    "electronDist": "node_modules/electron/dist",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "public/**/*",
+      "data/**/*",
+      "!data/config.json",
+      "package.json",
+      "README.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Khada Jhin"
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "^45.3.1",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.5"
+  }
+}
