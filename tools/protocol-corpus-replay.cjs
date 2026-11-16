@@ -12,7 +12,8 @@
 //   kills / deaths / minionsKilled → exact（产物 precision=exact，floor 校验 100%）
 //   cs            → exact（minions lane exact cov1 + jungle floorPass 296/299；约 1% 玩家帧可能 ±1，
 //                    仍远好于 LCDA 的 10 步量化；见 DECODE-CAPABILITY 白皮书）
-//   xp / totalGold → exact（floor(decoded)==真值 100%，n=256/252），解码缺口帧发 null
+//   xp / totalGold → quantized（floor(decoded)==真值 100%，n=256/252；残差 IEEE 字节只能保证
+//                   亚单位精度，不许冒充 exact。页面会标「±1 以内」并把解码值优先于估算）
 //   assists       → estimated（union rank 不严格；LCDA 的 KDA 本身可信，协议流不抢 KDA）
 // --conservative：全部回落到产物自带 precision 标签（xp/gold=estimated、cs=quantized）。
 //
@@ -42,7 +43,7 @@ function decidePrecision(fields, conservative) {
       totalGold: fields.totalGold.precision
     };
   }
-  return { kills: 'exact', deaths: 'exact', assists: 'estimated', cs: 'exact', xp: 'exact', totalGold: 'exact' };
+  return { kills: 'exact', deaths: 'exact', assists: 'estimated', cs: 'exact', xp: 'quantized', totalGold: 'quantized' };
 }
 
 // 把一个解码 JSON 变成逐帧 feed payload 数组（纯函数，测试直接调用）。

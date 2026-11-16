@@ -20,7 +20,7 @@ const { buildPostGame } = require('./post-game');
 const { parseTimelineGold } = require('./gold-timeline');
 const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
-const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField } = require('./protocol-feed');
+const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
 const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
 const { readBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
 const { handleLogoUploadApi } = require('./uploads');
@@ -522,8 +522,16 @@ function protocolResolver() {
     // 伪造成 0 精确值（t39 实测：只发 xp 的包曾把全队 csExact/totalGold 变 0，KDA 变 0/0/0）。
     // 缺席字段直接不返回键，protocolFields 取到 undefined 才会回落 null。
     const picked = {};
-    for (const key of ['cs', 'totalGold', 'xp', 'kills', 'deaths', 'assists']) {
+    // cs/KDA 只认 exact；gold/xp 额外接受 quantized（残差 IEEE 字节解出的关键帧值，亚单位漂移），
+    // 精度一起带给 live-data → capability，页面才知道该标「解码值 ±1」而不是「精确」。
+    for (const key of ['cs', 'kills', 'deaths', 'assists']) {
       if (isExactField(record, key)) picked[key] = record[key];
+    }
+    for (const key of ['totalGold', 'xp']) {
+      if (!isDecodedField(record, key)) continue;
+      picked[key] = record[key];
+      picked.precision = picked.precision || {};
+      picked.precision[key] = decodedPrecision(record, key);
     }
     // asOf 只在真有精确字段时才有意义；缺席同理不能传 null（Number(null) === 0）。
     if (Object.keys(picked).length && record.asOf !== null && record.asOf !== undefined) picked.asOf = record.asOf;
@@ -541,8 +549,9 @@ function onProtocolFeedUpdate(snapshot) {
     && snapshot.players.some(record => isExactField(record, 'kills') && isExactField(record, 'deaths') && isExactField(record, 'assists'));
   state.capability = applyProtocolAvailability(state.capability, active, {
     cs: presence.cs,
-    gold: presence.gold,
-    xp: presence.xp,
+    // gold/xp 传精度档（'exact' / 'quantized'）：quantized 时页面标量化值，不能冒充精确值。
+    gold: presence.goldPrecision || presence.gold,
+    xp: presence.xpPrecision || presence.xp,
     kda: protocolKda
   });
   state.protocolDecode = active && Array.isArray(snapshot.players) && snapshot.players.length > 0;
@@ -564,7 +573,12 @@ function tick() {
     if (state.gameTime % 17 === 0) state.blue.score += 1;
     if (state.gameTime % 29 === 0) state.red.score += 1;
     state.blue.gold += 38; state.red.gold += 35;
-    state.players.forEach((p, i) => { p.cs += i % 2; p.level = Math.min(18, p.level + (state.gameTime % 73 === i ? 1 : 0)); });
+    // 补刀按 ~10 cs/min 的真人节奏涨，绝不再「每秒给奇数位 +1」（旧实现跑满 90 分钟能把
+    // 估算经济放大到 10 万级，中栏显示 107.7K 这种假数字）。
+    state.players.forEach((p, i) => {
+      if ((state.gameTime + i * 2) % 6 === 0) p.cs += 1;
+      p.level = Math.min(18, p.level + (state.gameTime % 73 === i ? 1 : 0));
+    });
   } else if (state.mode === 'mock' && state.phase === 'draft') {
     state.draft.timer -= 1; if (state.draft.timer <= 0) { state.draft.timer = 30; state.draft.active = state.draft.active === 'blue' ? 'red' : 'blue'; }
   }

@@ -96,6 +96,12 @@ function protocolFields(record) {
     const value = Number(source.asOf);
     return Number.isFinite(value) && value >= 0 ? value : null;
   })();
+  // 精度声明：gold/xp 可能是 quantized（残差字节解出的关键帧值，亚单位漂移）；
+  // 没带 precision 的老包按 exact 兼容（它只有走 exact 路径才进得来）。
+  const precisionOf = key => {
+    const precision = source && source.precision && typeof source.precision === 'object' ? source.precision[key] : null;
+    return precision === 'exact' || precision === 'quantized' ? precision : null;
+  };
   // KDA 三项必须同时存在才算精确：缺一项就整组作废，绝不用 0 补齐。
   const kills = pick('kills');
   const deaths = pick('deaths');
@@ -103,10 +109,15 @@ function protocolFields(record) {
   const kdaExact = kills !== null && deaths !== null && assists !== null
     ? { kills, deaths, assists, asOf }
     : null;
+  const totalGold = pick('totalGold');
+  const xp = pick('xp');
   return {
     csExact: pick('cs'),
-    totalGold: pick('totalGold'),
-    xp: pick('xp'),
+    totalGold,
+    xp,
+    // 值可用但精度只有 quantized 时，页面必须标注「解码值 ±1」，不能写成精确值。
+    goldPrecision: totalGold === null ? null : (precisionOf('totalGold') || 'exact'),
+    xpPrecision: xp === null ? null : (precisionOf('xp') || 'exact'),
     kdaExact,
     asOf
   };
@@ -148,7 +159,9 @@ function normalizePlayer(player, options = {}) {
     // 协议流精确值；解码器不可用时是 null，页面必须显式降级，不能当成 0 或估算值。
     csExact: protocol.csExact,
     totalGold: protocol.totalGold,
+    totalGoldPrecision: protocol.goldPrecision,
     xp: protocol.xp,
+    xpPrecision: protocol.xpPrecision,
     // 精确值对应的游戏时间（秒）；对应字段为 null 时也必须是 null，不能挂一个假时刻。
     csAsOf: protocol.csExact === null ? null : protocol.asOf,
     xpAsOf: protocol.xp === null ? null : protocol.asOf,
@@ -433,10 +446,21 @@ function normalizeLiveState(payload, options = {}) {
   const protocolDecode = players.some(player => player.csExact !== null || player.totalGold !== null || player.xp !== null);
   // 逐字段 presence：协议流本轮真正解出的字段才允许在 capability 里标 exact。
   // 不能用 protocolDecode 一个布尔值把 cs/gold/xp 一起升级——全队 cs 都是 null 时那样会伪造精确补刀。
+  const strongest = key => {
+    const tiers = players.map(player => player[key]);
+    if (tiers.includes('exact')) return 'exact';
+    if (tiers.includes('quantized')) return 'quantized';
+    return null;
+  };
+  const goldTier = strongest('totalGoldPrecision');
+  const xpTier = strongest('xpPrecision');
   const protocolFields = {
     cs: players.some(player => player.csExact !== null),
+    // gold/xp 是「有值就存在」，另带精度档：quantized 时 capability 只能标量化值。
     gold: players.some(player => player.totalGold !== null),
-    xp: players.some(player => player.xp !== null)
+    xp: players.some(player => player.xp !== null),
+    goldPrecision: goldTier,
+    xpPrecision: xpTier
   };
   // 数据可用性矩阵：页面按它决定画不画、按什么精度标（exact/quantized/estimated/unavailable）。
   // 模式默认 live-spectate（本函数只在 Live Client Data 有数据时才有意义），回放/离线由调用方显式指定。

@@ -1082,9 +1082,15 @@ var ICONS = {
     return Math.round(total);
   }
   function playerGoldOf(player) {
-    if (player && hasNumber(player.totalGold) && capUsable('totalGold')) return { value: num(player.totalGold), exact: true };
+    // 协议流解码出的 totalGold 永远优先于估算：估算是「装备 + 补刀 + KDA」，缺被动金币，差数千。
+    // 解码值可能只有 quantized 精度（残差字节解出的关键帧浮点值，±1 以内），要按精度标注，
+    // 不能一律写成「精确值」。
+    if (player && hasNumber(player.totalGold) && capUsable('totalGold')) {
+      var tier = player.totalGoldPrecision || capPrecision('totalGold');
+      return { value: num(player.totalGold), decoded: true, exact: tier === 'exact' };
+    }
     var estimate = playerGoldEstimate(player);
-    return estimate === null ? null : { value: estimate, exact: false };
+    return estimate === null ? null : { value: estimate, decoded: false, exact: false };
   }
   function diffMarkup(bluePlayer, redPlayer) {
     var blue = playerGoldOf(bluePlayer);
@@ -1094,7 +1100,10 @@ var ICONS = {
     }
     var diff = blue.value - red.value;
     var cls = diff > 0 ? 'blue' : diff < 0 ? 'red' : 'even';
-    var note = blue.exact && red.exact ? '对位经济差（协议流 totalGold 精确值）' : '对位经济差（估算：装备 + 补刀 + KDA）';
+    var note = blue.decoded && red.decoded
+      ? (blue.exact && red.exact ? '对位经济差（协议流 totalGold 精确值）'
+        : '对位经济差（协议流解码值：关键帧金币，±1 以内）')
+      : '对位经济差（估算：装备 + 补刀 + KDA，缺被动金币）';
     return '<span class="hb-diff ' + cls + '" title="' + esc(note) + '"><i class="hb-diff-bar"></i><b>' + esc(fmtDiffAbs(diff)) + '</b></span>';
   }
   function championMarkup(player) {

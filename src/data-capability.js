@@ -85,11 +85,32 @@ function liveSpectateFields(protocolDecode, pixelBars, protocolKda, protocolFiel
   const pixel = pixelBars === true;
   // 协议流逐字段 presence：本次真正解出的字段才允许标 exact；未传时按旧行为全开（直接调用方默认）。
   // normalizeLiveState 会按玩家对象算出 { cs, gold, xp } 再传进来，避免全队 cs/gold 都 null 时仍标 exact。
-  const presence = protocolFields && typeof protocolFields === 'object'
-    ? { cs: protocolFields.cs === true, gold: protocolFields.gold === true, xp: protocolFields.xp === true }
-    : { cs: protocol, gold: protocol, xp: protocol };
+  // gold/xp 可能多一档 quantized（解码器只能保证亚单位误差），据此决定标 exact 还是 quantized。
+  const tierOf = key => {
+    if (!(protocolFields && typeof protocolFields === 'object')) return protocol ? 'exact' : null;
+    const raw = protocolFields[key];
+    // 生产者可以用 { gold: true, goldPrecision: 'quantized' } 分开声明「有值」与「精度档」。
+    const declared = protocolFields[key === 'gold' ? 'goldPrecision' : 'xpPrecision'];
+    if (raw === 'quantized' || declared === 'quantized') return 'quantized';
+    return raw === true || raw === 'exact' || declared === 'exact' ? 'exact' : null;
+  };
+  const presence = {
+    cs: protocolFields && typeof protocolFields === 'object' ? protocolFields.cs === true : protocol,
+    gold: tierOf('gold') !== null,
+    xp: tierOf('xp') !== null
+  };
   const hasCs = protocol && presence.cs;
   const hasGold = protocol && presence.gold;
+  const goldTier = tierOf('gold');
+  const xpTier = tierOf('xp');
+  // 0xdd 的 gold/xp 是残差 IEEE 字节多数票解出的关键帧浮点值：按整数展示时等于 floor 真值，
+  // 但生产者只能诚实地声明 quantized（±1 以内），不能声明 exact。
+  const decodedGold = reason => (goldTier === 'quantized'
+    ? quantized('spectator-protocol', 1, reason + '：解码值有亚单位漂移（±1 金币内，按整数展示）')
+    : exact('spectator-protocol', reason + '：逐玩家金币（关键帧时刻的解码值）'));
+  const decodedXp = reason => (xpTier === 'quantized'
+    ? quantized('spectator-protocol', 1, reason + '：解码值有亚单位漂移（±1 经验内）')
+    : exact('spectator-protocol', reason + '：逐玩家经验（关键帧时刻的解码值，必须配合 xpAsOf）'));
   const hasXp = protocol && presence.xp;
   // 协议流解出的 KDA 与 LCDA 的 KDA 都是精确值，区别只在来源：前者来自 0xdd 关键帧
   // （t16 用单调码点秩解码，脱离真值 300/300），后者来自官方 REST。标清来源，
@@ -108,10 +129,10 @@ function liveSpectateFields(protocolDecode, pixelBars, protocolKda, protocolFiel
       ? exact('spectator-protocol', protocolReason + '：精确补刀（关键帧时刻的精确值，必须配合 csAsOf 标「N 秒前」）')
       : unavailable(protocol ? '协议流本轮没有精确补刀（该字段未解出），不能用 LCDA 的 10 补刀量化值冒充' : '协议流精确补刀尚未接入（t19 仍在攻坚），当前只有 LCDA 的 10 补刀量化值'),
     totalGold: hasGold
-      ? exact('spectator-protocol', protocolReason + '：逐玩家金币')
+      ? decodedGold(protocolReason)
       : unavailable(protocol ? '协议流本轮没有逐玩家金币（该字段未解出），不得用 estimateTeamGold 冒充' : 'Live Client Data 没有逐玩家金币字段；estimateTeamGold 是队伍级估算，不得冒充 totalGold'),
     xp: hasXp
-      ? exact('spectator-protocol', protocolReason + '：逐玩家经验（关键帧时刻的精确值，必须配合 xpAsOf）')
+      ? decodedXp(protocolReason)
       : unavailable(protocol ? '协议流本轮没有逐玩家经验（该字段未解出），不得用任何估算值冒充' : 'Live Client Data 没有逐玩家经验字段；t17 已证明 0xdd 的 gold/xp 无法用真值锚定'),
     csAsOf: hasCs
       ? exact('spectator-protocol', protocolReason + '：精确补刀对应的游戏时间（秒）')
@@ -260,17 +281,19 @@ function applyProtocolAvailability(matrix, active, options = {}) {
   // presence 必须由调用方按本包实际解出的字段传入：只有某字段真的有 exact 值时才允许升级，
   // 否则「包还新鲜」会把全队都解不出的 csExact 也标成精确值（BUG B）。
   // 兼容旧的 protocolKda 选项，但正式调用统一走 { cs, gold, xp, kda }。
+  // 值是 true / 'exact' / 'quantized' 三态：gold 与 xp 允许 quantized（亚单位误差），cs 只认 exact。
+  const tierOf = raw => (raw === 'quantized' ? 'quantized' : raw === true || raw === 'exact' ? 'exact' : null);
   const presence = {
     cs: options.cs === true,
-    gold: options.gold === true,
-    xp: options.xp === true,
+    gold: tierOf(options.gold) !== null,
+    xp: tierOf(options.xp) !== null,
     kda: options.kda === true || options.protocolKda === true
   };
   const fieldPresence = key => {
-    if (key === 'csExact' || key === 'csAsOf') return presence.cs;
-    if (key === 'totalGold') return presence.gold;
-    if (key === 'xp' || key === 'xpAsOf' || key === 'xpProgress') return presence.xp;
-    return false;
+    if (key === 'csExact' || key === 'csAsOf') return presence.cs ? 'exact' : null;
+    if (key === 'totalGold') return tierOf(options.gold);
+    if (key === 'xp' || key === 'xpAsOf' || key === 'xpProgress') return tierOf(options.xp);
+    return null;
   };
   // 只有本包真的带了三项齐全的 KDA，才把 KDA 的来源标成协议流；否则保持 LCDA。
   const kdaOn = on && protocolDecode && presence.kda;
@@ -279,15 +302,20 @@ function applyProtocolAvailability(matrix, active, options = {}) {
   let changed = false;
   for (const key of PROTOCOL_KEYS) {
     const entry = fields[key] || unavailable('字段未定义');
-    if (on && protocolDecode && fieldPresence(key)) {
-      if (entry.precision === 'exact' && entry.source === 'spectator-protocol') continue;
+    const tier = fieldPresence(key);
+    if (on && protocolDecode && tier) {
+      if (entry.precision === tier && entry.source === 'spectator-protocol') continue;
       const label = key === 'csExact' ? '精确补刀（关键帧时刻的精确值，必须配合 csAsOf 标「N 秒前」）'
-        : key === 'totalGold' ? '逐玩家金币（关键帧时刻的精确值）'
-          : key === 'xp' ? '逐玩家经验（关键帧时刻的精确值，必须配合 xpAsOf）'
+        : key === 'totalGold' ? '逐玩家金币（关键帧时刻的解码值）'
+          : key === 'xp' ? '逐玩家经验（关键帧时刻的解码值，必须配合 xpAsOf）'
             : key === 'csAsOf' ? '精确补刀对应的游戏时间（秒）'
-              : key === 'xpAsOf' ? '精确经验对应的游戏时间（秒）'
-                : '经验条进度（由精确 xp 与等级阈值计算）';
-      fields[key] = exact('spectator-protocol', protocolReason + '：' + label);
+              : key === 'xpAsOf' ? '解码经验对应的游戏时间（秒）'
+                : '经验条进度（由解码 xp 与等级阈值计算）';
+      // 残差字节解出的金币/经验只有亚单位精度，标 quantized 而不是 exact；
+      // quantum=1 表示「按整数展示时与真值一致」这一档诚实边界。
+      fields[key] = tier === 'quantized'
+        ? quantized('spectator-protocol', 1, protocolReason + '：' + label + '（解码值有亚单位漂移，±1 以内）')
+        : exact('spectator-protocol', protocolReason + '：' + label);
       changed = true;
     } else if (entry.source === 'spectator-protocol') {
       const reason = key === 'csExact' ? '协议流精确补刀尚未接入（t19 仍在攻坚），当前只有 LCDA 的 10 补刀量化值'

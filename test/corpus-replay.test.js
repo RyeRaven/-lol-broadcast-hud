@@ -75,7 +75,8 @@ test('buildFrames: 首帧全 0 + 逐字段取整与空值语义', () => {
 test('buildFrames: 默认精度矩阵 + --conservative 回落产物标签', () => {
   const dec = fixtureDec();
   const def = decidePrecision(dec.fields, false);
-  assert.deepStrictEqual(def, { kills: 'exact', deaths: 'exact', assists: 'estimated', cs: 'exact', xp: 'exact', totalGold: 'exact' });
+  // xp/totalGold 是残差 IEEE 字节解出的值：只能声明 quantized（±1 以内），不许冒充 exact。
+  assert.deepStrictEqual(def, { kills: 'exact', deaths: 'exact', assists: 'estimated', cs: 'exact', xp: 'quantized', totalGold: 'quantized' });
   const con = decidePrecision(dec.fields, true);
   assert.deepStrictEqual(con, { kills: 'exact', deaths: 'exact', assists: 'estimated', cs: 'quantized', xp: 'estimated', totalGold: 'estimated' });
   const frames = buildFrames(dec, { conservative: true });

@@ -17,6 +17,7 @@ const {
   MAX_INTERPOLATION_SPAN,
   detectMode,
   buildCapabilityMatrix,
+  applyProtocolAvailability,
   interpolateAt,
   fieldOf,
   precisionOf,
@@ -62,7 +63,7 @@ function loadHud() {
     '    playerItemSlots: playerItemSlots,',
     '    ownedItemCount: ownedItemCount,',
     '    barCells: barCells,',
-    '    csMarkup: csMarkup,',
+    '    csMarkup: csMarkup, playerGoldOf: playerGoldOf, diffMarkup: diffMarkup,',
     '    kdaOf: kdaOf,',
     '    capUsable: capUsable',
     '  };',
@@ -313,4 +314,77 @@ test('t20：HUD 按契约渲染 —— quantized 带 ≈、unavailable 画占位
   assert.equal(hud.csMarkup(player), '142');
   assert.equal(hud.kdaOf(player), '2/1/3');
   assert.equal(hud.capUsable('totalGold'), true);
+});
+
+// 协议流解码出的 totalGold/xp 只有亚单位精度（残差 IEEE 字节多数票），必须走 quantized 档：
+// 数值可用，但矩阵里绝不能升成 exact，否则 HUD/控台会把 ±1 的估算值写成「精确值」。
+test('t40：协议流 quantized 的 totalGold/xp 保持 quantized，失效后回落 unavailable', () => {
+  const base = buildCapabilityMatrix('live-spectate', {
+    protocolDecode: true,
+    protocolKda: true,
+    protocolFields: { cs: false, gold: true, xp: true, goldPrecision: 'quantized', xpPrecision: 'quantized' }
+  });
+  assert.equal(fieldOf(base, 'totalGold').precision, 'quantized');
+  assert.equal(isQuantized(base, 'totalGold'), true);
+  assert.equal(isExact(base, 'totalGold'), false);
+  assert.equal(isUsable(base, 'totalGold'), true);
+  assert.equal(fieldOf(base, 'xp').precision, 'quantized');
+  assert.equal(fieldOf(base, 'totalGold').source, 'spectator-protocol');
+
+  // exact 声明的生产者仍然升 exact（回放桥的兼容路径）。
+  const exactMatrix = buildCapabilityMatrix('live-spectate', {
+    protocolDecode: true,
+    protocolFields: { cs: false, gold: true, xp: true, goldPrecision: 'exact', xpPrecision: 'exact' }
+  });
+  assert.equal(fieldOf(exactMatrix, 'totalGold').precision, 'exact');
+
+  const off = applyProtocolAvailability(base, false);
+  assert.equal(isUsable(off, 'totalGold'), false);
+  assert.equal(fieldOf(off, 'totalGold').precision, 'unavailable');
+});
+
+// HUD 消费侧：中栏对位经济差必须用协议流解码出的 totalGold，标注按精度档区分；
+// 只有完全拿不到解码值时才退回「装备 + 补刀 + KDA」的估算（缺被动金币，会差数千）。
+test('t41：对位经济差优先用解码 totalGold，quantized 标 ±1，无解码值才退回估算', () => {
+  const hud = loadHud();
+  hud.setConfig({ players: [] });
+  const mk = (team, gold) => ({
+    team, name: team + 'Top', cs: 200, kills: 2, deaths: 1, assists: 3, items: [],
+    totalGold: gold, totalGoldPrecision: 'quantized'
+  });
+  const quantizedMatrix = buildCapabilityMatrix('live-spectate', {
+    protocolDecode: true,
+    protocolKda: true,
+    protocolFields: { cs: false, gold: true, xp: true, goldPrecision: 'quantized', xpPrecision: 'quantized' }
+  });
+  const blue = mk('blue', 12000);
+  const red = mk('red', 9000);
+  hud.setState({ mode: 'live', players: [blue, red], blue: {}, red: {}, capability: quantizedMatrix });
+  assert.equal(hud.capUsable('totalGold'), true);
+  const decoded = hud.playerGoldOf(blue);
+  assert.equal(decoded.value, 12000, '解码值必须原样使用，不能被估算值覆盖');
+  assert.equal(decoded.decoded, true);
+  assert.equal(decoded.exact, false);
+  const markup = hud.diffMarkup(blue, red);
+  assert.ok(markup.includes('3.0K'), '差值应取解码值 12000-9000：' + markup);
+  assert.ok(markup.includes('±1 以内'), 'quantized 标注必须写明 ±1，不能写成精确值：' + markup);
+
+  // exact 声明（回放桥）：标注改成「精确值」。
+  const exactMatrix = buildCapabilityMatrix('live-spectate', {
+    protocolDecode: true,
+    protocolFields: { cs: false, gold: true, xp: true, goldPrecision: 'exact', xpPrecision: 'exact' }
+  });
+  const blueExact = Object.assign({}, blue, { totalGoldPrecision: 'exact' });
+  const redExact = Object.assign({}, red, { totalGoldPrecision: 'exact' });
+  hud.setState({ mode: 'live', players: [blueExact, redExact], blue: {}, red: {}, capability: exactMatrix });
+  assert.ok(hud.diffMarkup(blueExact, redExact).includes('精确值'));
+
+  // 契约里 totalGold 不可用（老快照）：退回估算，并明确标「估算」。
+  const stale = { team: 'blue', name: 'BlueTop', cs: 200, kills: 2, deaths: 1, assists: 3, items: [], totalGold: 12000 };
+  const staleRed = { team: 'red', name: 'RedTop', cs: 180, kills: 1, deaths: 1, assists: 2, items: [], totalGold: 9000 };
+  hud.setState({ mode: 'live', players: [stale, staleRed], blue: {}, red: {}, capability: buildCapabilityMatrix('offline', {}) });
+  const estimated = hud.playerGoldOf(stale);
+  assert.equal(estimated.decoded, false);
+  assert.equal(estimated.value, 200 * 20 + 2 * 300 + 3 * 150);
+  assert.ok(hud.diffMarkup(stale, staleRed).includes('估算'));
 });

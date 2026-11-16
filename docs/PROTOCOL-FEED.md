@@ -194,10 +194,14 @@ curl -s http://127.0.0.1:3314/api/state | node -e "let s='';process.stdin.on('da
 | precision | 是否进 csExact / gold / xp / kdaExact | 说明 |
 | --- | --- | --- |
 | `exact` | 是 | 只有解码器能证明精确的字段才允许 |
-| `quantized` | 否 | 如 cs 的 10 量化值，只能走 LCDA 的 `cs`（quantized） |
+| `quantized`（gold / xp） | 是，但只进 totalGold / xp 且标 quantized（quantum=1） | 0xdd 的 xp/gold 由残差 IEEE 字节多数票解出：值就是关键帧时刻的浮点值，按整数展示等于真值，但只能声明「±1 以内」。页面/控台必须标量化值，不能写「精确」 |
+| `quantized`（其它字段，如 cs） | 否 | 例如 cs 的 10 量化值，只能走 LCDA 的 `cs`（quantized），不许进 csExact |
 | `estimated` | 否 | 插值/推测值 |
 | `unavailable` | 否 | 解不出 |
 | 未声明 | 否（默认 `estimated`） | **fail closed：没声明就不许标 exact** |
+
+消费侧规则：HUD 的对位经济差优先用协议流解出的 `totalGold`（exact 或 quantized 都优先于估算），
+只在没有解码值时退回 `装备 + 补刀 + KDA` 估算（缺被动金币，会差数千）。估算与解码值必须用不同文案标注。
 
 KDA 三项（kills/deaths/assists）必须全部 `exact` 且都有值才覆盖 LCDA；缺一项/有一项不是 exact，整组不覆盖，绝不用 0 补齐。
 
@@ -232,7 +236,7 @@ node tools/protocol-corpus-replay.cjs --file C:/Temp/obs4/dec_check.json \
 | --- | --- | --- |
 | kills / deaths / minionsKilled | exact | 产物 exact + floor 校验 100%（300/300） |
 | cs | exact | minions exact cov1 + jungle floorPass 296/299（约 1% 帧可能 ±1，远好于 LCDA 的 10 步量化） |
-| xp / totalGold | exact | floor(decoded)==真值 100%（n=256/252）；解码缺口帧发 null |
+| xp / totalGold | quantized | floor(decoded)==真值 100%（n=256/252），但残差字节只保证亚单位精度；解码缺口帧发 null |
 | assists | estimated | union rank 不严格；LCDA 的 KDA 本身可信，协议流不抢 KDA（kdaExact 不触发） |
 
 team 按 Riot 观战协议约定 participantId 1..5=蓝、6..10=红 推 side；

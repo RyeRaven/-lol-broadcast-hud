@@ -148,7 +148,17 @@ test('t31：precision 门控 —— 只有 exact 字段进 csExact/gold/xp/KDA�
   assert.equal(players[0].xp, null, 'estimated 的 xp 不能当精确值');
   assert.equal(players[0].kills, 9, 'deaths 不是 exact → 整组 KDA 不覆盖 LCDA');
   assert.equal(players[0].kdaExact, null);
-  assert.deepEqual(protocolPresence(records), { cs: false, gold: true, xp: false });
+  assert.deepEqual(protocolPresence(records), { cs: false, gold: true, xp: false, goldPrecision: 'exact', xpPrecision: null });
+
+  // quantized 的 gold/xp 是解码器唯一能诚实的档位：值可用，但页面必须标「±1 以内」。
+  const quantized = normalizeFeed(feedBody({ precision: { kills: 'exact', deaths: 'exact', assists: 'exact', cs: 'exact', xp: 'quantized', totalGold: 'quantized' } })).feed.players;
+  const qTarget = [{ champion: 'Jayce', team: 'blue', kills: 0, deaths: 0, assists: 0, csExact: null, totalGold: null, xp: null }];
+  applyProtocolToPlayers(qTarget, quantized);
+  assert.equal(qTarget[0].totalGold, 10000, 'quantized 的 gold 必须可用（否则 HUD 只能退回缺被动金币的估算）');
+  assert.equal(qTarget[0].totalGoldPrecision, 'quantized', '精度必须带出来，页面才能标量化值');
+  assert.equal(qTarget[0].xp, 9000);
+  assert.equal(qTarget[0].xpPrecision, 'quantized');
+  assert.deepEqual(protocolPresence(quantized), { cs: true, gold: true, xp: true, goldPrecision: 'quantized', xpPrecision: 'quantized' });
 
   // 没声明 precision 的包一律按 estimated：宁可没有精确值，也不许把未声明的数字标成 exact。
   const missing = normalizeFeed({ players: [{ participantId: 1, cs: 50, xp: 10, totalGold: 20 }] }).feed.players;
@@ -261,9 +271,9 @@ test('t30：协议流玩家按英雄名优先、否则按队伍行序对齐 LCDA
   assert.equal(onlyTwo({ team: 'BLUE' }).participantId, 2);
   assert.equal(onlyTwo({ team: 'BLUE' }), null, '记录用尽后必须返回 null');
 
-  assert.deepEqual(protocolPresence(records), { cs: true, gold: true, xp: true });
+  assert.deepEqual(protocolPresence(records), { cs: true, gold: true, xp: true, goldPrecision: 'exact', xpPrecision: 'exact' });
   const noNumbers = normalizeFeed({ players: [{ netid: '0x400000ae', participantId: 1, team: 'blue', kills: 3 }] }).feed.players;
-  assert.deepEqual(protocolPresence(noNumbers), { cs: false, gold: false, xp: false });
+  assert.deepEqual(protocolPresence(noNumbers), { cs: false, gold: false, xp: false, goldPrecision: null, xpPrecision: null });
 });
 
 test('t30：applyProtocolToPlayers 每轮重写，KDA 三项齐全才覆盖，缺一项保持 LCDA', () => {

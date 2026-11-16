@@ -368,15 +368,47 @@ function isExactField(record, key) {
   return !!record && record.precision && record.precision[key] === 'exact' && record[key] !== null && record[key] !== undefined;
 }
 
+// 解码值（exact 或 quantized）：0xdd 的 totalGold/xp 用残差 IEEE 字节多数票解出，
+// 解出来的就是关键帧时刻的浮点值，只可能有亚单位漂移（按整数展示时恒等于 floor 真值）。
+// 这种值必须能用，但只能标 quantized —— 页面不能宣称「精确到 1 金币」。
+function decodedPrecision(record, key) {
+  if (!record || !record.precision) return null;
+  const precision = record.precision[key];
+  if (precision !== 'exact' && precision !== 'quantized') return null;
+  const value = record[key];
+  return value === null || value === undefined ? null : precision;
+}
+
+function isDecodedField(record, key) {
+  return decodedPrecision(record, key) !== null;
+}
+
 function protocolPresence(players) {
   const list = Array.isArray(players) ? players : [];
   const has = key => list.some(record => isExactField(record, key));
-  // 键名对齐 capability 语义（cs/gold/xp）：gold 即 totalGold 字段的 exact presence。
-  return { cs: has('cs'), gold: has('totalGold'), xp: has('xp') };
+  // gold/xp 允许多一档 quantized：解码器能保证「值对、亚单位漂移」，不能保证「精确到个位」。
+  // 取整支队伍里最强的那一档，页面据此决定是该显示数值还是显示「—」。
+  const strongest = key => {
+    const precisions = list.map(record => decodedPrecision(record, key));
+    if (precisions.includes('exact')) return 'exact';
+    if (precisions.includes('quantized')) return 'quantized';
+    return null;
+  };
+  const goldPrecision = strongest('totalGold');
+  const xpPrecision = strongest('xp');
+  // 键名对齐 capability 语义（cs/gold/xp）：gold 即 totalGold 字段的解码 presence。
+  return {
+    cs: has('cs'),
+    gold: goldPrecision !== null,
+    xp: xpPrecision !== null,
+    goldPrecision,
+    xpPrecision
+  };
 }
 
 // 把协议流读数写进（已归一化的）玩家：每轮重写，没匹配到或精度不足的必须是 null。
-// 只有 precision === 'exact' 的字段才允许进 csExact/gold/xp/kdaExact；quantized/estimated 一律不冒充精确值。
+// csExact/KDA 只认 exact；gold/xp 额外接受 quantized（残差 IEEE 字节多数票，亚单位漂移），
+// 同时把精度写回 player，页面据此决定标注「解码值」还是「估算」。
 function applyProtocolToPlayers(players, feedPlayers) {
   if (!Array.isArray(players) || !players.length) return players;
   const lookup = createProtocolLookup(feedPlayers);
@@ -384,9 +416,12 @@ function applyProtocolToPlayers(players, feedPlayers) {
     if (!player || typeof player !== 'object') continue;
     const record = lookup(player);
     const pickExact = key => (isExactField(record, key) ? record[key] : null);
+    const pickDecoded = key => (isDecodedField(record, key) ? record[key] : null);
     player.csExact = pickExact('cs');
-    player.totalGold = pickExact('totalGold');
-    player.xp = pickExact('xp');
+    player.totalGold = pickDecoded('totalGold');
+    player.totalGoldPrecision = player.totalGold === null ? null : decodedPrecision(record, 'totalGold');
+    player.xp = pickDecoded('xp');
+    player.xpPrecision = player.xp === null ? null : decodedPrecision(record, 'xp');
     const asOf = record && record.asOf !== null && record.asOf !== undefined ? record.asOf : null;
     player.csAsOf = player.csExact === null ? null : asOf;
     player.xpAsOf = player.xp === null ? null : asOf;
@@ -508,6 +543,8 @@ module.exports = {
   DUPLICATE_EPSILON,
   JUMP_THRESHOLD,
   isExactField,
+  isDecodedField,
+  decodedPrecision,
   championKey,
   FEED_SOURCES,
   EVENT_TYPES,

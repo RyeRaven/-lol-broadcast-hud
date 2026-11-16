@@ -509,13 +509,15 @@ def main():
                              "assists": d["assists"], "cs": d["minionsKilled"],
                              "totalGold": d["totalGold"], "xp": d["xp"],
                              "asOf": float(gt),
-                             # KDA is a truth-built bijection -> exact; xp/gold come
-                             # from majority-voted IEEE bytes (floor-exact quality,
-                             # sub-unit drift possible) -> honest "estimated".
+                             # KDA is a truth-built bijection -> exact. cs stays exact
+                             # (only emitted when the table pinned minions). xp/gold are
+                             # majority-voted residual IEEE bytes: the value IS the keyframe
+                             # float, drift only below one unit -> "quantized" (usable, but
+                             # never advertised as exact).
                              "precision": {
                                  k: ("unavailable" if d.get(k) is None else
                                      ("exact" if k in ("kills", "deaths", "assists", "cs")
-                                      else "estimated"))
+                                      else "quantized"))
                                  for k in ("kills", "deaths", "assists", "cs",
                                            "totalGold", "xp")}}
                             for i, d in enumerate(decoded)],
