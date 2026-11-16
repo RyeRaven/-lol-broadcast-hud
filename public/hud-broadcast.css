@@ -1312,6 +1312,13 @@ body.hb-body {
 
 .hb-diff.unknown b { color: rgba(148, 163, 184, 0.55); }
 
+/* 光学补偿：旗标骑在领先侧分界线上，会让「数字+旗标」包络偏出屏幕中心
+   半个旗宽（~4px）。数字反向让位，使整组观感中心回到分界线正中。
+   红旗在右 → 数字左移 4px；蓝旗在左 → 数字右移 4px。 */
+.hb-diff.red b { transform: translateX(-4px); }
+.hb-diff.blue b { transform: translateX(4px); }
+.hb-diff.even b, .hb-diff.unknown b { transform: none; }
+
 /* ---------- 动画反馈 ---------- */
 
 .hb-stat b.hb-bump {
