@@ -613,13 +613,17 @@ var ICONS = {
         var blueBox = blueHalfEl && blueHalfEl.getBoundingClientRect ? blueHalfEl.getBoundingClientRect() : null;
         var blueNameRight = geo.trinketBlueX - 9;
         var blueInfoW = blueBox ? Math.max(blueNameRight - 96 - blueBox.left, 100) : 198;
-        var blueBarsLeft = geo.blueX + 5 * geo.pitch + geo.size;
-        var blueTail = blueBox ? Math.max(blueBox.left + blueBox.width - (blueBarsLeft + 114), 0) : 25.4;
+        var blueBarsLeft = geo.blueX + 5 * geo.pitch + geo.size + BAR_GAP;
+        var blueTail = blueBox ? Math.max(blueBox.left + blueBox.width - (blueBarsLeft + 114), 0) : 20;
         var center = blueBox ? (blueBox.left + box.left + box.width) / 2 : box.left - 24;
         var redInfoStart = Math.max(geo.trinketRedX + geo.size + 5, 2 * center - blueNameRight);
-        // 红侧状态条右缘钉在红孔带左缘 - BAR_GAP（与蓝侧到孔带的间隙严格相等，
-        // 以孔带为镜像基准，而不是以中线：原生红装备列本身比镜像位宽 ~11px）。
-        var redLead = Math.max(geo.redX - BAR_GAP - 114 - halfLeft, 0);
+        // 红侧状态条改为与蓝侧严格中线镜像：lead = mirror(蓝状态条右缘) - 红半区左缘，
+        // 中栏两根边线到两侧状态条的距离严格相等（用户可见的对称基准是中缝线）。
+        // 旧方案把红条右缘钉在红孔带左缘 - BAR_GAP，与蓝侧到孔带的间隙相等；但原生红
+        // 装备列本身比蓝侧镜像位宽 ~11px（redX=1139 vs mirror(792)=1128），这 11px 全部
+        // 漏进红首隙 → 中缝两侧 20/31 不对称。原生 11px 不对称总量守恒，只能选边落：
+        // 现在让它落在红侧状态条↔孔带间隙（10→~21），孔带是透孔，远不如中缝线显眼。
+        var redLead = Math.max(2 * center - (blueBarsLeft + 114) - halfLeft, 0);
         var redBandW = Math.max((redInfoStart - box.left) - redLead - 114, 60);
         // 红 info 右缘 = mirror(蓝 info 左缘) = 2*center - (blueBox.left + blueVision + 62)。
         // 不能直接用 blueInfoW：红侧起点被更宽的原生红饰品孔强制（redInfoStart=max(1325,1313)），
