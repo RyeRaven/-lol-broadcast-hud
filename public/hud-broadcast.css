@@ -29,7 +29,7 @@ body.hb-body {
   overflow: hidden;
   background: transparent;
   color: var(--hb-text);
-  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", Arial, sans-serif;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.2;
   letter-spacing: 0.3px;
@@ -967,7 +967,7 @@ body.hb-body {
   border-radius: 3px;
   background: #0b1219;
   color: #d7e5f2;
-  font-family: "Bahnschrift", "DIN Alternate", sans-serif;
+  font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", "Microsoft YaHei", sans-serif;
   font-size: 10px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
