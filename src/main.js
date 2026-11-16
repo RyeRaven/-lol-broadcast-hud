@@ -9,7 +9,7 @@ const path = require('path');
 const { requestJson, probeLcu, probeLiveClient, fetchLcuJson, discoverLcuConnection, dataDragonUrl } = require('./data-sources');
 const { normalizeDraftSession } = require('./draft');
 const { loadChampionIndex } = require('./champions');
-const { DEFAULT_VERSION } = require('./assets');
+const { DEFAULT_VERSION, CHAMPION_TABLE } = require('./assets');
 const { normalizeLiveState, estimateTeamGold, loadItemIndex, createLcuConnectionManager, createLiveClientWatchdog, createObjectiveLedger } = require('./live-data');
 const { applyPixelBarsAvailability, applyProtocolAvailability } = require('./data-capability');
 const { buildTimeline, latestTimeline } = require('./timeline');
@@ -159,6 +159,7 @@ function applyDraftSession(session) {
     state.draftRoles = { blue: draft.blueRoles.slice(0, 5), red: draft.redRoles.slice(0, 5) };
   }
   state.live.draft = { source: 'lcu', parsed: draft.parsed, actions: draft.actionCount, updatedAt: Date.now() };
+  if (draft.parsed) warmSplashPool();
   return draft.parsed;
 }
 async function pollLcuDraft() {
@@ -694,29 +695,67 @@ function serveAsset(res, rel) {
 // 下次起全走本地——BP hover/锁定不再冷等外网。
 const SPLASH_DIR = path.join(publicDir, 'assets', 'splashes');
 const SPLASH_INFLIGHT = new Set();
-function downloadSplash(id, file) {
-  if (SPLASH_INFLIGHT.has(id)) return;
+// 下载队列：全量预热一次要拉 ~170 张，并发限 4 防挤占直播机带宽；
+// on-demand（hover 命中未缓存 id）走 urgent 车道插队。
+const SPLASH_QUEUE = [];
+let splashActive = 0;
+const SPLASH_CONCURRENCY = 4;
+function drainSplashQueue() {
+  while (splashActive < SPLASH_CONCURRENCY && SPLASH_QUEUE.length) {
+    const job = SPLASH_QUEUE.shift();
+    if (SPLASH_INFLIGHT.has(job.id)) continue;
+    splashActive += 1;
+    downloadSplash(job.id, job.file, () => { splashActive -= 1; drainSplashQueue(); });
+  }
+}
+function queueSplashDownload(id, file, urgent) {
+  const job = { id, file };
+  if (urgent) SPLASH_QUEUE.unshift(job); else SPLASH_QUEUE.push(job);
+  drainSplashQueue();
+}
+function downloadSplash(id, file, done) {
+  if (SPLASH_INFLIGHT.has(id)) { if (done) done(); return; }
   SPLASH_INFLIGHT.add(id);
-  const done = () => SPLASH_INFLIGHT.delete(id);
+  const finish = () => { SPLASH_INFLIGHT.delete(id); if (done) done(); };
   const request = https.get('https://cdn.communitydragon.org/latest/champion/' + id + '/splash-art/centered', response => {
-    if (response.statusCode !== 200) { response.resume(); done(); return; }
+    if (response.statusCode !== 200) { response.resume(); finish(); return; }
     const chunks = [];
     response.on('data', chunk => chunks.push(chunk));
     response.on('end', () => {
-      done();
       const buf = Buffer.concat(chunks);
-      if (buf.length < 4096 || buf[0] !== 0xff || buf[1] !== 0xd8) return;
+      if (buf.length < 4096 || buf[0] !== 0xff || buf[1] !== 0xd8) { finish(); return; }
       const tmp = file + '.tmp';
       try {
         fs.mkdirSync(SPLASH_DIR, { recursive: true });
         fs.writeFileSync(tmp, buf);
         fs.renameSync(tmp, file);
       } catch { try { fs.unlinkSync(tmp); } catch {} }
+      finish();
     });
-    response.on('error', done);
+    response.on('error', finish);
   });
-  request.on('error', done);
+  request.on('error', finish);
   request.setTimeout(15000, () => request.destroy(new Error('splash_download_timeout')));
+}
+// 全量预热：BP 阶段开始（或 BP 页被打开）时把全部英雄原画拉齐落盘，
+// 之后任何 hover/锁定都是本地图。每进程只触发一次，已缓存的跳过。
+let splashWarmupStarted = false;
+function warmSplashPool() {
+  if (splashWarmupStarted) return;
+  splashWarmupStarted = true;
+  let queued = 0;
+  for (const row of CHAMPION_TABLE) {
+    const id = Number(row[3]);
+    if (!id || id > 9999) continue;
+    const file = path.join(SPLASH_DIR, id + '.jpg');
+    let stat = null;
+    try { stat = fs.statSync(file); } catch {}
+    if (stat && stat.isFile() && stat.size > 4096) continue;
+    SPLASH_QUEUE.push({ id, file });
+    queued += 1;
+  }
+  drainSplashQueue();
+  console.log('[splash] warmup queued ' + queued + ' splash(es)');
 }
 function handleSplashApi(req, res, url) {
   const match = /^\/api\/splash\/(\d{1,4})(?:\.jpg)?$/.exec(url.pathname);
@@ -733,7 +772,7 @@ function handleSplashApi(req, res, url) {
     stream.pipe(res);
     return;
   }
-  downloadSplash(id, file);
+  queueSplashDownload(id, file, true);
   res.writeHead(302, { Location: 'https://cdn.communitydragon.org/latest/champion/' + id + '/splash-art/centered', 'Cache-Control': 'no-store' });
   res.end();
 }
@@ -807,7 +846,7 @@ const server = http.createServer((req,res)=>{
   const sendPage = html => { res.setHeader('Content-Type','text/html; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(html); };
   if (url.pathname === '/') return sendPage(consolePage(PORT));
   if (url.pathname === '/overlay/hud-calibrate' || url.pathname === '/broadcast/hud-calibrate') return sendPage(hudCalibratePage());
-  if (url.pathname === '/overlay/bp-broadcast' || url.pathname === '/broadcast/bp') return sendPage(bpBroadcastPage());
+  if (url.pathname === '/overlay/bp-broadcast' || url.pathname === '/broadcast/bp') { warmSplashPool(); return sendPage(bpBroadcastPage()); }
   if (url.pathname === '/overlay/hud-broadcast' || url.pathname === '/broadcast/hud') return sendPage(hudBroadcastPage());
   if (url.pathname === '/broadcast/result' || url.pathname === '/overlay/result-broadcast') return sendPage(resultBroadcastPage());
   if (url.pathname === '/broadcast/stage' || url.pathname === '/overlay/stage-broadcast') return sendPage(stageBroadcastPage());

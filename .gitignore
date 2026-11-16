@@ -13,6 +13,7 @@ work/
 .dist.log
 
 # 本机运行时状态与缓存（首次运行自动生成）
+public/assets/splashes/
 data/config.json
 data/*.tmp
 data/champions-*.json
