@@ -491,6 +491,86 @@ var ICONS = {
       LAYOUT_TARGETS.push({ key: 'row-red-' + i, label: '红方第 ' + (i + 1) + ' 行', group: '单行（改尺寸会撞挖孔）', sel: '#hb-row-red-' + i });
     }
   })();
+  // 细项：顶部逐个图标 / 文本。徽标与统计块内部是 <img> 与 <b>，都能单独命中。
+  (function () {
+    var top = [
+      ['timer-phase-icon', '左侧 · 巢虫盒图标', '#hb-timer-phase-icon'],
+      ['timer-phase-value', '左侧 · 巢虫盒倒计时', '#hb-timer-phase-value'],
+      ['timer-dragon-icon', '左侧 · 小龙盒图标', '#hb-timer-dragon-icon'],
+      ['timer-dragon-value', '左侧 · 小龙盒倒计时', '#hb-timer-dragon-value'],
+      ['pips-blue', '蓝方小局比分点', '#hb-pips-blue'],
+      ['pips-red', '红方小局比分点', '#hb-pips-red'],
+      ['logo-blue', '蓝方队徽', '#hb-logo-blue'],
+      ['logo-red', '红方队徽', '#hb-logo-red'],
+      ['name-blue', '蓝方队名', '#hb-name-blue'],
+      ['name-red', '红方队名', '#hb-name-red'],
+      ['meta-blue', '蓝方英文副标', '#hb-meta-blue'],
+      ['meta-red', '红方英文副标', '#hb-meta-red'],
+      ['towers-blue', '蓝方 · 塔（图标+数字）', '#hb-towers-stat-blue'],
+      ['towers-blue-icon', '蓝方 · 塔图标', '#hb-towers-stat-blue i'],
+      ['towers-blue-num', '蓝方 · 塔数字', '#hb-towers-blue'],
+      ['towers-red', '红方 · 塔（图标+数字）', '#hb-towers-stat-red'],
+      ['towers-red-icon', '红方 · 塔图标', '#hb-towers-stat-red i'],
+      ['towers-red-num', '红方 · 塔数字', '#hb-towers-red'],
+      ['gold-blue', '蓝方 · 金币（图标+数字）', '#hb-goldstat-blue'],
+      ['gold-blue-icon', '蓝方 · 金币图标', '#hb-goldstat-blue i'],
+      ['gold-blue-num', '蓝方 · 金币数字', '#hb-gold-blue'],
+      ['gold-red', '红方 · 金币（图标+数字）', '#hb-goldstat-red'],
+      ['gold-red-icon', '红方 · 金币图标', '#hb-goldstat-red i'],
+      ['gold-red-num', '红方 · 金币数字', '#hb-gold-red'],
+      ['kills-blue', '蓝方击杀数', '#hb-kills-blue'],
+      ['kills-red', '红方击杀数', '#hb-kills-red'],
+      ['killicon', '中区击杀图标', '#hb-killicon'],
+      ['gold-diff', '经济差徽标', '#hb-gold-diff'],
+      ['clock', '比赛时钟', '#hb-clock'],
+      ['grubs-blue', '蓝方 · 潮虫（图标+数字）', '#hb-grubs-stat-blue'],
+      ['grubs-blue-icon', '蓝方 · 潮虫图标', '#hb-grubs-stat-blue i'],
+      ['grubs-blue-num', '蓝方 · 潮虫数字', '#hb-grubs-blue'],
+      ['grubs-red', '红方 · 潮虫（图标+数字）', '#hb-grubs-stat-red'],
+      ['grubs-red-icon', '红方 · 潮虫图标', '#hb-grubs-stat-red i'],
+      ['grubs-red-num', '红方 · 潮虫数字', '#hb-grubs-red'],
+      ['stack-blue', '蓝方 · 龙堆', '#hb-stack-blue'],
+      ['stack-red', '红方 · 龙堆', '#hb-stack-red'],
+      ['demo-badge', 'DEMO 提示徽标', '#hb-demo-badge']
+    ];
+    for (var t = 0; t < top.length; t += 1) {
+      LAYOUT_TARGETS.push({ key: top[t][0], label: top[t][1], group: '顶部 · 细项', sel: top[t][2] });
+    }
+    // 龙堆里每条龙单独可调（最多 3 位；该位没有龙时元素不存在，自动跳过）。
+    for (var d = 1; d <= 3; d += 1) {
+      LAYOUT_TARGETS.push({ key: 'dragon-blue-' + d, label: '蓝方 · 第 ' + d + ' 条龙图标', group: '顶部 · 细项', sel: '#hb-stack-blue > img:nth-child(' + d + ')' });
+      LAYOUT_TARGETS.push({ key: 'dragon-red-' + d, label: '红方 · 第 ' + d + ' 条龙图标', group: '顶部 · 细项', sel: '#hb-stack-red > img:nth-child(' + d + ')' });
+    }
+    // 底部逐行子元素 + 挖孔。挖孔（hole-*）几何走 holeRects，不用 transform：
+    // 编辑页里拖它就是在改「原生装备栏/饰品栏透出多大」。
+    ['blue', 'red'].forEach(function (side) {
+      var sideName = side === 'blue' ? '蓝方' : '红方';
+      for (var r = 0; r < 5; r += 1) {
+        var id = side + '-' + r;
+        var kids = [
+          ['champ', '头像（含等级角标）', '#hb-champ-' + id],
+          ['level', '等级数字', '#hb-level-' + id],
+          ['pname', '玩家名', '#hb-pname-' + id],
+          ['kda', 'KDA', '#hb-kda-' + id],
+          ['info', '名字块（名+KDA）', '#hb-info-' + id],
+          ['bars', '三条状态条', '#hb-bars-' + id],
+          ['bar-hp', '生命条', '#hb-bars-' + id + ' .hb-bar.hp'],
+          ['bar-xp', '经验条', '#hb-bars-' + id + ' .hb-bar.xp'],
+          ['bar-res', '资源条', '#hb-bars-' + id + ' .hb-bar.res']
+        ];
+        for (var k = 0; k < kids.length; k += 1) {
+          LAYOUT_TARGETS.push({
+            key: kids[k][0] + '-' + id,
+            label: sideName + '第 ' + (r + 1) + ' 行 · ' + kids[k][1],
+            group: sideName + '逐行子元素',
+            sel: kids[k][2]
+          });
+        }
+        LAYOUT_TARGETS.push({ key: 'hole-' + id + '-items', label: sideName + '第 ' + (r + 1) + ' 行 · 装备挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + id + '-items', hole: true });
+        LAYOUT_TARGETS.push({ key: 'hole-' + id + '-trinket', label: sideName + '第 ' + (r + 1) + ' 行 · 饰品挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + id + '-trinket', hole: true });
+      }
+    });
+  })();
   var LAYOUT_FIELDS = ['dx', 'dy', 'w', 'h', 'scale', 'fontSize', 'opacity'];
   var LAYOUT_ITEMS = null;
   function layoutEditMode() { return /(?:^|[?&])hudEdit=1(?:&|$)/.test(searchString()); }
@@ -502,11 +582,19 @@ var ICONS = {
   function layoutBase(el) {
     if (el.__hbBase) return el.__hbBase;
     var computed = '';
-    try { computed = window.getComputedStyle(el).transform || ''; } catch (error) { computed = ''; }
+    var display = '';
+    try {
+      var cs = window.getComputedStyle(el);
+      computed = cs.transform || '';
+      display = cs.display || '';
+    } catch (error) { computed = ''; }
     el.__hbBase = {
       transform: el.style.transform || (computed && computed !== 'none' ? computed : ''),
       width: el.style.width || '', height: el.style.height || '',
-      fontSize: el.style.fontSize || '', opacity: el.style.opacity || ''
+      fontSize: el.style.fontSize || '', opacity: el.style.opacity || '',
+      position: el.style.position || '', left: el.style.left || '', top: el.style.top || '',
+      // 行内盒（<b>/<em> 等）不参与 transform，位移改用相对定位，否则拖了没反应。
+      inline: display === 'inline'
     };
     return el.__hbBase;
   }
@@ -517,6 +605,9 @@ var ICONS = {
     var source = items && typeof items === 'object' ? items : {};
     for (var i = 0; i < LAYOUT_TARGETS.length; i += 1) {
       var target = LAYOUT_TARGETS[i];
+      // 挖孔的几何由 holeRects 直接消费（div + mask 同源），这里绝不写内联样式，
+      // 否则会跟 syncHoles 每帧重建的 left/top 打架。
+      if (target.hole) continue;
       var el = layoutQuery(target.sel);
       if (!el || !el.style) continue;
       var base = layoutBase(el);
@@ -524,11 +615,20 @@ var ICONS = {
       var dx = item && hasNumber(item.dx) ? num(item.dx) : 0;
       var dy = item && hasNumber(item.dy) ? num(item.dy) : 0;
       var scale = item && hasNumber(item.scale) ? num(item.scale) : 1;
-      var parts = [];
-      if (base.transform) parts.push(base.transform);
-      if (dx || dy) parts.push('translate(' + dx + 'px,' + dy + 'px)');
-      if (scale !== 1) parts.push('scale(' + scale + ')');
-      el.style.transform = parts.join(' ');
+      if (base.inline) {
+        // 行内盒没有 transform 盒子：位移用相对定位（left/top 对行内盒同样有效），
+        // 缩放/宽高对行内文本没有意义，交给字号。这样拖名字、拖时钟数字都跟手。
+        el.style.transform = base.transform;
+        el.style.position = (dx || dy) ? 'relative' : base.position;
+        el.style.left = dx ? dx + 'px' : base.left;
+        el.style.top = dy ? dy + 'px' : base.top;
+      } else {
+        var parts = [];
+        if (base.transform) parts.push(base.transform);
+        if (dx || dy) parts.push('translate(' + dx + 'px,' + dy + 'px)');
+        if (scale !== 1) parts.push('scale(' + scale + ')');
+        el.style.transform = parts.join(' ');
+      }
       el.style.width = item && hasNumber(item.w) && num(item.w) > 0 ? num(item.w) + 'px' : base.width;
       el.style.height = item && hasNumber(item.h) && num(item.h) > 0 ? num(item.h) + 'px' : base.height;
       el.style.fontSize = item && hasNumber(item.fontSize) && num(item.fontSize) > 0 ? num(item.fontSize) + 'px' : base.fontSize;
@@ -540,8 +640,16 @@ var ICONS = {
       var items = data && data.layout && data.layout.items && typeof data.layout.items === 'object' ? data.layout.items : {};
       LAYOUT_ITEMS = items;
       layoutApply(LAYOUT_ITEMS);
+      layoutSyncHolesSoon();
       return LAYOUT_ITEMS;
     }).catch(function () { LAYOUT_ITEMS = {}; return LAYOUT_ITEMS; });
+  }
+  // 挖孔微调动的是 mask/描边几何：重跑一次 syncHoles（60ms 去抖，拖拽时不必每像素重算 SVG）。
+  var holeSyncTimer = null;
+  function layoutSyncHolesSoon() {
+    if (typeof setTimeout !== 'function') { syncHoles(); return; }
+    if (holeSyncTimer) return;
+    holeSyncTimer = setTimeout(function () { holeSyncTimer = null; syncHoles(); }, 60);
   }
   function layoutSetItem(key, value) {
     if (!LAYOUT_ITEMS) LAYOUT_ITEMS = {};
@@ -554,6 +662,7 @@ var ICONS = {
     }
     if (Object.keys(clean).length) LAYOUT_ITEMS[key] = clean; else delete LAYOUT_ITEMS[key];
     layoutApply(LAYOUT_ITEMS);
+    if (key.indexOf('hole-') === 0) layoutSyncHolesSoon();
   }
   // 编辑层（/assets/hud-layout-edit.js）唯一依赖的桥：清单 + 读写当前值。生产路径不加载它。
   window.__hbLayout = {
@@ -626,17 +735,34 @@ var ICONS = {
         // 红 1140-1291，pitch 25.6、图标 24px）+ 独立饰品孔（蓝框 612-642 / 红框 1294-1320）。
         // 空槽不画任何纹理 → 固定挖满 6+1 全孔即可覆盖所有原生图标（件数无关，满 6 件也全覆盖）。
         // 原生 KDA 从 811(蓝)/1335(红) 起 —— 孔带右端 797/1294 与 KDA 之间留 ≥14px 边距，数字不会漏进孔里。
-        rects.push({ x: (side === 'blue' ? geo.blueX : geo.redX) - box.left, y: y, w: 5 * geo.pitch + geo.size, h: geo.size });
+        rects.push({ key: 'hole-' + side + '-' + i + '-items', x: (side === 'blue' ? geo.blueX : geo.redX) - box.left, y: y, w: 5 * geo.pitch + geo.size, h: geo.size });
         // 视野得分数字叠印在饰品图标左下角并向下溢出（实测数字底缘到 band+3~+6px），
         // 饰品孔向下扩 8px、向上扩 1px；蓝侧图标框左缘比标定槽位左 ~5px，向左扩 7px
         // 露出完整槽框；红侧左缘与孔带相接不能重叠，只向右扩 3px。
         rects.push({
+          key: 'hole-' + side + '-' + i + '-trinket',
           x: (side === 'blue' ? geo.trinketBlueX - 7 : geo.trinketRedX) - box.left,
           y: y - 1,
           w: geo.size + (side === 'blue' ? 7 : 3),
           h: geo.size + 9
         });
       }
+    }
+    // 逐孔微调（编辑页「挖孔」组）：dx/dy = 相对出厂孔的位移，w/h = 孔的绝对宽高。
+    // 因为 div 与 mask 共用这份 rects，改一个数字就同时改了「透出多大」与描边框。
+    var overrides = LAYOUT_ITEMS && typeof LAYOUT_ITEMS === 'object' ? LAYOUT_ITEMS : {};
+    for (var q = 0; q < rects.length; q += 1) {
+      var item = overrides[rects[q].key];
+      if (!item || typeof item !== 'object') continue;
+      if (hasNumber(item.dx)) rects[q].x += num(item.dx);
+      if (hasNumber(item.dy)) rects[q].y += num(item.dy);
+      if (hasNumber(item.w) && num(item.w) > 0) rects[q].w = num(item.w);
+      if (hasNumber(item.h) && num(item.h) > 0) rects[q].h = num(item.h);
+      rects[q].overridden = true;
+      rects[q].x = Math.max(rects[q].x, 0);
+      rects[q].y = Math.max(rects[q].y, 0);
+      rects[q].w = Math.max(rects[q].w, 2);
+      rects[q].h = Math.max(rects[q].h, 2);
     }
     return { rects: rects, box: box };
   }
@@ -840,6 +966,8 @@ var ICONS = {
       for (var k = 0; k < info.rects.length; k += 1) {
         var bad = null;
         for (var c = 0; c < guard.length; c += 1) { if (rectHit(info.rects[k], guard[c])) { bad = guard[c]; break; } }
+        // 用户手工放大的孔（编辑页「挖孔」组）不再被安全网删掉：那是明确的取景意图。
+        if (bad && info.rects[k].overridden) bad = null;
         if (bad) {
           if (typeof console !== 'undefined' && console.error) console.error('[hud] hole overlaps content ' + side + ' ' + JSON.stringify(info.rects[k]) + ' ' + JSON.stringify(bad));
           continue;
@@ -850,7 +978,7 @@ var ICONS = {
       var html = '';
       for (var i = 0; i < rects.length; i += 1) {
         var rect = rects[i];
-        html += '<span class="hb-native-hole" style="left:' + round2(rect.x) + 'px;top:' + round2(rect.y) + 'px;width:' + round2(rect.w) + 'px;height:' + round2(rect.h) + 'px"></span>';
+        html += '<span class="hb-native-hole" id="hb-' + rect.key + '" data-hole="' + rect.key + '" style="left:' + round2(rect.x) + 'px;top:' + round2(rect.y) + 'px;width:' + round2(rect.w) + 'px;height:' + round2(rect.h) + 'px"></span>';
       }
       layer.innerHTML = html;
       if (layer.classList) layer.classList.toggle('hb-debug', debugHoles());
@@ -1667,27 +1795,27 @@ var ICONS = {
       '<header class="hb-top" id="hb-topbar">' +
         '<span class="hb-demo-badge" id="hb-demo-badge" style="display:none;position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:80;padding:6px 14px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(8,12,22,.82);color:#fff;font:600 12px/1.2 sans-serif;letter-spacing:.12em;pointer-events:none;">DEMO · 等待比赛数据</span>' +
         '<div class="hb-timerboxes hb-left-boxes">' +
-          '<div class="hb-timerbox" id="hb-timer-phase"><i id="hb-timer-phase-icon">' + SIGIL('grub') + '</i><em>—</em></div>' +
-          '<div class="hb-timerbox" id="hb-timer-dragon"><i id="hb-timer-dragon-icon">' + SIGIL('dragon') + '</i><em>—</em></div>' +
+          '<div class="hb-timerbox" id="hb-timer-phase"><i id="hb-timer-phase-icon">' + SIGIL('grub') + '</i><em id="hb-timer-phase-value">—</em></div>' +
+          '<div class="hb-timerbox" id="hb-timer-dragon"><i id="hb-timer-dragon-icon">' + SIGIL('dragon') + '</i><em id="hb-timer-dragon-value">—</em></div>' +
         '</div>' +
         '<div class="hb-scorebar" id="hb-scorebar">' +
           '<div class="hb-badge blue"><span class="hb-accent"></span><span class="hb-pips" id="hb-pips-blue"><i></i><i></i><i></i></span><span class="hb-logo" id="hb-logo-blue"><span class="hb-logo-fb">B</span></span><div class="hb-team-text"><b id="hb-name-blue">BLUE</b><small id="hb-meta-blue">BLUE SIDE</small></div></div>' +
           '<div class="hb-cluster">' +
             '<div class="hb-row1">' +
-              '<span class="hb-stat hb-towers" data-obj="blue-towers" title="TOWER"><i>' + SIGIL('turret') + '</i><b id="hb-towers-blue">0</b></span>' +
-              '<span class="hb-stat hb-gold"><i>' + SIGIL('gold') + '</i><b id="hb-gold-blue">—</b></span>' +
+              '<span class="hb-stat hb-towers" id="hb-towers-stat-blue" data-obj="blue-towers" title="TOWER"><i>' + SIGIL('turret') + '</i><b id="hb-towers-blue">0</b></span>' +
+              '<span class="hb-stat hb-gold" id="hb-goldstat-blue"><i>' + SIGIL('gold') + '</i><b id="hb-gold-blue">—</b></span>' +
               '<b class="hb-killnum" id="hb-kills-blue">0</b>' +
-              '<span class="hb-killicon">' + ICONS.kills + '</span>' +
+              '<span class="hb-killicon" id="hb-killicon">' + ICONS.kills + '</span>' +
               '<b class="hb-killnum" id="hb-kills-red">0</b>' +
-              '<span class="hb-stat hb-gold"><i>' + SIGIL('gold') + '</i><b id="hb-gold-red">—</b></span>' +
-              '<span class="hb-stat hb-towers" data-obj="red-towers" title="TOWER"><b id="hb-towers-red">0</b><i>' + SIGIL('turret') + '</i></span>' +
+              '<span class="hb-stat hb-gold" id="hb-goldstat-red"><i>' + SIGIL('gold') + '</i><b id="hb-gold-red">—</b></span>' +
+              '<span class="hb-stat hb-towers" id="hb-towers-stat-red" data-obj="red-towers" title="TOWER"><b id="hb-towers-red">0</b><i>' + SIGIL('turret') + '</i></span>' +
               '<span class="hb-gold-diff" id="hb-gold-diff"><b>—</b></span>' +
             '</div>' +
             '<div class="hb-row2">' +
               '<span class="hb-stack" id="hb-stack-blue" data-obj="blue-dragons"></span>' +
-              '<span class="hb-herald" data-obj="blue-grubs" title="GRUBS"><i>' + SIGIL('grub') + '</i><b id="hb-grubs-blue">0</b></span>' +
+              '<span class="hb-herald" id="hb-grubs-stat-blue" data-obj="blue-grubs" title="GRUBS"><i>' + SIGIL('grub') + '</i><b id="hb-grubs-blue">0</b></span>' +
               '<b class="hb-clock" id="hb-clock">00:00</b>' +
-              '<span class="hb-herald" data-obj="red-grubs" title="GRUBS"><b id="hb-grubs-red">0</b><i>' + SIGIL('grub') + '</i></span>' +
+              '<span class="hb-herald" id="hb-grubs-stat-red" data-obj="red-grubs" title="GRUBS"><b id="hb-grubs-red">0</b><i>' + SIGIL('grub') + '</i></span>' +
               '<span class="hb-stack" id="hb-stack-red" data-obj="red-dragons"></span>' +
             '</div>' +
           '</div>' +

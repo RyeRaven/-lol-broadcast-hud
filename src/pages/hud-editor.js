@@ -100,10 +100,12 @@ const PAGE_SCRIPT = `(function () {
   var list = document.getElementById('he-list');
   var panel = document.getElementById('he-panel');
   var panelTitle = document.getElementById('he-panel-title');
+  var hintNode = document.getElementById('he-hint');
   var statusNode = document.getElementById('he-status');
   var filterInput = document.getElementById('he-filter');
   var snapSelect = document.getElementById('he-snap');
   var showAllCheck = document.getElementById('he-show-all');
+  var onlyEditedCheck = document.getElementById('he-only-edited');
   var targets = [];
   var items = {};
   var selected = null;
@@ -150,8 +152,10 @@ const PAGE_SCRIPT = `(function () {
   }
   function visibleTargets() {
     var needle = (filterInput && filterInput.value || '').trim().toLowerCase();
-    if (!needle) return targets;
+    var onlyEdited = !!(onlyEditedCheck && onlyEditedCheck.checked);
     return targets.filter(function (target) {
+      if (onlyEdited && !items[target.key]) return false;
+      if (!needle) return true;
       return (target.label + ' ' + target.key + ' ' + (target.group || '')).toLowerCase().indexOf(needle) >= 0;
     });
   }
@@ -208,6 +212,15 @@ const PAGE_SCRIPT = `(function () {
     var target = null;
     targets.forEach(function (entry) { if (entry.key === selected) target = entry; });
     if (panelTitle) panelTitle.textContent = target ? target.label : selected;
+    if (hintNode) {
+      if (target && String(target.key || '').indexOf('hole-') === 0) {
+        hintNode.hidden = false;
+        hintNode.textContent = '挖孔：宽 / 高 = 透出原生装备栏的尺寸（绝对像素），X / Y = 相对出厂孔的位移。数字一改，原生装备图标透出的范围立刻跟着变。';
+      } else {
+        hintNode.hidden = true;
+        hintNode.textContent = '';
+      }
+    }
     var inputs = panel.querySelectorAll('[data-field]');
     for (var i = 0; i < inputs.length; i += 1) {
       if (document.activeElement === inputs[i]) continue;
@@ -310,6 +323,7 @@ const PAGE_SCRIPT = `(function () {
     status('已重新载入');
   });
   if (filterInput) filterInput.addEventListener('input', buildList);
+  if (onlyEditedCheck) onlyEditedCheck.addEventListener('change', buildList);
   if (snapSelect) snapSelect.addEventListener('change', function () {
     send('snap', { snap: Number(snapSelect.value) || 1 });
   });
@@ -345,11 +359,13 @@ function hudEditorPage() {
             '<select id="he-snap"><option value="1">1px</option><option value="5">5px</option><option value="10">10px</option><option value="0">关闭</option></select>' +
           '</label>' +
           '<label class="he-check"><input type="checkbox" id="he-show-all" checked> 显示全部边框</label>' +
+          '<label class="he-check"><input type="checkbox" id="he-only-edited"> 只看已改动</label>' +
         '</div>' +
         '<div class="he-filter"><input id="he-filter" type="search" placeholder="搜索元素…" autocomplete="off"></div>' +
         '<div class="he-list" id="he-list"></div>' +
         '<section class="he-panel" id="he-panel" hidden>' +
           '<h2 id="he-panel-title">—</h2>' +
+          '<p class="he-hint" id="he-hint" hidden></p>' +
           '<div class="he-grid">' +
             '<label class="he-field">X<input data-field="dx" type="number" step="1" placeholder="0"></label>' +
             '<label class="he-field">Y<input data-field="dy" type="number" step="1" placeholder="0"></label>' +

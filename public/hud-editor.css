@@ -66,6 +66,17 @@ body { overflow: hidden; }
   color: var(--he-dim);
 }
 
+.he-hint {
+  margin: 2px 0 10px;
+  padding: 7px 9px;
+  border-left: 2px solid var(--he-accent);
+  background: rgba(201, 162, 39, 0.08);
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--he-dim);
+}
+
 .he-tools {
   display: flex;
   align-items: center;
