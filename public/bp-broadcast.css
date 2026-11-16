@@ -24,7 +24,9 @@ html, body { background: transparent !important; }
 .bb-stage-tile.bb-in { opacity: 1; transform: none; transition: opacity .4s ease, transform .4s cubic-bezier(.2,.8,.2,1), flex-grow .45s cubic-bezier(.2,.8,.2,1); }
 .bb-ready .bb-stage-tile { opacity: 1 !important; transform: none !important; transition: flex-grow .45s cubic-bezier(.2,.8,.2,1); }
 .bb-ready .bb-stage-tile:not(.bb-spot) { flex-grow: 1 !important; }
-.bb-stage-art { position: absolute; inset: 0; background-size: cover; background-position: center 18%; transform: scale(1); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+.bb-stage-art { position: absolute; inset: 0; background-size: cover; background-position: center 18%; transform: scale(1); opacity: 0; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .25s ease; }
+/* onload（解码完成）后淡入：加载中保持透明，不再半张图突兀弹出 */
+.bb-stage-art.bb-art-in { opacity: 1; }
 .bb-stage-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
 .bb-stage-tile.no-pick { background: repeating-linear-gradient(135deg, #0a0f16 0 10px, #0d141d 10px 20px); }
 .bb-stage-tile.no-pick::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 40px rgba(0,0,0,.6); }

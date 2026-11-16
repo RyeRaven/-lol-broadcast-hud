@@ -3,6 +3,7 @@
 // Khada Jhin 本地服务：HTTP 路由、SSE 推送、LCU / Live Client 轮询与状态更新。
 // 页面 HTML 在 src/pages/，状态与 mock 数据在 src/app-state.js。
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { requestJson, probeLcu, probeLiveClient, fetchLcuJson, discoverLcuConnection, dataDragonUrl } = require('./data-sources');
@@ -687,6 +688,55 @@ function serveAsset(res, rel) {
   stream.on('error', error => { if (!res.headersSent) json(res, 500, { error: error.message }); else res.destroy(); });
   stream.pipe(res);
 }
+// BP/MVP 原画本地缓存：/api/splash/<id>[.jpg]。communitydragon 居中原画按英雄 id 落盘到
+// public/assets/splashes/<id>.jpg：命中直接本地流式返回（长 immutable 缓存）；未命中
+// 302 到 CDN 让页面立即拿图，同时后台原子下载落盘（tmp+rename，JPEG 魔数校验），
+// 下次起全走本地——BP hover/锁定不再冷等外网。
+const SPLASH_DIR = path.join(publicDir, 'assets', 'splashes');
+const SPLASH_INFLIGHT = new Set();
+function downloadSplash(id, file) {
+  if (SPLASH_INFLIGHT.has(id)) return;
+  SPLASH_INFLIGHT.add(id);
+  const done = () => SPLASH_INFLIGHT.delete(id);
+  const request = https.get('https://cdn.communitydragon.org/latest/champion/' + id + '/splash-art/centered', response => {
+    if (response.statusCode !== 200) { response.resume(); done(); return; }
+    const chunks = [];
+    response.on('data', chunk => chunks.push(chunk));
+    response.on('end', () => {
+      done();
+      const buf = Buffer.concat(chunks);
+      if (buf.length < 4096 || buf[0] !== 0xff || buf[1] !== 0xd8) return;
+      const tmp = file + '.tmp';
+      try {
+        fs.mkdirSync(SPLASH_DIR, { recursive: true });
+        fs.writeFileSync(tmp, buf);
+        fs.renameSync(tmp, file);
+      } catch { try { fs.unlinkSync(tmp); } catch {} }
+    });
+    response.on('error', done);
+  });
+  request.on('error', done);
+  request.setTimeout(15000, () => request.destroy(new Error('splash_download_timeout')));
+}
+function handleSplashApi(req, res, url) {
+  const match = /^\/api\/splash\/(\d{1,4})(?:\.jpg)?$/.exec(url.pathname);
+  if (!match) return json(res, 404, { error: 'not_found' });
+  const id = Number(match[1]);
+  if (!id || id > 9999) return json(res, 404, { error: 'not_found' });
+  const file = path.join(SPLASH_DIR, id + '.jpg');
+  let stat = null;
+  try { stat = fs.statSync(file); } catch {}
+  if (stat && stat.isFile() && stat.size > 4096) {
+    res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800, immutable' });
+    const stream = fs.createReadStream(file);
+    stream.on('error', error => { if (!res.headersSent) json(res, 500, { error: error.message }); else res.destroy(); });
+    stream.pipe(res);
+    return;
+  }
+  downloadSplash(id, file);
+  res.writeHead(302, { Location: 'https://cdn.communitydragon.org/latest/champion/' + id + '/splash-art/centered', 'Cache-Control': 'no-store' });
+  res.end();
+}
 // 只接受回环 Host：服务虽绑定 127.0.0.1，但 DNS rebinding 可让恶意网页以自己的域名
 // 打到本机端口；Host 校验与同源策略共同挡住这类绕过（127.0.0.1/localhost/[::1] 之外一律 403）。
 const LOOPBACK_HOST_RE = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
@@ -766,6 +816,7 @@ const server = http.createServer((req,res)=>{
   if (url.pathname.startsWith('/overlay/')) { const type=url.pathname.split('/')[2]; if (OVERLAY_TYPES.includes(type)) return sendPage(overlayPage(type)); }
   if (url.pathname === '/styles.css') { serveStyles(res); return; }
   if (url.pathname.startsWith('/assets/')) { serveAsset(res, url.pathname.slice('/assets/'.length)); return; }
+  if (url.pathname.startsWith('/api/splash/')) { handleSplashApi(req, res, url); return; }
   res.writeHead(404); res.end('Not found');
 });
 // 监听失败属于启动期错误（例如端口被占用），必须显式退出并给出可读原因，

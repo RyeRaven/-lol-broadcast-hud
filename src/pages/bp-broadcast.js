@@ -257,23 +257,84 @@ const PAGE_SCRIPT = String.raw`(function () {
   }
   // 分路标志：客户端 ChampSelect 官方图标（public/assets/positions/），金色 #c8aa6e
   var ROLE_FILE = { TOP: 'top', JUNGLE: 'jungle', MID: 'middle', ADC: 'bottom', SUPPORT: 'utility' };
-  function roleSvg(role) {
+  function roleImg(role) {
     var key = String(role || '').toUpperCase();
     var file = ROLE_FILE[key] || ROLE_FILE.SUPPORT;
-    return '<span class="bb-role" title="' + esc(ROLE_CN[key] || key || '') + '"><img src="/assets/positions/position-' + file + '.svg" alt="" loading="lazy"></span>';
+    return '<img src="/assets/positions/position-' + file + '.svg" alt="">';
   }
-  function stageTile(player, side, index) {
+  // 舞台 tile 只建一次骨架（img 节点常驻），之后全部就地更新，不再销毁重建——
+  // 已缓存原画不会因节点重建重新解码闪帧；换英雄时等 onload 解码完成再淡入。
+  function tileSkeleton(index) {
+    return '<div class="bb-stage-tile bb-stagger no-pick no-art" data-index="' + index + '" title="">' +
+      '<span class="bb-stage-art"><img alt=""></span>' +
+      '<div class="bb-pid"><span class="bb-pid-name"></span><span class="bb-role"></span></div>' +
+      '</div>';
+  }
+  var PREWARMED = {};
+  function prewarm(champion) {
+    var url = champion && RB.championCenteredSplashUrl ? RB.championCenteredSplashUrl(champion) : '';
+    if (!url || PREWARMED[url]) return;
+    PREWARMED[url] = true;
+    var img = new Image();
+    img.src = url;
+  }
+  function ensureTiles(tiles) {
+    if (tiles.__bbTiles) return tiles.__bbTiles;
+    tiles.innerHTML = '';
+    var list = [];
+    for (var i = 0; i < 5; i += 1) {
+      var holder = document.createElement('div');
+      holder.innerHTML = tileSkeleton(i);
+      var tile = holder.firstChild;
+      tiles.appendChild(tile);
+      list.push(tile);
+    }
+    tiles.__bbTiles = list;
+    return list;
+  }
+  function updateTile(tile, player, side, index) {
     var url = artUrl(player);
     var fallback = splashFallbackUrl(player);
-    var style = url ? ' style="background-image:url(' + esc(url) + ')"' : '';
-    var art = url ? '<span class="bb-stage-art"' + style + '><img src="' + esc(url) + '" alt="" loading="lazy"' + (fallback && fallback !== url ? ' data-fallback="' + esc(fallback) + '"' : '') + '></span>' : '';
     var picked = Boolean(player.champion);
-    var isHover = player.preview ? ' bb-hover' : '';
-    var isSpot = spotActive && spotActive.side === side && spotActive.index === index ? ' bb-spot' : '';
-    return '<div class="bb-stage-tile bb-stagger' + (picked ? '' : ' no-pick') + (url ? '' : ' no-art') + isHover + isSpot + '" data-index="' + index + '" title="' + esc(player.champion || '') + '">' +
-      art +
-      '<div class="bb-pid"><span class="bb-pid-name">' + esc(player.name) + '</span>' + roleSvg(player.role) + '</div>' +
-      '</div>';
+    // 逐类切换而非整体覆写 className：保留 intro 的 bb-in 与锁定动画的 bb-lock
+    tile.classList.toggle('no-pick', !picked);
+    tile.classList.toggle('no-art', !url);
+    tile.classList.toggle('bb-hover', Boolean(player.preview));
+    tile.classList.toggle('bb-spot', Boolean(spotActive && spotActive.side === side && spotActive.index === index));
+    var title = player.champion || '';
+    if (tile.getAttribute('title') !== title) tile.setAttribute('title', title);
+    var art = tile.querySelector('.bb-stage-art');
+    var img = art ? art.querySelector('img') : null;
+    if (art && img) {
+      var artSig = url + '|' + (fallback && fallback !== url ? fallback : '');
+      if (tile.__bbArt !== artSig) {
+        tile.__bbArt = artSig;
+        art.classList.remove('bb-art-in');
+        art.style.backgroundImage = url ? 'url(' + url + ')' : '';
+        if (url) {
+          if (fallback && fallback !== url) img.setAttribute('data-fallback', fallback);
+          else img.removeAttribute('data-fallback');
+          img.onload = function () { art.classList.add('bb-art-in'); };
+          img.src = url;
+        } else {
+          img.removeAttribute('data-fallback');
+          img.removeAttribute('src');
+        }
+      }
+      // 图未变只是状态翻转（hover 预览转锁定）且早已解码完成：确保可见
+      if (url && picked && img.complete && img.naturalWidth > 0) art.classList.add('bb-art-in');
+    }
+    var pidName = tile.querySelector('.bb-pid-name');
+    if (pidName && pidName.textContent !== player.name) pidName.textContent = player.name;
+    var roleEl = tile.querySelector('.bb-role');
+    if (roleEl) {
+      var roleKey = String(player.role || '').toUpperCase();
+      if (roleEl.__bbRole !== roleKey) {
+        roleEl.__bbRole = roleKey;
+        roleEl.innerHTML = roleImg(player.role);
+        roleEl.setAttribute('title', ROLE_CN[roleKey] || roleKey || '');
+      }
+    }
   }
   function buildShell() {
     ROOT.innerHTML = '' +
@@ -333,9 +394,10 @@ const PAGE_SCRIPT = String.raw`(function () {
           if (!players[i].champion) { players[i] = Object.assign({}, players[i], { champion: hoverVal, preview: true }); break; }
         }
       }
-      var html = '';
-      for (i = 0; i < 5; i += 1) html += stageTile(players[i], side, i);
-      setHtml(tiles, html);
+      var list = ensureTiles(tiles);
+      for (i = 0; i < 5; i += 1) updateTile(list[i], players[i], side, i);
+      // hover 一出现就预载原画（本地缓存路由），锁定瞬间图已就位
+      for (i = 0; i < hovers.length; i += 1) prewarm(hovers[i]);
     });
   }
 

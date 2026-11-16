@@ -179,7 +179,8 @@ function championCenteredSplashUrl(champion) {
     if (row) id = row[3];
   }
   if (!id) return '';
-  return cachedUrl('splash-centered|' + id, () => 'https://cdn.communitydragon.org/latest/champion/' + id + '/splash-art/centered');
+  // 本地缓存路由（main.js /api/splash/<id>）：磁盘有直接回，没有 302 CDN 并后台落盘。
+  return cachedUrl('splash-centered|' + id, () => '/api/splash/' + id);
 }
 
 
@@ -342,7 +343,8 @@ function clientScript() {
       }
     }
     if (!id) return '';
-    return cached('splash-centered|' + id, function () { return 'https://cdn.communitydragon.org/latest/champion/' + id + '/splash-art/centered'; });
+    // 本地缓存路由（main.js /api/splash/<id>）：磁盘有直接回，没有 302 CDN 并后台落盘。
+    return cached('splash-centered|' + id, function () { return '/api/splash/' + id; });
   }
 
   function fallbackInitial(label) {
