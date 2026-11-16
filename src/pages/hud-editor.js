@@ -168,10 +168,6 @@ const PAGE_SCRIPT = `(function () {
     var el = document.getElementById('he-frame-el');
     try { return el ? el.contentDocument : null; } catch (error) { return null; }
   }
-  function presentInFrame(sel, doc) {
-    if (!sel || !doc || !doc.querySelector) return true;
-    try { return !!doc.querySelector(sel); } catch (error) { return true; }
-  }
   // 元素的真实几何：iframe 的 CSS px 就是 1920×1080 设计坐标，量到多少就是多少。
   // 面板里「宽 / 高 / 字号」没被覆盖时显示这个实测值，好照着真实数字微调。
   function measureSelected(sel) {
@@ -254,7 +250,6 @@ const PAGE_SCRIPT = `(function () {
         row.appendChild(badge);
         if (target.key === selected) row.classList.add('is-active');
         if (items[target.key]) row.classList.add('is-edited');
-        if (!presentInFrame(target.sel, doc)) { row.classList.add('is-absent'); row.title = '当前画面里没有这个元素（未出龙 / 没有增益 / 自定义遮罩等）'; }
         list.appendChild(row);
       });
     });
@@ -265,20 +260,9 @@ const PAGE_SCRIPT = `(function () {
       list.appendChild(empty);
     }
   }
-  // 元素是动态的（龙一条条出、buff 会过期、模式可能切），所以灰显状态要定期重算。
+  // 面板是给「调布局」用的：元素此刻有没有数据不影响可调性，所以列表一律正常显示。
+  // 数据到位时 HUD 会自己长出来，之前设的位移/尺寸照常生效。
   function refreshAbsent() {
-    if (!list || !targets.length) return;
-    var doc = frameDoc();
-    if (!doc) return;
-    var byKey = {};
-    for (var i = 0; i < targets.length; i += 1) byKey[targets[i].key] = targets[i];
-    var rows = list.querySelectorAll('.he-item');
-    for (var k = 0; k < rows.length; k += 1) {
-      var target = byKey[rows[k].getAttribute('data-key')];
-      var absent = !!target && !presentInFrame(target.sel, doc);
-      rows[k].classList.toggle('is-absent', absent);
-      rows[k].title = absent ? '当前画面里没有这个元素（未出龙 / 该模式走原生 HUD / 自定义遮罩等）' : '';
-    }
     refreshMeasured();
   }
   function syncList() {

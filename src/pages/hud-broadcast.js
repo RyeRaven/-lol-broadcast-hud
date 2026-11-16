@@ -1521,6 +1521,23 @@ var ICONS = {
       return SIGIL(key);
     }).join('');
   }
+  // 编辑模式专用：龙堆按 4 个坑位补齐占位框，还没打的第 3/4 条龙也能直接拖位置。
+  // 只在 ?hudEdit=1 里生效，生产 HUD 的 DOM 与原来一致。
+  function layoutGhosts() {
+    if (!layoutEditMode()) return;
+    ['blue', 'red'].forEach(function (side) {
+      var stack = byId('hb-stack-' + side);
+      if (!stack) return;
+      var have = stack.querySelectorAll(':scope > img').length;
+      for (var i = have; i < 4; i += 1) {
+        var ghost = document.createElement('img');
+        ghost.className = 'hb-ghost';
+        ghost.setAttribute('alt', '');
+        ghost.src = '/assets/objectives/score-dragon.png';
+        stack.appendChild(ghost);
+      }
+    });
+  }
   function renderObjectives() {
     ['blue', 'red'].forEach(function (side) {
       var team = teamInfo(side);
@@ -1806,6 +1823,7 @@ var ICONS = {
   function replayIntro(withWipe) { if (withWipe && A.sceneWipe) A.sceneWipe(ROOT, { duration: 360 }); playIntro(); }
   function renderAll(previous) {
     renderTop(previous); ensureRows(); updateRows(); renderMatchups(); renderCoverCard(); renderSponsor();
+    layoutGhosts();
     // 行节点每次 ensureRows 都可能被重建，微调必须在每次渲染后重放（幂等）。
     layoutApply(LAYOUT_ITEMS);
     ROOT.classList.add('hb-ready');

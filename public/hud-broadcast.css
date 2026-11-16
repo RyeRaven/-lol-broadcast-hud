@@ -1542,6 +1542,8 @@ body.hb-body {
 .hb-stack { display: flex; align-items: center; gap: 3px; min-height: 18px; }
 .hb-stack:empty { display: none; }
 .hb-stack img { width: 18px; height: 18px; object-fit: contain; }
+/* 编辑模式占位框：还没打出来的龙位，浅色图标占位，方便先把位置调好。 */
+.hb-stack img.hb-ghost { opacity: 0.28; filter: grayscale(1); }
 
 .hb-herald {
   display: flex;
