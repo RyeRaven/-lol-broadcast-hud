@@ -214,6 +214,21 @@ body { overflow: hidden; }
 
 .he-tools select { width: auto; text-align: left; }
 
+/* 未覆盖的字段显示实测值：颜色压暗 + 斜体，一眼能分清「实测」和「你定死的值」。 */
+.he-grid input.is-measured {
+  color: var(--he-dim);
+  font-style: italic;
+  border-style: dashed;
+}
+
+.he-measure {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--he-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .he-grid input:focus,
 .he-tools select:focus,
 .he-filter input:focus {

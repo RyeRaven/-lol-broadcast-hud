@@ -101,6 +101,7 @@ const PAGE_SCRIPT = `(function () {
   var panel = document.getElementById('he-panel');
   var panelTitle = document.getElementById('he-panel-title');
   var hintNode = document.getElementById('he-hint');
+  var measureNode = document.getElementById('he-measure');
   var statusNode = document.getElementById('he-status');
   var filterInput = document.getElementById('he-filter');
   var snapSelect = document.getElementById('he-snap');
@@ -108,6 +109,7 @@ const PAGE_SCRIPT = `(function () {
   var onlyEditedCheck = document.getElementById('he-only-edited');
   var targets = [];
   var absentTimer = null;
+  var measureTimer = null;
   var items = {};
   var selected = null;
   var dirty = false;
@@ -170,6 +172,60 @@ const PAGE_SCRIPT = `(function () {
     if (!sel || !doc || !doc.querySelector) return true;
     try { return !!doc.querySelector(sel); } catch (error) { return true; }
   }
+  // 元素的真实几何：iframe 的 CSS px 就是 1920×1080 设计坐标，量到多少就是多少。
+  // 面板里「宽 / 高 / 字号」没被覆盖时显示这个实测值，好照着真实数字微调。
+  function measureSelected(sel) {
+    var doc = frameDoc();
+    if (!doc || !sel) return null;
+    var el = null;
+    try { el = doc.querySelector(sel); } catch (error) { return null; }
+    if (!el || !el.getBoundingClientRect) return null;
+    var rect = el.getBoundingClientRect();
+    var view = doc.defaultView;
+    var fs = view ? parseFloat(view.getComputedStyle(el).fontSize) : 0;
+    // 容器上的字号没有意义（14px 继承值），只有自己直接带文字的元素才报字号。
+    var hasText = false;
+    for (var n = 0; n < el.childNodes.length; n += 1) {
+      var child = el.childNodes[n];
+      if (child.nodeType === 3 && child.textContent && child.textContent.replace(/\s+/g, '')) { hasText = true; break; }
+    }
+    return {
+      w: Math.round(rect.width * 10) / 10,
+      h: Math.round(rect.height * 10) / 10,
+      fontSize: hasText && isFinite(fs) && fs > 0 ? Math.round(fs * 10) / 10 : 0
+    };
+  }
+  function updateMeasure(measured) {
+    if (!measureNode) return;
+    if (!measured) { measureNode.textContent = '当前画面里没有这个元素，量不到尺寸。'; return; }
+    measureNode.textContent = '实测 ' + measured.w + ' × ' + measured.h + ' px' +
+      (measured.fontSize ? ' · 字号 ' + measured.fontSize + 'px' : '') +
+      '　灰色数字是实测值，改一下就锁成固定值，清空回到自动。';
+  }
+  // 文本长度 / 龙数 / 模式都会让尺寸变，实测值跟着心跳刷。
+  function refreshMeasured() {
+    if (!selected || !panel || panel.hidden) return;
+    var target = null;
+    targets.forEach(function (entry) { if (entry.key === selected) target = entry; });
+    var measured = measureSelected(target && target.sel);
+    updateMeasure(measured);
+    var inputs = panel.querySelectorAll('[data-field]');
+    for (var i = 0; i < inputs.length; i += 1) {
+      var field = inputs[i].getAttribute('data-field');
+      if (field !== 'w' && field !== 'h' && field !== 'fontSize') continue;
+      if (document.activeElement === inputs[i]) continue;
+      var explicit = fieldValue(selected, field);
+      if (explicit !== '') {
+        // 已经是固定值：显示固定值，去掉「实测」灰显。
+        inputs[i].classList.remove('is-measured');
+        inputs[i].value = String(explicit);
+        continue;
+      }
+      var value = measured ? (field === 'fontSize' ? measured.fontSize : measured[field]) : 0;
+      inputs[i].classList.toggle('is-measured', !!value);
+      inputs[i].value = value ? String(value) : '';
+    }
+  }
   function buildList() {
     if (!list) return;
     list.innerHTML = '';
@@ -223,6 +279,7 @@ const PAGE_SCRIPT = `(function () {
       rows[k].classList.toggle('is-absent', absent);
       rows[k].title = absent ? '当前画面里没有这个元素（未出龙 / 该模式走原生 HUD / 自定义遮罩等）' : '';
     }
+    refreshMeasured();
   }
   function syncList() {
     if (!list) return;
@@ -249,13 +306,23 @@ const PAGE_SCRIPT = `(function () {
         hintNode.textContent = '';
       }
     }
+    var measured = measureSelected(target && target.sel);
     var inputs = panel.querySelectorAll('[data-field]');
     for (var i = 0; i < inputs.length; i += 1) {
       if (document.activeElement === inputs[i]) continue;
       var field = inputs[i].getAttribute('data-field');
       var value = fieldValue(selected, field);
-      inputs[i].value = value === '' ? '' : String(value);
+      var show = value === '' ? '' : String(value);
+      // 宽 / 高 / 字号没有覆盖时，直接把实测值填进去（灰显），免得只看到「自动」没得算。
+      var auto = value === '' && measured && (field === 'w' || field === 'h' || field === 'fontSize');
+      if (auto) {
+        var measuredValue = field === 'fontSize' ? measured.fontSize : measured[field];
+        show = measuredValue ? String(measuredValue) : '';
+      }
+      inputs[i].classList.toggle('is-measured', !!auto && !!show);
+      inputs[i].value = show;
     }
+    updateMeasure(measured);
   }
   function commit(field, rawValue) {
     if (!selected) return;
@@ -272,6 +339,8 @@ const PAGE_SCRIPT = `(function () {
     markDirty();
     syncList();
     send('set', { key: selected, value: Object.keys(next).length ? next : {} });
+    // 改完立刻刷新读出行（以及其它非聚焦字段的实测值），不等到 2s 心跳。
+    refreshMeasured();
   }
   function resetItem() {
     if (!selected) return;
@@ -316,6 +385,8 @@ const PAGE_SCRIPT = `(function () {
       status('已连接 HUD · ' + targets.length + ' 个可调元素', 'good');
       window.setTimeout(refreshAbsent, 700);
       if (!absentTimer) absentTimer = window.setInterval(refreshAbsent, 2000);
+      // 实测值跟着 HUD 变（挖孔 60ms 去抖、文字变长等），单独用快节拍刷；正在输入的框不碰。
+      if (!measureTimer) measureTimer = window.setInterval(refreshMeasured, 350);
     } else if (data.event === 'select') {
       selected = data.key || null;
       syncList();
@@ -337,7 +408,11 @@ const PAGE_SCRIPT = `(function () {
   });
   if (panel) panel.addEventListener('input', function (event) {
     var field = event.target && event.target.getAttribute ? event.target.getAttribute('data-field') : null;
-    if (field) commit(field, event.target.value);
+    if (field) {
+      // 亲手改过的字段不再是「实测值」样式。
+      if (event.target.value !== '') event.target.classList.remove('is-measured');
+      commit(field, event.target.value);
+    }
   });
   var resetItemButton = document.getElementById('he-reset-item');
   if (resetItemButton) resetItemButton.addEventListener('click', resetItem);
@@ -405,6 +480,7 @@ function hudEditorPage() {
             '<label class="he-field">字号<input data-field="fontSize" type="number" step="1" min="0" placeholder="自动"></label>' +
             '<label class="he-field">透明度<input data-field="opacity" type="number" step="0.05" min="0" max="1" placeholder="1"></label>' +
           '</div>' +
+          '<p class="he-measure" id="he-measure"></p>' +
           '<div class="he-actions"><button id="he-reset-item" type="button">重置此项</button></div>' +
         '</section>' +
         '<footer class="he-foot">' +
