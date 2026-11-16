@@ -1,8 +1,16 @@
 # Khada Jhin
 
+![version](https://img.shields.io/badge/version-0.2.2-blue) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey) ![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![tests](https://img.shields.io/badge/tests-195%20passing-success)
+
 Windows 本地《英雄联盟》赛事导播辅助工具。Khada Jhin 将 LCU、Live Client Data API 和 Data Dragon 数据转换为 OBS Browser Source 可采集的 BP、局内 HUD、赛后庆典和转场画面，并提供本地三栏控台。
 
 > 合规声明：Khada Jhin 不读取游戏内存、不注入游戏进程、不修改游戏文件、不绕过反作弊、不模拟游戏操作。只使用 Riot 官方本地接口、公开 Data Dragon 数据和本地配置。
+
+这既是给用户的承诺，也是本项目与同类工具的核心差异：所有功能都构建在 Riot 官方提供的本地接口与公开数据之上，对回放/观战协议流的解析同样只做只读解密与展示，不触碰反作弊系统边界。欢迎对照 [CONTRIBUTING.md](CONTRIBUTING.md) 的红线条款审查每一行代码。
+
+## 效果预览
+
+![Khada Jhin 效果预览：BP → 局内 HUD → 赛后（mock 数据）](docs/assets/demo.gif)
 
 ## 下载
 
