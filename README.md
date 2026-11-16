@@ -55,7 +55,7 @@ npm start 会启动 Electron 主进程、托管本地服务并自动打开控台
     npm install
     npm run dist
 
-产物为 release\Khada Jhin Setup 0.2.0.exe（NSIS 安装包），双击后按向导安装并选择安装目录。若首次打包因网络无法下载 NSIS 组件，build-windows.bat 会自动回退到 release\win-unpacked\Khada Jhin.exe；请按脚本提示在 DEVELOPMENT_LOG.md 记录失败原因。
+产物为 release\Khada Jhin Setup 0.2.0.exe（NSIS 安装包），双击后按向导安装并选择安装目录。若首次打包因网络无法下载 NSIS 组件，build-windows.bat 会自动回退到 release\win-unpacked\Khada Jhin.exe；请按脚本提示在 docs/internal/DEVELOPMENT_LOG.md 记录失败原因。
 
 只生成免安装目录：
 
@@ -151,7 +151,7 @@ Khada Jhin 按以下顺序寻找 LCU 连接：启动参数 / RIOT_CLIENT_COMMAND
 | OBS 未连接 | 确认 OBS 已开启 WebSocket 服务器、端口为 4455、密码正确；在控台 OBS 面板重新连接。OBS 断线后程序会自动重连。 |
 | Live Client 显示断开 | :2999 只在真实对局中可用；对局结束后看到 post_game 或 frozen 兜底属于正常行为。若对局很短，程序可能来不及取得首帧，可手动切“赛后”。 |
 | Overlay 没有画面 | 先用浏览器打开对应地址确认服务正常；检查 OBS Browser Source 宽高是否为 1920×1080、是否使用实际端口；在 OBS 中刷新缓存或重新加载页面。 |
-| 打包失败 | 首次打包需要下载 NSIS 组件；检查网络后重试，或使用 npm run dist:dir 生成免安装版。失败原因按提示记录到 DEVELOPMENT_LOG.md。 |
+| 打包失败 | 首次打包需要下载 NSIS 组件；检查网络后重试，或使用 npm run dist:dir 生成免安装版。失败原因按提示记录到 docs/internal/DEVELOPMENT_LOG.md。 |
 
 ## 隐私与合规
 

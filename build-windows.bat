@@ -38,7 +38,7 @@ if errorlevel 1 (
   )
   echo.
   echo [完成] 已生成免安装版本：release\win-unpacked\RiftBroadcast.exe
-  echo [注意] NSIS 安装包未生成，请把失败原因记录到 DEVELOPMENT_LOG.md。
+  echo [注意] NSIS 安装包未生成，请把失败原因记录到 docs/internal/DEVELOPMENT_LOG.md。
   pause
   exit /b 0
 )
