@@ -1479,7 +1479,7 @@ var ICONS = {
     var cfg = config || {};
     var card = (cfg && cfg.coverCard && typeof cfg.coverCard === 'object') ? cfg.coverCard : null;
     var series = (cfg && cfg.series && typeof cfg.series === 'object') ? cfg.series : {};
-    var tournament = text(cfg.tournamentName, text(series.name, text(state && state.tournamentName, 'RIFT BROADCAST')));
+    var tournament = text(cfg.tournamentName, text(series.name, text(state && state.tournamentName, 'KHADA JHIN')));
     var patch = text(cfg.patch, text(series.patch, text(state && state.patch, '')));
     var phase = PHASE_CN[text(state && state.phase, '')] || '';
     var title = text(card && card.title, tournament);
@@ -1498,7 +1498,7 @@ var ICONS = {
     var list = config && Array.isArray(config.sponsors) ? config.sponsors : []; var sponsor = null;
     for (var i = 0; i < list.length; i += 1) { if (list[i] && list[i].slot === 'bottom') { sponsor = list[i]; break; } }
     if (!sponsor) sponsor = list[0] || null;
-    var name = text(sponsor && sponsor.name, 'RIFTBROADCAST');
+    var name = text(sponsor && sponsor.name, 'KHADA JHIN');
     setHtml(node, '<span class="hb-sponsor-name">' + esc(name) + '</span>' + (sponsor && sponsor.image ? '<img src="' + esc(sponsor.image) + '" alt="' + esc(name) + '" onerror="this.remove()">' : ''));
   }
   function playIntro() {

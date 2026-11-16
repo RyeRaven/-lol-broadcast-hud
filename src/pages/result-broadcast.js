@@ -331,7 +331,7 @@ const RESULT_SCRIPT = String.raw`(function () {
     // 参考：WORLDS 2026 | THIS IS OUR MOMENT——系列名自带阶段（如「校园赛·半决赛」）时不再拼 stage，避免重复。
     var name = text(s.name, '');
     var stage = text(s.stage, '');
-    byId('rs-banner').textContent = name && stage && name.indexOf(stage) === -1 ? name + ' | ' + stage : (name || 'RIFT BROADCAST');
+    byId('rs-banner').textContent = name && stage && name.indexOf(stage) === -1 ? name + ' | ' + stage : (name || 'KHADA JHIN');
   }
   function statRow(label, blueValue, redValue, winner, extra) {
     return '<div class="rs-row' + (extra ? ' ' + extra : '') + '">' +
@@ -544,7 +544,7 @@ const RESULT_BODY = [
     '<span class="rs-logo red" id="rs-logo-red"><i>R</i></span>',
     '<div class="rs-teamside right"><span class="rs-seed" id="rs-seed-red">RED SIDE</span><b class="rs-tname" id="rs-name-red">RED</b></div>',
   '</header>',
-  '<div class="rs-banner"><span id="rs-banner">RIFT BROADCAST | FINAL</span></div>',
+  '<div class="rs-banner"><span id="rs-banner">KHADA JHIN | FINAL</span></div>',
   '<div class="rs-columns">',
     '<section class="rs-table"><div id="rs-rows"></div></section>',
     '<section class="rs-charts">',
