@@ -469,7 +469,7 @@ function renderAutoSwitch(auto, scenes) {
   var box = document.querySelector('.obs-auto');
   if (!box) return;
   auto = auto || {};
-  var key = scenes.join('|') + '::' + [auto.draft, auto.in_game, auto.post_game].join('|');
+  var key = scenes.join('|') + '::' + [auto.draft, auto.in_game, auto.post_game, auto.mvp].join('|');
   if (key === autoCache) return;
   autoCache = key;
   if (!scenes.length) { box.innerHTML = '<span class="empty">连接 OBS 后可配置自动切换</span>'; return; }
@@ -479,7 +479,7 @@ function renderAutoSwitch(auto, scenes) {
       scenes.map(function (name) { return '<option value="' + esc(name) + '"' + (selected === name ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') +
       '</select></label>';
   };
-  box.innerHTML = option('draft', 'BP 阶段') + option('in_game', '局内') + option('post_game', '赛后');
+  box.innerHTML = option('draft', 'BP 阶段') + option('in_game', '局内') + option('post_game', '赛后') + option('mvp', 'MVP 时刻');
   box.querySelectorAll('[data-auto]').forEach(function (select) {
     select.addEventListener('change', function () {
       var body = {};

@@ -61,7 +61,7 @@ state.mvp = null;
 // OBS 快照由 main.js 创建 ObsClient 后写入。
 state.obs = null;
 // 阶段 → OBS 场景名。留空表示该阶段不自动切。
-state.autoSwitch = savedConfig.autoSwitch || { draft: '', in_game: '', post_game: '' };
+state.autoSwitch = savedConfig.autoSwitch || { draft: '', in_game: '', post_game: '', mvp: '' };
 state.replay = { connected: false, error: null };
 // 只保留当前 cue，不积累历史，避免长时间运行时增长。
 state.broadcastCue = { type: '', payload: null, seq: 0, at: null };

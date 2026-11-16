@@ -16,11 +16,12 @@ const BROWSER_SOURCE_SETTINGS = Object.freeze({
 });
 const SCENE_PACKAGE = {
   collectionName: 'Khada Jhin',
-  autoSwitch: { draft: 'RB-BP', in_game: 'RB-HUD', post_game: 'RB-RESULT' },
+  autoSwitch: { draft: 'RB-BP', in_game: 'RB-HUD', post_game: 'RB-RESULT', mvp: 'RB-MVP' },
   scenes: [
     { sceneName: 'RB-BP', sourceName: 'Khada Jhin BP', overlay: 'bp-broadcast' },
     { sceneName: 'RB-HUD', sourceName: 'Khada Jhin HUD', overlay: 'hud-broadcast' },
     { sceneName: 'RB-RESULT', sourceName: 'Khada Jhin Result', overlay: 'result-broadcast' },
+    { sceneName: 'RB-MVP', sourceName: 'Khada Jhin MVP', overlay: 'mvp-broadcast' },
     { sceneName: 'RB-TRANSITION', sourceName: 'Khada Jhin Transition', overlay: 'transition' }
   ]
 };
@@ -744,7 +745,7 @@ function handleObsApi(req, res, url, context) {
         autoSwitch: payload.autoSwitch
       }), packageInfo => {
         const mapping = packageInfo.autoSwitch && typeof packageInfo.autoSwitch === 'object' ? packageInfo.autoSwitch : {};
-        state.autoSwitch = { draft: '', in_game: '', post_game: '', ...(state.autoSwitch || {}), ...mapping };
+        state.autoSwitch = { draft: '', in_game: '', post_game: '', mvp: '', ...(state.autoSwitch || {}), ...mapping };
         if (typeof saveConfig === 'function') saveConfig();
         return { package: packageInfo, autoSwitch: state.autoSwitch };
       });

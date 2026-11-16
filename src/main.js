@@ -383,6 +383,15 @@ function applyAutoScene() {
   lastAutoPhase = state.phase;
   obs.setScene(scene).catch(() => {});
 }
+// MVP 时刻不是 phase（走不了 applyAutoScene 的 phase 门控）：/api/mvp 发送后切到
+// autoSwitch.mvp 场景，清除后切回 post_game 场景。OBS 未连接或未配置时静默跳过。
+function switchMvpScene(sent) {
+  if (!obs.status.connected) return;
+  const mapping = state.autoSwitch || {};
+  const target = sent ? mapping.mvp : mapping.post_game;
+  if (!target) return;
+  obs.setScene(target).then(snapshot => { state.obs = snapshot; broadcast(); }).catch(() => {});
+}
 function cloneState() { return JSON.parse(JSON.stringify(state)); }
 function runDirector() {
   const triggers = directorEngine.evaluate(state);
@@ -620,7 +629,7 @@ function normalizeSceneName(value) {
 function normalizeAutoSwitch(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw badRequest('invalid_auto_switch');
   const result = {};
-  for (const key of ['draft', 'in_game', 'post_game']) {
+  for (const key of ['draft', 'in_game', 'post_game', 'mvp']) {
     const value = body[key];
     if (value === undefined || value === null) { result[key] = ''; continue; }
     if (typeof value !== 'string' || value.trim().length > 128) throw badRequest('invalid_auto_switch');
@@ -698,9 +707,10 @@ const server = http.createServer((req,res)=>{
       const name = String(body && body.name || '').trim();
       const team = String(body && body.team || '').trim().toLowerCase();
       if (!name || (team !== 'blue' && team !== 'red')) {
-        // 清除选择：控台撤回 MVP 时页面回到待评选占位。
+        // 清除选择：控台撤回 MVP 时页面回到待评选占位，OBS 回到赛后场景。
         state.mvp = null;
         broadcast();
+        switchMvpScene(false);
         json(res, 200, { mvp: null });
         return;
       }
@@ -717,6 +727,7 @@ const server = http.createServer((req,res)=>{
         at: Date.now()
       };
       broadcast();
+      switchMvpScene(true);
       json(res, 200, { mvp: state.mvp });
     }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error && error.message ? error.message : 'invalid_request' }); });
     return;

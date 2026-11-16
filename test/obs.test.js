@@ -194,11 +194,12 @@ test('fake obs-websocket connection completes handshake and scene package reques
   const packageInfo = await client.createScenePackage({ baseUrl: 'http://127.0.0.1:3210' });
   assert.equal(packageInfo.collectionName, 'Khada Jhin');
   assert.equal(packageInfo.createdCollection, true);
-  assert.deepEqual(packageInfo.scenes, ['RB-BP', 'RB-HUD', 'RB-RESULT', 'RB-TRANSITION']);
-  assert.deepEqual(packageInfo.autoSwitch, { draft: 'RB-BP', in_game: 'RB-HUD', post_game: 'RB-RESULT' });
-  assert.equal(packageInfo.sources.length, 4);
+  assert.deepEqual(packageInfo.scenes, ['RB-BP', 'RB-HUD', 'RB-RESULT', 'RB-MVP', 'RB-TRANSITION']);
+  assert.deepEqual(packageInfo.autoSwitch, { draft: 'RB-BP', in_game: 'RB-HUD', post_game: 'RB-RESULT', mvp: 'RB-MVP' });
+  assert.equal(packageInfo.sources.length, 5);
   assert.equal(packageInfo.sources[0].url, 'http://127.0.0.1:3210/overlay/bp-broadcast');
-  assert.equal(packageInfo.sources[3].url, 'http://127.0.0.1:3210/overlay/transition');
+  assert.equal(packageInfo.sources[3].url, 'http://127.0.0.1:3210/overlay/mvp-broadcast');
+  assert.equal(packageInfo.sources[4].url, 'http://127.0.0.1:3210/overlay/transition');
   const fake = FakeObsWebSocket.instances[0];
   const requests = fake.sent.filter(message => message.op === 6).map(message => message.d.requestType);
   assert.ok(requests.includes('GetSceneCollectionList'));
@@ -234,7 +235,7 @@ test('scene package API writes autoSwitch mapping and saves config', async () =>
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.ok, true);
-  assert.deepEqual(state.autoSwitch, { draft: 'RB-BP', in_game: 'RB-HUD', post_game: 'RB-RESULT' });
+  assert.deepEqual(state.autoSwitch, { draft: 'RB-BP', in_game: 'RB-HUD', post_game: 'RB-RESULT', mvp: 'RB-MVP' });
   assert.deepEqual(res.body.autoSwitch, state.autoSwitch);
   assert.equal(saveCount, 1);
   client.disconnect();
