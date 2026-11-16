@@ -1,0 +1,311 @@
+/* HUD 布局微调页（/broadcast/hud-editor）样式。
+   舞台是深墨色，面板用中性灰阶，只有主操作按钮带一点金——页面的注意力应该全在右侧 HUD 上。 */
+:root {
+  --he-bg: #0c0d10;
+  --he-panel-a: #17181d;
+  --he-panel-b: #1f2127;
+  --he-line: rgba(255, 255, 255, 0.09);
+  --he-line-strong: rgba(255, 255, 255, 0.16);
+  --he-text: #e8e9ee;
+  --he-dim: #9aa0ab;
+  --he-faint: #6d7480;
+  --he-accent: #c9a227;
+  --he-accent-ink: #17140a;
+  --he-ok: #6fbf9b;
+  --he-warn: #e0b155;
+  --he-bad: #e0705f;
+  --he-font: "Bahnschrift", "DIN Alternate", "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--he-bg);
+  color: var(--he-text);
+  font-family: var(--he-font);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { overflow: hidden; }
+
+.hud-editor {
+  display: grid;
+  grid-template-columns: 332px minmax(0, 1fr);
+  height: 100vh;
+}
+
+/* ---------- 侧栏 ---------- */
+
+.he-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: linear-gradient(180deg, var(--he-panel-a), #121317);
+  border-right: 1px solid var(--he-line);
+}
+
+.he-head {
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--he-line);
+}
+
+.he-head h1 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.he-sub {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--he-dim);
+}
+
+.he-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--he-line);
+}
+
+.he-field,
+.he-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--he-dim);
+}
+
+.he-filter { padding: 10px 18px 6px; }
+
+.he-filter input {
+  width: 100%;
+  padding: 7px 9px;
+  color: var(--he-text);
+  background: #0f1014;
+  border: 1px solid var(--he-line-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.he-filter input::placeholder { color: var(--he-faint); }
+
+.he-list {
+  flex: 1 1 auto;
+  min-height: 90px;
+  overflow-y: auto;
+  padding: 4px 10px 12px;
+}
+
+.he-group {
+  margin: 10px 8px 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--he-faint);
+}
+
+.he-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 9px;
+  margin: 1px 0;
+  color: var(--he-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.he-item:hover { background: rgba(255, 255, 255, 0.05); }
+
+.he-item.is-active {
+  color: #fff;
+  background: rgba(201, 162, 39, 0.14);
+  border-color: rgba(201, 162, 39, 0.5);
+}
+
+.he-item.is-edited .he-badge::before { content: "●"; }
+
+.he-badge {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 9px;
+  color: var(--he-accent);
+}
+
+.he-empty {
+  margin: 12px 8px;
+  font-size: 12px;
+  color: var(--he-faint);
+}
+
+/* ---------- 数值面板 ---------- */
+
+.he-panel {
+  padding: 12px 18px 14px;
+  border-top: 1px solid var(--he-line-strong);
+  background: var(--he-panel-b);
+}
+
+.he-panel h2 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.he-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+
+.he-grid .he-field {
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.he-grid input,
+.he-tools select {
+  width: 74px;
+  padding: 5px 6px;
+  color: var(--he-text);
+  background: #0f1014;
+  border: 1px solid var(--he-line-strong);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.he-tools select { width: auto; text-align: left; }
+
+.he-grid input:focus,
+.he-tools select:focus,
+.he-filter input:focus {
+  outline: none;
+  border-color: rgba(201, 162, 39, 0.7);
+}
+
+.he-actions { margin-top: 10px; }
+
+/* ---------- 底部 ---------- */
+
+.he-foot {
+  margin-top: auto;
+  padding: 12px 18px 14px;
+  border-top: 1px solid var(--he-line);
+  background: #121317;
+}
+
+.he-status {
+  min-height: 16px;
+  margin-bottom: 9px;
+  font-size: 11.5px;
+  color: var(--he-dim);
+}
+
+.he-status[data-tone="good"] { color: var(--he-ok); }
+.he-status[data-tone="warn"] { color: var(--he-warn); }
+.he-status[data-tone="bad"] { color: var(--he-bad); }
+
+.he-buttons {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+}
+
+.he-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--he-faint);
+}
+
+.he-note a { color: var(--he-dim); }
+
+/* ---------- 按钮 ---------- */
+
+button {
+  padding: 7px 11px;
+  color: var(--he-text);
+  background: #23252c;
+  border: 1px solid var(--he-line-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+button:hover { background: #2b2e36; border-color: rgba(255, 255, 255, 0.24); }
+button:active { background: #1e2026; }
+button:focus-visible { outline: 2px solid rgba(201, 162, 39, 0.8); outline-offset: 1px; }
+
+button.is-primary {
+  color: var(--he-accent-ink);
+  background: var(--he-accent);
+  border-color: var(--he-accent);
+  font-weight: 600;
+}
+
+button.is-primary:hover { background: #d9b23a; border-color: #d9b23a; }
+
+/* ---------- 舞台 ---------- */
+
+.he-stage {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.045), transparent 62%),
+    #08090b;
+}
+
+.he-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: top left;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.he-frame iframe {
+  display: block;
+  width: 1920px;
+  height: 1080px;
+  border: 0;
+  background: transparent;
+}
+
+/* 窄屏时收窄侧栏，别把舞台挤没 */
+@media (max-width: 1180px) {
+  .hud-editor { grid-template-columns: 288px minmax(0, 1fr); }
+}
+
+/* 减少动态偏好：去掉过渡，拖拽逻辑本身不依赖它们 */
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}

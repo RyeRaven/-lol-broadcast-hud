@@ -459,6 +459,119 @@ var ICONS = {
       syncHoles();
     }).catch(function () { /* 读不到标定不影响 overlay 正常出图 */ });
   }
+  // ---- 布局微调（data/hud-layout.json，经 /api/hud-layout 读写） ----
+  // 目的：让用户自己在编辑页里拖位置、改尺寸，而不是每次描述需求等我改代码。
+  // 只做「相对微调」——位移 / 宽高 / 缩放 / 字号 / 透明度，写成元素内联样式；
+  // 结构、网格、挖孔公式一概不动，所以任何一项归零都能回到出厂布局。
+  // 元素清单是唯一事实源：编辑页列表、命中框、保存键全部从这里派生。
+  var LAYOUT_TARGETS = [
+    { key: 'topbar', label: '顶部整条', group: '顶部', sel: '#hb-topbar' },
+    { key: 'scorebar', label: '比分条', group: '顶部', sel: '#hb-scorebar' },
+    { key: 'score-cluster', label: '比分中区', group: '顶部', sel: '#hb-scorebar .hb-cluster' },
+    { key: 'score-row1', label: '比分第一行（塔 / 金币 / 击杀）', group: '顶部', sel: '#hb-scorebar .hb-row1' },
+    { key: 'score-row2', label: '比分第二行（龙 / 潮虫 / 时钟）', group: '顶部', sel: '#hb-scorebar .hb-row2' },
+    { key: 'badge-blue', label: '蓝方队标卡', group: '顶部', sel: '#hb-scorebar .hb-badge.blue' },
+    { key: 'badge-red', label: '红方队标卡', group: '顶部', sel: '#hb-scorebar .hb-badge.red' },
+    { key: 'timer-phase', label: '左侧 · 巢虫计时', group: '顶部', sel: '#hb-timer-phase' },
+    { key: 'timer-dragon', label: '左侧 · 小龙计时', group: '顶部', sel: '#hb-timer-dragon' },
+    { key: 'buff-blue', label: '左侧 · 蓝方增益卡', group: '顶部', sel: '#hb-buff-slot-blue' },
+    { key: 'buff-red', label: '右侧 · 红方增益卡', group: '顶部', sel: '#hb-buff-slot-red' },
+    { key: 'bottom-stage', label: '底部整块（含等比缩放）', group: '底部', sel: '#hb-bottom-stage' },
+    { key: 'bottom', label: '底部板体', group: '底部', sel: '#hb-bottom' },
+    { key: 'board', label: '棋盘', group: '底部', sel: '#hb-board' },
+    { key: 'mid', label: '中栏（对位经济差）', group: '底部', sel: '#hb-mid' },
+    { key: 'rows-blue', label: '蓝方五行容器', group: '底部', sel: '#hb-rows-blue' },
+    { key: 'rows-red', label: '红方五行容器', group: '底部', sel: '#hb-rows-red' },
+    { key: 'left-rail', label: '底部左轨', group: '底部', sel: '#hb-bottom .hb-left-rail' },
+    { key: 'cover-left', label: '左侧原生遮罩', group: '底部', sel: '#hb-native-cover-left' }
+  ];
+  (function () {
+    for (var i = 0; i < 5; i += 1) {
+      LAYOUT_TARGETS.push({ key: 'row-blue-' + i, label: '蓝方第 ' + (i + 1) + ' 行', group: '单行（改尺寸会撞挖孔）', sel: '#hb-row-blue-' + i });
+      LAYOUT_TARGETS.push({ key: 'row-red-' + i, label: '红方第 ' + (i + 1) + ' 行', group: '单行（改尺寸会撞挖孔）', sel: '#hb-row-red-' + i });
+    }
+  })();
+  var LAYOUT_FIELDS = ['dx', 'dy', 'w', 'h', 'scale', 'fontSize', 'opacity'];
+  var LAYOUT_ITEMS = null;
+  function layoutEditMode() { return /(?:^|[?&])hudEdit=1(?:&|$)/.test(searchString()); }
+  function layoutQuery(selector) {
+    try { return document.querySelector(selector); } catch (error) { return null; }
+  }
+  // 首次触碰时把「原厂样式」记下来：transform 可能来自样式表（不是内联），
+  // 直接写内联 transform 会把它整个抹掉——所以取一次 computed matrix 当底座。
+  function layoutBase(el) {
+    if (el.__hbBase) return el.__hbBase;
+    var computed = '';
+    try { computed = window.getComputedStyle(el).transform || ''; } catch (error) { computed = ''; }
+    el.__hbBase = {
+      transform: el.style.transform || (computed && computed !== 'none' ? computed : ''),
+      width: el.style.width || '', height: el.style.height || '',
+      fontSize: el.style.fontSize || '', opacity: el.style.opacity || ''
+    };
+    return el.__hbBase;
+  }
+  // 幂等：同一个 items 反复 apply 的结果一致，所以可以在每次 renderAll 之后重放，
+  // 行节点被 ensureRows 重建后也能自动恢复微调。
+  function layoutApply(items) {
+    if (typeof document === 'undefined') return;
+    var source = items && typeof items === 'object' ? items : {};
+    for (var i = 0; i < LAYOUT_TARGETS.length; i += 1) {
+      var target = LAYOUT_TARGETS[i];
+      var el = layoutQuery(target.sel);
+      if (!el || !el.style) continue;
+      var base = layoutBase(el);
+      var item = source[target.key] && typeof source[target.key] === 'object' ? source[target.key] : null;
+      var dx = item && hasNumber(item.dx) ? num(item.dx) : 0;
+      var dy = item && hasNumber(item.dy) ? num(item.dy) : 0;
+      var scale = item && hasNumber(item.scale) ? num(item.scale) : 1;
+      var parts = [];
+      if (base.transform) parts.push(base.transform);
+      if (dx || dy) parts.push('translate(' + dx + 'px,' + dy + 'px)');
+      if (scale !== 1) parts.push('scale(' + scale + ')');
+      el.style.transform = parts.join(' ');
+      el.style.width = item && hasNumber(item.w) && num(item.w) > 0 ? num(item.w) + 'px' : base.width;
+      el.style.height = item && hasNumber(item.h) && num(item.h) > 0 ? num(item.h) + 'px' : base.height;
+      el.style.fontSize = item && hasNumber(item.fontSize) && num(item.fontSize) > 0 ? num(item.fontSize) + 'px' : base.fontSize;
+      el.style.opacity = item && hasNumber(item.opacity) && num(item.opacity) < 1 ? String(num(item.opacity)) : base.opacity;
+    }
+  }
+  function loadLayoutOverrides() {
+    return fetchJson('/api/hud-layout').then(function (data) {
+      var items = data && data.layout && data.layout.items && typeof data.layout.items === 'object' ? data.layout.items : {};
+      LAYOUT_ITEMS = items;
+      layoutApply(LAYOUT_ITEMS);
+      return LAYOUT_ITEMS;
+    }).catch(function () { LAYOUT_ITEMS = {}; return LAYOUT_ITEMS; });
+  }
+  function layoutSetItem(key, value) {
+    if (!LAYOUT_ITEMS) LAYOUT_ITEMS = {};
+    var clean = {};
+    if (value && typeof value === 'object') {
+      for (var i = 0; i < LAYOUT_FIELDS.length; i += 1) {
+        var field = LAYOUT_FIELDS[i];
+        if (hasNumber(value[field])) clean[field] = num(value[field]);
+      }
+    }
+    if (Object.keys(clean).length) LAYOUT_ITEMS[key] = clean; else delete LAYOUT_ITEMS[key];
+    layoutApply(LAYOUT_ITEMS);
+  }
+  // 编辑层（/assets/hud-layout-edit.js）唯一依赖的桥：清单 + 读写当前值。生产路径不加载它。
+  window.__hbLayout = {
+    targets: LAYOUT_TARGETS,
+    enabled: false,
+    items: function () { return LAYOUT_ITEMS ? JSON.parse(JSON.stringify(LAYOUT_ITEMS)) : {}; },
+    setItem: layoutSetItem,
+    reload: loadLayoutOverrides
+  };
+  function mountLayoutEditor() {
+    if (!layoutEditMode() || typeof document === 'undefined') return;
+    if (window.HBLayoutEdit) { window.HBLayoutEdit.mount(); return; }
+    var script = document.createElement('script');
+    script.src = '/assets/hud-layout-edit.js';
+    script.onload = function () { if (window.HBLayoutEdit) window.HBLayoutEdit.mount(); };
+    script.onerror = function () { /* 编辑层没加载成功不影响 HUD 出图 */ };
+    document.head.appendChild(script);
+  }
   // 装备槽（0..5）+ 饰品槽（6）；演示模式补 demoItems，live 模式不补，绝不伪造。
   function playerItemSlots(player, globalIndex) {
     var usable = capUsable('items');
@@ -1527,6 +1640,8 @@ var ICONS = {
   function replayIntro(withWipe) { if (withWipe && A.sceneWipe) A.sceneWipe(ROOT, { duration: 360 }); playIntro(); }
   function renderAll(previous) {
     renderTop(previous); ensureRows(); updateRows(); renderMatchups(); renderCoverCard(); renderSponsor();
+    // 行节点每次 ensureRows 都可能被重建，微调必须在每次渲染后重放（幂等）。
+    layoutApply(LAYOUT_ITEMS);
     ROOT.classList.add('hb-ready');
     var demoBadge = byId('hb-demo-badge');
     if (demoBadge) demoBadge.style.display = state && state.mode === 'live' && (!Array.isArray(state.players) || !state.players.length) ? 'block' : 'none';
@@ -1604,6 +1719,8 @@ var ICONS = {
   // URL query 可现场覆盖原生 HUD 几何（OBS 里微调），再算一次孔位。
   applyQueryOverrides();
   loadCalibration();
+  // 布局微调：先读文件再决定是否挂编辑层（?hudEdit=1 才挂）。
+  loadLayoutOverrides().then(mountLayoutEditor);
   syncScale();
   syncBottomOffset();
   // 视口变化会改变整块缩放比例与 .hb-half 的屏幕像素尺寸，必须一起重算。

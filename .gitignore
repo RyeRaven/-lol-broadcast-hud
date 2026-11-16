@@ -19,5 +19,6 @@ data/*.tmp
 data/champions-*.json
 data/items-*.json
 data/hud-calib.json
+data/hud-layout.json
 config/broadcast.json
 __pycache__/

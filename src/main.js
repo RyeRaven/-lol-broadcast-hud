@@ -29,6 +29,7 @@ const { consolePage } = require('./pages/console');
 const { bpBroadcastPage } = require('./pages/bp-broadcast');
 const { hudBroadcastPage } = require('./pages/hud-broadcast');
 const { hudCalibratePage, handleHudCalibApi } = require('./pages/hud-calibrate');
+const { hudEditorPage, handleHudLayoutApi } = require('./pages/hud-editor');
 const { resultBroadcastPage, transitionPage } = require('./pages/result-broadcast');
 const { mvpBroadcastPage } = require('./pages/mvp-broadcast');
 const { stageBroadcastPage } = require('./pages/stage-broadcast');
@@ -839,6 +840,7 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/broadcast-config') { handleBroadcastConfigApi(req, res, url, { readBody, json, broadcast, state }); return; }
   if (url.pathname === '/api/uploads/logo' && req.method === 'POST') { handleLogoUploadApi(req, res, url, { json }); return; }
   if (url.pathname === '/api/hud-calib') { handleHudCalibApi(req, res, url); return; }
+  if (url.pathname === '/api/hud-layout') { handleHudLayoutApi(req, res, url); return; }
   if (url.pathname === '/api/sources') { const force = url.searchParams.get('refresh') === '1'; const lockfile = process.env.RIOT_LOCKFILE || path.join(process.env.LOCALAPPDATA || '', 'Riot Games', 'Riot Client', 'Config', 'lockfile'); Promise.all([getLcuConnection(force).then(c => probeLcu(c || lockfile)), probeLiveClient({ url: LIVE_CLIENT_URL })]).then(results => json(res, 200, { results, live: state.live })).catch(error => json(res, 500, { error: error.message })); return; }
   if (url.pathname === '/api/replay' && req.method === 'GET') { replay.readReplayState().then(result => json(res, 200, result)).catch(error => json(res, 500, { connected: false, error: error.message })); return; }
   if (url.pathname === '/api/replay/camera' && req.method === 'POST') { readBody(req, res).then(body => replay.setCamera(body)).then(result => json(res, 200, { ok: true, result })).catch(error => json(res, error.statusCode || 500, { ok: false, error: error.message })); return; }
@@ -860,6 +862,7 @@ const server = http.createServer((req,res)=>{
   const sendPage = html => { res.setHeader('Content-Type','text/html; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(html); };
   if (url.pathname === '/') return sendPage(consolePage(PORT));
   if (url.pathname === '/overlay/hud-calibrate' || url.pathname === '/broadcast/hud-calibrate') return sendPage(hudCalibratePage());
+  if (url.pathname === '/overlay/hud-editor' || url.pathname === '/broadcast/hud-editor') return sendPage(hudEditorPage());
   if (url.pathname === '/overlay/bp-broadcast' || url.pathname === '/broadcast/bp') { warmSplashPool(); return sendPage(bpBroadcastPage()); }
   if (url.pathname === '/overlay/hud-broadcast' || url.pathname === '/broadcast/hud') return sendPage(hudBroadcastPage());
   if (url.pathname === '/broadcast/result' || url.pathname === '/overlay/result-broadcast') return sendPage(resultBroadcastPage());
