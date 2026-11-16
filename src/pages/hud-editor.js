@@ -107,6 +107,7 @@ const PAGE_SCRIPT = `(function () {
   var showAllCheck = document.getElementById('he-show-all');
   var onlyEditedCheck = document.getElementById('he-only-edited');
   var targets = [];
+  var absentTimer = null;
   var items = {};
   var selected = null;
   var dirty = false;
@@ -159,9 +160,20 @@ const PAGE_SCRIPT = `(function () {
       return (target.label + ' ' + target.key + ' ' + (target.group || '')).toLowerCase().indexOf(needle) >= 0;
     });
   }
+  // 动态元素（没出龙、没有增益、自定义遮罩 html）当帧可能不存在：列表里灰显，而不是假装能调。
+  // 每次现查 iframe：缓存引用在页面生命周期里不一定可靠。
+  function frameDoc() {
+    var el = document.getElementById('he-frame-el');
+    try { return el ? el.contentDocument : null; } catch (error) { return null; }
+  }
+  function presentInFrame(sel, doc) {
+    if (!sel || !doc || !doc.querySelector) return true;
+    try { return !!doc.querySelector(sel); } catch (error) { return true; }
+  }
   function buildList() {
     if (!list) return;
     list.innerHTML = '';
+    var doc = frameDoc();
     var groups = [];
     var byGroup = {};
     visibleTargets().forEach(function (target) {
@@ -186,6 +198,7 @@ const PAGE_SCRIPT = `(function () {
         row.appendChild(badge);
         if (target.key === selected) row.classList.add('is-active');
         if (items[target.key]) row.classList.add('is-edited');
+        if (!presentInFrame(target.sel, doc)) { row.classList.add('is-absent'); row.title = '当前画面里没有这个元素（未出龙 / 没有增益 / 自定义遮罩等）'; }
         list.appendChild(row);
       });
     });
@@ -194,6 +207,21 @@ const PAGE_SCRIPT = `(function () {
       empty.className = 'he-empty';
       empty.textContent = '没有匹配的元素';
       list.appendChild(empty);
+    }
+  }
+  // 元素是动态的（龙一条条出、buff 会过期、模式可能切），所以灰显状态要定期重算。
+  function refreshAbsent() {
+    if (!list || !targets.length) return;
+    var doc = frameDoc();
+    if (!doc) return;
+    var byKey = {};
+    for (var i = 0; i < targets.length; i += 1) byKey[targets[i].key] = targets[i];
+    var rows = list.querySelectorAll('.he-item');
+    for (var k = 0; k < rows.length; k += 1) {
+      var target = byKey[rows[k].getAttribute('data-key')];
+      var absent = !!target && !presentInFrame(target.sel, doc);
+      rows[k].classList.toggle('is-absent', absent);
+      rows[k].title = absent ? '当前画面里没有这个元素（未出龙 / 该模式走原生 HUD / 自定义遮罩等）' : '';
     }
   }
   function syncList() {
@@ -286,6 +314,8 @@ const PAGE_SCRIPT = `(function () {
       dirty = false;
       buildList();
       status('已连接 HUD · ' + targets.length + ' 个可调元素', 'good');
+      window.setTimeout(refreshAbsent, 700);
+      if (!absentTimer) absentTimer = window.setInterval(refreshAbsent, 2000);
     } else if (data.event === 'select') {
       selected = data.key || null;
       syncList();

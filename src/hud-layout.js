@@ -8,7 +8,7 @@ const path = require('path');
 
 const LAYOUT_VERSION = 1;
 const MAX_LAYOUT_BYTES = 64 * 1024;
-const MAX_ITEMS = 200;
+const MAX_ITEMS = 600; // 满元素面板约 300 项，留一倍余量
 const KEY_PATTERN = /^[a-z0-9][a-z0-9_-]{1,39}$/i;
 
 // 每个字段的合法区间；0 表示「不覆盖」，只有 w/h 用 0 表示回到自适应。

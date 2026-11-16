@@ -287,7 +287,7 @@
     window.addEventListener('resize', refresh);
     refresh();
     post({ type: 'hb-layout', event: 'ready', targets: targets().map(function (target) {
-      return { key: target.key, label: target.label, group: target.group, hole: !!target.hole };
+      return { key: target.key, label: target.label, group: target.group, hole: !!target.hole, sel: target.sel || '' };
     }), items: allItems() });
     if (!raf) raf = window.setTimeout(tick, 320);
     return true;

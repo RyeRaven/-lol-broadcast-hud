@@ -144,6 +144,10 @@ body { overflow: hidden; }
 
 .he-item:hover { background: rgba(255, 255, 255, 0.05); }
 
+/* 当帧不存在的元素：留在清单里（知道有这一项），但灰显、不假装能拖。 */
+.he-item.is-absent { opacity: 0.42; }
+.he-item.is-absent:hover { opacity: 0.62; }
+
 .he-item.is-active {
   color: #fff;
   background: rgba(201, 162, 39, 0.14);

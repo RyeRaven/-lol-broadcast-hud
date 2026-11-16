@@ -82,8 +82,8 @@ test('normalizeLayoutPayload 整包校验：坏 key / 超量 / 非对象一律�
   assert.deepEqual(normalizeLayoutPayload({}), null);
   assert.deepEqual(normalizeLayoutPayload(null), null);
   const many = {};
-  for (let i = 0; i < 201; i += 1) many['item-' + i] = { dx: i + 1 };
-  assert.deepEqual(normalizeLayoutPayload({ items: many }), null, '超过 200 项拒绝');
+  for (let i = 0; i < 601; i += 1) many['item-' + i] = { dx: i + 1 };
+  assert.deepEqual(normalizeLayoutPayload({ items: many }), null, '超过 600 项拒绝');
   const neutral = normalizeLayoutPayload({ items: { topbar: { dx: 0, scale: 1 } } });
   assert.deepEqual(neutral.items, {}, '中性项不写进文件');
 });

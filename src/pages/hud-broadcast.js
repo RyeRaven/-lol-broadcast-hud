@@ -464,113 +464,146 @@ var ICONS = {
   // 只做「相对微调」——位移 / 宽高 / 缩放 / 字号 / 透明度，写成元素内联样式；
   // 结构、网格、挖孔公式一概不动，所以任何一项归零都能回到出厂布局。
   // 元素清单是唯一事实源：编辑页列表、命中框、保存键全部从这里派生。
-  var LAYOUT_TARGETS = [
-    { key: 'topbar', label: '顶部整条', group: '顶部', sel: '#hb-topbar' },
-    { key: 'scorebar', label: '比分条', group: '顶部', sel: '#hb-scorebar' },
-    { key: 'score-cluster', label: '比分中区', group: '顶部', sel: '#hb-scorebar .hb-cluster' },
-    { key: 'score-row1', label: '比分第一行（塔 / 金币 / 击杀）', group: '顶部', sel: '#hb-scorebar .hb-row1' },
-    { key: 'score-row2', label: '比分第二行（龙 / 潮虫 / 时钟）', group: '顶部', sel: '#hb-scorebar .hb-row2' },
-    { key: 'badge-blue', label: '蓝方队标卡', group: '顶部', sel: '#hb-scorebar .hb-badge.blue' },
-    { key: 'badge-red', label: '红方队标卡', group: '顶部', sel: '#hb-scorebar .hb-badge.red' },
-    { key: 'timer-phase', label: '左侧 · 巢虫计时', group: '顶部', sel: '#hb-timer-phase' },
-    { key: 'timer-dragon', label: '左侧 · 小龙计时', group: '顶部', sel: '#hb-timer-dragon' },
-    { key: 'buff-blue', label: '左侧 · 蓝方增益卡', group: '顶部', sel: '#hb-buff-slot-blue' },
-    { key: 'buff-red', label: '右侧 · 红方增益卡', group: '顶部', sel: '#hb-buff-slot-red' },
-    { key: 'bottom-stage', label: '底部整块（含等比缩放）', group: '底部', sel: '#hb-bottom-stage' },
-    { key: 'bottom', label: '底部板体', group: '底部', sel: '#hb-bottom' },
-    { key: 'board', label: '棋盘', group: '底部', sel: '#hb-board' },
-    { key: 'mid', label: '中栏（对位经济差）', group: '底部', sel: '#hb-mid' },
-    { key: 'rows-blue', label: '蓝方五行容器', group: '底部', sel: '#hb-rows-blue' },
-    { key: 'rows-red', label: '红方五行容器', group: '底部', sel: '#hb-rows-red' },
-    { key: 'left-rail', label: '底部左轨', group: '底部', sel: '#hb-bottom .hb-left-rail' },
-    { key: 'cover-left', label: '左侧原生遮罩', group: '底部', sel: '#hb-native-cover-left' }
-  ];
-  (function () {
-    for (var i = 0; i < 5; i += 1) {
-      LAYOUT_TARGETS.push({ key: 'row-blue-' + i, label: '蓝方第 ' + (i + 1) + ' 行', group: '单行（改尺寸会撞挖孔）', sel: '#hb-row-blue-' + i });
-      LAYOUT_TARGETS.push({ key: 'row-red-' + i, label: '红方第 ' + (i + 1) + ' 行', group: '单行（改尺寸会撞挖孔）', sel: '#hb-row-red-' + i });
+  // 元素清单是唯一事实源：编辑页列表、命中框、保存键全部从这里派生。
+  // 「满元素」原则——凡是屏幕上看得见的东西，都给它一条可调项；有 id 的用 id（重建后仍稳定），
+  // 没有 id 的用「父级限定 + class/nth-child」选择器。动态元素（龙、增益、遮罩文案）可能当帧不存在，
+  // 编辑页会把它们灰显，等出现后即可调。
+  var LAYOUT_TARGETS = (function () {
+    var list = [];
+    function add(group, rows) {
+      for (var i = 0; i < rows.length; i += 1) {
+        list.push({ key: rows[i][0], label: rows[i][1], group: group, sel: rows[i][2] });
+      }
     }
-  })();
-  // 细项：顶部逐个图标 / 文本。徽标与统计块内部是 <img> 与 <b>，都能单独命中。
-  (function () {
-    var top = [
-      ['timer-phase-icon', '左侧 · 巢虫盒图标', '#hb-timer-phase-icon'],
-      ['timer-phase-value', '左侧 · 巢虫盒倒计时', '#hb-timer-phase-value'],
-      ['timer-dragon-icon', '左侧 · 小龙盒图标', '#hb-timer-dragon-icon'],
-      ['timer-dragon-value', '左侧 · 小龙盒倒计时', '#hb-timer-dragon-value'],
-      ['pips-blue', '蓝方小局比分点', '#hb-pips-blue'],
-      ['pips-red', '红方小局比分点', '#hb-pips-red'],
-      ['logo-blue', '蓝方队徽', '#hb-logo-blue'],
-      ['logo-red', '红方队徽', '#hb-logo-red'],
-      ['name-blue', '蓝方队名', '#hb-name-blue'],
-      ['name-red', '红方队名', '#hb-name-red'],
-      ['meta-blue', '蓝方英文副标', '#hb-meta-blue'],
-      ['meta-red', '红方英文副标', '#hb-meta-red'],
+    add('顶部 · 容器', [
+      ['topbar', '顶部整条', '#hb-topbar'],
+      ['demo-badge', 'DEMO 提示徽标', '#hb-demo-badge'],
+      ['left-boxes', '左侧两个计时盒', '#hb-topbar .hb-left-boxes'],
+      ['scorebar', '比分条', '#hb-scorebar'],
+      ['score-cluster', '比分中区', '#hb-scorebar .hb-cluster'],
+      ['score-row1', '比分第一行（塔 / 金币 / 击杀）', '#hb-scorebar .hb-row1'],
+      ['score-row2', '比分第二行（龙 / 潮虫 / 时钟）', '#hb-scorebar .hb-row2']
+    ]);
+    add('顶部 · 队标卡', [
+      ['badge-blue', '蓝方队标卡', '#hb-scorebar .hb-badge.blue'],
+      ['badge-blue-accent', '蓝方 · 侧边竖条', '#hb-scorebar .hb-badge.blue .hb-accent'],
+      ['pips-blue', '蓝方 · 小局比分点', '#hb-pips-blue'],
+      ['logo-blue', '蓝方 · 队徽', '#hb-logo-blue'],
+      ['name-blue', '蓝方 · 队名', '#hb-name-blue'],
+      ['meta-blue', '蓝方 · 英文副标', '#hb-meta-blue'],
+      ['badge-red', '红方队标卡', '#hb-scorebar .hb-badge.red'],
+      ['badge-red-accent', '红方 · 侧边竖条', '#hb-scorebar .hb-badge.red .hb-accent'],
+      ['pips-red', '红方 · 小局比分点', '#hb-pips-red'],
+      ['logo-red', '红方 · 队徽', '#hb-logo-red'],
+      ['name-red', '红方 · 队名', '#hb-name-red'],
+      ['meta-red', '红方 · 英文副标', '#hb-meta-red']
+    ]);
+    add('顶部 · 数据块', [
       ['towers-blue', '蓝方 · 塔（图标+数字）', '#hb-towers-stat-blue'],
       ['towers-blue-icon', '蓝方 · 塔图标', '#hb-towers-stat-blue i'],
       ['towers-blue-num', '蓝方 · 塔数字', '#hb-towers-blue'],
-      ['towers-red', '红方 · 塔（图标+数字）', '#hb-towers-stat-red'],
-      ['towers-red-icon', '红方 · 塔图标', '#hb-towers-stat-red i'],
-      ['towers-red-num', '红方 · 塔数字', '#hb-towers-red'],
       ['gold-blue', '蓝方 · 金币（图标+数字）', '#hb-goldstat-blue'],
       ['gold-blue-icon', '蓝方 · 金币图标', '#hb-goldstat-blue i'],
       ['gold-blue-num', '蓝方 · 金币数字', '#hb-gold-blue'],
-      ['gold-red', '红方 · 金币（图标+数字）', '#hb-goldstat-red'],
-      ['gold-red-icon', '红方 · 金币图标', '#hb-goldstat-red i'],
-      ['gold-red-num', '红方 · 金币数字', '#hb-gold-red'],
-      ['kills-blue', '蓝方击杀数', '#hb-kills-blue'],
-      ['kills-red', '红方击杀数', '#hb-kills-red'],
-      ['killicon', '中区击杀图标', '#hb-killicon'],
-      ['gold-diff', '经济差徽标', '#hb-gold-diff'],
-      ['clock', '比赛时钟', '#hb-clock'],
       ['grubs-blue', '蓝方 · 潮虫（图标+数字）', '#hb-grubs-stat-blue'],
       ['grubs-blue-icon', '蓝方 · 潮虫图标', '#hb-grubs-stat-blue i'],
       ['grubs-blue-num', '蓝方 · 潮虫数字', '#hb-grubs-blue'],
+      ['kills-blue', '蓝方击杀数', '#hb-kills-blue'],
+      ['killicon', '中区击杀图标', '#hb-killicon'],
+      ['kills-red', '红方击杀数', '#hb-kills-red'],
+      ['gold-red', '红方 · 金币（图标+数字）', '#hb-goldstat-red'],
+      ['gold-red-icon', '红方 · 金币图标', '#hb-goldstat-red i'],
+      ['gold-red-num', '红方 · 金币数字', '#hb-gold-red'],
+      ['towers-red', '红方 · 塔（图标+数字）', '#hb-towers-stat-red'],
+      ['towers-red-icon', '红方 · 塔图标', '#hb-towers-stat-red i'],
+      ['towers-red-num', '红方 · 塔数字', '#hb-towers-red'],
       ['grubs-red', '红方 · 潮虫（图标+数字）', '#hb-grubs-stat-red'],
       ['grubs-red-icon', '红方 · 潮虫图标', '#hb-grubs-stat-red i'],
       ['grubs-red-num', '红方 · 潮虫数字', '#hb-grubs-red'],
+      ['gold-diff', '经济差徽标', '#hb-gold-diff'],
+      ['gold-diff-num', '经济差 · 数字', '#hb-gold-diff b'],
+      ['clock', '比赛时钟', '#hb-clock'],
       ['stack-blue', '蓝方 · 龙堆', '#hb-stack-blue'],
       ['stack-red', '红方 · 龙堆', '#hb-stack-red'],
-      ['demo-badge', 'DEMO 提示徽标', '#hb-demo-badge']
-    ];
-    for (var t = 0; t < top.length; t += 1) {
-      LAYOUT_TARGETS.push({ key: top[t][0], label: top[t][1], group: '顶部 · 细项', sel: top[t][2] });
+      ['timer-phase', '左侧 · 潮虫盒', '#hb-timer-phase'],
+      ['timer-phase-icon', '左侧 · 潮虫盒图标', '#hb-timer-phase-icon'],
+      ['timer-phase-value', '左侧 · 潮虫盒倒计时', '#hb-timer-phase-value'],
+      ['timer-dragon', '左侧 · 小龙盒', '#hb-timer-dragon'],
+      ['timer-dragon-icon', '左侧 · 小龙盒图标', '#hb-timer-dragon-icon'],
+      ['timer-dragon-value', '左侧 · 小龙盒倒计时', '#hb-timer-dragon-value'],
+      ['buff-blue', '左侧 · 蓝方增益卡', '#hb-buff-slot-blue'],
+      ['buff-red', '右侧 · 红方增益卡', '#hb-buff-slot-red']
+    ]);
+    // 一方最多 4 条龙（第 5 条是龙魂/远古龙，不占坑位），逐条单独可调。
+    for (var d = 1; d <= 4; d += 1) {
+      list.push({ key: 'dragon-blue-' + d, label: '蓝方 · 第 ' + d + ' 条龙图标', group: '顶部 · 龙', sel: '#hb-stack-blue > img:nth-child(' + d + ')' });
+      list.push({ key: 'dragon-red-' + d, label: '红方 · 第 ' + d + ' 条龙图标', group: '顶部 · 龙', sel: '#hb-stack-red > img:nth-child(' + d + ')' });
     }
-    // 龙堆里每条龙单独可调（最多 3 位；该位没有龙时元素不存在，自动跳过）。
-    for (var d = 1; d <= 3; d += 1) {
-      LAYOUT_TARGETS.push({ key: 'dragon-blue-' + d, label: '蓝方 · 第 ' + d + ' 条龙图标', group: '顶部 · 细项', sel: '#hb-stack-blue > img:nth-child(' + d + ')' });
-      LAYOUT_TARGETS.push({ key: 'dragon-red-' + d, label: '红方 · 第 ' + d + ' 条龙图标', group: '顶部 · 细项', sel: '#hb-stack-red > img:nth-child(' + d + ')' });
+    add('底部 · 容器', [
+      ['bottom-stage', '底部整块（含等比缩放）', '#hb-bottom-stage'],
+      ['bottom', '底部板体', '#hb-bottom'],
+      ['board', '棋盘', '#hb-board'],
+      ['board-cover', '棋盘底色', '#hb-board > .hb-board-cover'],
+      ['board-foot', '棋盘底缘填边', '#hb-board > .hb-board-foot'],
+      ['rows-blue', '蓝方五行容器', '#hb-rows-blue'],
+      ['rows-red', '红方五行容器', '#hb-rows-red'],
+      ['mid', '中栏（对位经济差）', '#hb-mid'],
+      ['cover-left', '左侧对阵信息卡', '#hb-native-cover-left'],
+      ['cover-title', '信息卡 · 标题', '#hb-cover-title'],
+      ['cover-line-0', '信息卡 · 第 1 行', '#hb-cover-line-0'],
+      ['cover-line-1', '信息卡 · 第 2 行', '#hb-cover-line-1'],
+      ['cover-line-2', '信息卡 · 第 3 行', '#hb-cover-line-2']
+    ]);
+    for (var m = 0; m < 5; m += 1) {
+      list.push({ key: 'diff-cell-' + m, label: '第 ' + (m + 1) + ' 行 · 经济差格', group: '中栏 · 对位经济差', sel: '#hb-diff-cell-' + m });
+      list.push({ key: 'diff-bar-' + m, label: '第 ' + (m + 1) + ' 行 · 领先旗标', group: '中栏 · 对位经济差', sel: '#hb-diff-cell-' + m + ' .hb-diff-bar' });
+      list.push({ key: 'diff-num-' + m, label: '第 ' + (m + 1) + ' 行 · 差值数字', group: '中栏 · 对位经济差', sel: '#hb-diff-cell-' + m + ' b' });
     }
-    // 底部逐行子元素 + 挖孔。挖孔（hole-*）几何走 holeRects，不用 transform：
-    // 编辑页里拖它就是在改「原生装备栏/饰品栏透出多大」。
     ['blue', 'red'].forEach(function (side) {
       var sideName = side === 'blue' ? '蓝方' : '红方';
       for (var r = 0; r < 5; r += 1) {
         var id = side + '-' + r;
+        var who = sideName + '第 ' + (r + 1) + ' 行';
+        list.push({ key: 'row-' + id, label: who + ' · 整行（改尺寸会撞挖孔）', group: sideName + ' · 整行', sel: '#hb-row-' + id });
         var kids = [
+          ['extras', '符文 / 技能块', '#hb-extras-' + id],
+          ['runes', '符文列', '#hb-runes-' + id],
+          ['spells', '召唤师技能列', '#hb-spells-' + id],
+          ['ult', '大招徽标', '#hb-ult-' + id],
           ['champ', '头像（含等级角标）', '#hb-champ-' + id],
+          ['champ-ico', '头像图', '#hb-champ-' + id + ' .hb-champ-ico'],
           ['level', '等级数字', '#hb-level-' + id],
+          ['info', '名字块（名 + KDA）', '#hb-info-' + id],
+          ['name-line', '名字行', '#hb-info-' + id + ' .hb-name-line'],
           ['pname', '玩家名', '#hb-pname-' + id],
+          ['prole', '复活 / 分路小字', '#hb-prole-' + id],
           ['kda', 'KDA', '#hb-kda-' + id],
-          ['info', '名字块（名+KDA）', '#hb-info-' + id],
+          ['vision', '视野分', '#hb-vision-' + id],
+          ['items', '自绘装备（降级模式）', '#hb-items-' + id],
           ['bars', '三条状态条', '#hb-bars-' + id],
-          ['bar-hp', '生命条', '#hb-bars-' + id + ' .hb-bar.hp'],
           ['bar-xp', '经验条', '#hb-bars-' + id + ' .hb-bar.xp'],
+          ['bar-hp', '生命条', '#hb-bars-' + id + ' .hb-bar.hp'],
           ['bar-res', '资源条', '#hb-bars-' + id + ' .hb-bar.res']
         ];
+        // 只有降级到「自绘」时才画的那几块单独成组：原生 HUD 在场时它们永远是空的，
+        // 混在主组里会让人以为面板漏了东西。
         for (var k = 0; k < kids.length; k += 1) {
-          LAYOUT_TARGETS.push({
-            key: kids[k][0] + '-' + id,
-            label: sideName + '第 ' + (r + 1) + ' 行 · ' + kids[k][1],
-            group: sideName + '逐行子元素',
-            sel: kids[k][2]
-          });
+          var selfDrawn = ['extras', 'runes', 'spells', 'ult', 'vision', 'items'].indexOf(kids[k][0]) >= 0;
+          list.push({ key: id + '-' + kids[k][0], label: who + ' · ' + kids[k][1], group: sideName + ' · ' + (selfDrawn ? '行内元素（自绘模式）' : '行内元素'), sel: kids[k][2] });
         }
-        LAYOUT_TARGETS.push({ key: 'hole-' + id + '-items', label: sideName + '第 ' + (r + 1) + ' 行 · 装备挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + id + '-items', hole: true });
-        LAYOUT_TARGETS.push({ key: 'hole-' + id + '-trinket', label: sideName + '第 ' + (r + 1) + ' 行 · 饰品挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + id + '-trinket', hole: true });
       }
     });
+    // 挖孔：几何只由 holeRects 写，layoutApply 会跳过 hole 目标（单独走位移 / 绝对宽高）。
+    ['blue', 'red'].forEach(function (side) {
+      var sideName = side === 'blue' ? '蓝方' : '红方';
+      for (var r = 0; r < 5; r += 1) {
+        list.push({ key: 'hole-' + side + '-' + r + '-items', label: sideName + '第 ' + (r + 1) + ' 行 · 装备栏挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + side + '-' + r + '-items', hole: true });
+        list.push({ key: 'hole-' + side + '-' + r + '-trinket', label: sideName + '第 ' + (r + 1) + ' 行 · 饰品位挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + side + '-' + r + '-trinket', hole: true });
+      }
+    });
+    return list;
   })();
+
   var LAYOUT_FIELDS = ['dx', 'dy', 'w', 'h', 'scale', 'fontSize', 'opacity'];
   var LAYOUT_ITEMS = null;
   function layoutEditMode() { return /(?:^|[?&])hudEdit=1(?:&|$)/.test(searchString()); }
@@ -676,7 +709,8 @@ var ICONS = {
     if (!layoutEditMode() || typeof document === 'undefined') return;
     if (window.HBLayoutEdit) { window.HBLayoutEdit.mount(); return; }
     var script = document.createElement('script');
-    script.src = '/assets/hud-layout-edit.js';
+    // 带个版本参数：/assets/* 是 public,max-age=86400，不加会很自然地跑昨天那份旧编辑层。
+    script.src = '/assets/hud-layout-edit.js?v=' + Date.now();
     script.onload = function () { if (window.HBLayoutEdit) window.HBLayoutEdit.mount(); };
     script.onerror = function () { /* 编辑层没加载成功不影响 HUD 出图 */ };
     document.head.appendChild(script);
@@ -1480,8 +1514,9 @@ var ICONS = {
   };
   function dragonStackMarkup(team) {
     var types = Array.isArray(team.dragonTypes) ? team.dragonTypes : [];
-    if (!types.length) return SIGIL('dragon').repeat(Math.max(0, Math.min(6, num(team.dragons))));
-    return types.slice(0, 6).map(function (t) {
+    // 一方最多 4 条龙（第 5 条起是龙魂 / 远古龙，不占坑位）。
+    if (!types.length) return SIGIL('dragon').repeat(Math.max(0, Math.min(4, num(team.dragons))));
+    return types.slice(0, 4).map(function (t) {
       var key = DRAGON_SIGIL[String(t).toLowerCase()] || 'dragon';
       return SIGIL(key);
     }).join('');
@@ -1748,8 +1783,11 @@ var ICONS = {
     if (!lines.length) lines = ['LIVE BROADCAST'];
     var html = card && typeof card.html === 'string' && card.html
       ? card.html
-      : '<div class="hb-cover-title">' + esc(title) + '</div>' +
-        lines.map(function (line) { return '<div class="hb-cover-line">' + esc(line) + '</div>'; }).join('');
+      : '<div class="hb-cover-title" id="hb-cover-title">' + esc(title) + '</div>' +
+        lines.map(function (line, index) {
+          // id 供布局编辑器单独调整每一行（第 4 行起的极少数情况仍可整体调 cover-left）。
+          return '<div class="hb-cover-line" id="hb-cover-line-' + index + '">' + esc(line) + '</div>';
+        }).join('');
     if (node.__coverHtml !== html) { node.innerHTML = html; node.__coverHtml = html; }
   }
   function renderSponsor() {
