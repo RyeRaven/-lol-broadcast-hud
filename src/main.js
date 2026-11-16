@@ -435,6 +435,7 @@ function broadcastLayout(layout) {
   let items = {};
   try { items = (layout && layout.items) || {}; } catch { items = {}; }
   const payload = 'event: hud-layout\ndata: ' + JSON.stringify(items) + '\n\n';
+  console.log('[hud-layout] push ' + Object.keys(items).length + ' item(s) -> ' + clients.size + ' client(s)');
   for (const res of clients) {
     try {
       if (res.writableEnded || res.destroyed) { clients.delete(res); continue; }
@@ -871,7 +872,15 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/protocol-feed' || url.pathname === '/api/protocol-feed/status') { handleProtocolFeedApi(req, res, url, { store: protocolFeed, onUpdate: onProtocolFeedUpdate }); return; }
   if (url.pathname.startsWith('/api/obs/')) { handleObsApi(req, res, url, { obs, json, readBody, broadcast, state, port: PORT, getObsConfig, setObsConfig, saveConfig, onObsConnected: () => { lastAutoPhase = null; } }); return; }
   if (url.pathname === '/api/datadragon-url') { try { return json(res, 200, { url: dataDragonUrl(url.searchParams.get('version') || DEFAULT_VERSION, url.searchParams.get('kind') || 'champion', url.searchParams.get('id') || 'Ahri') }); } catch (error) { return json(res, 400, { error: error.message }); } }
-  if (url.pathname === '/events') { res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'}); res.write(`data: ${JSON.stringify(cloneState())}\n\n`); addSseClient(res); req.on('close',()=>clients.delete(res)); return; }
+  if (url.pathname === '/events') {
+    res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});
+    res.write(`data: ${JSON.stringify(cloneState())}\n\n`);
+    addSseClient(res);
+    // 连上来的是谁（OBS 的 CEF、浏览器、编辑页）——排查「保存了但画面没变」时先看这一行。
+    console.log('[sse] client +' + clients.size + ' ua=' + String(req.headers['user-agent'] || '?').slice(0, 200));
+    req.on('close',()=>{ clients.delete(res); console.log('[sse] client -' + clients.size); });
+    return;
+  }
   if (url.pathname === '/api/hud-toggle' && req.method === 'POST') { if (state.broadcastConfig && state.broadcastConfig.hudKeyHook === false) return json(res, 200, { ok: false, disabled: true, hudHidden: state.hudHidden }); state.hudHidden = !state.hudHidden; broadcast(); return json(res, 200, { ok: true, hudHidden: state.hudHidden }); }
   if (url.pathname === '/api/phase' && req.method === 'POST') { readBody(req, res).then(body => { state.phase = normalizePhase(body && body.phase); broadcast(); json(res,200,{ok:true,phase:state.phase}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
   if (url.pathname === '/api/config' && req.method === 'POST') { readBody(req, res).then(body => { if (body.tournamentName !== undefined) state.tournamentName = normalizeTournamentName(body.tournamentName); if (body.mode !== undefined) { if (body.mode !== 'mock' && body.mode !== 'live') throw badRequest('invalid_mode'); state.mode = body.mode; if (body.mode === 'mock') { state.goldEstimated = false; state.goldSource = 'mock'; state.players = createMockPlayers(); } else { state.postGame = null; frozenSnapshot = null; resetLiveGameData(); } } if (body.phase !== undefined) state.phase = normalizePhase(body.phase); saveConfig(); broadcast(); json(res,200,{ok:true}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
