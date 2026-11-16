@@ -1,8 +1,8 @@
 'use strict';
 
-// MVP 时刻页（照 LCK PLAYER OF THE GAME 风格）：
-// 左上选手名+分路图标、右上标题+MVP 徽标、中间英雄原画大面板叠 K/D/A、右侧 ITEMS 装备列、
-// 底部 KP%/DMG%/DT%/GD@END 四格。不做选手照片/符文列/队标/累计 MVP 数。
+// MVP 时刻页（PLAYER OF THE GAME）· 方向 B「数据牌」：
+// 左侧数据面板（meta 行 / 选手名 / 英雄·分路 / 战队章 / K/D/A + 4 行统计表 / 装备列 / 页脚），
+// 右侧 880px 硬边英雄原画海报。1920×1080 设计坐标，整页按 --mvp-scale 等比缩放到视口。
 // 数据：EOG 赛后结算（src/post-game.js）+ 控台 POST /api/mvp 手选；mock 模式 demo 兜底并自动选伤害最高者。
 // public/mvp-broadcast.css 与 assets.clientScript() 由本模块内联注入，不新增静态路由。
 const fs = require('fs');
@@ -35,7 +35,13 @@ const MVP_SCRIPT = String.raw`(function () {
   var state = {};
   var config = null;
   var ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
-  var POSITION_FILES = { TOP: 'top', JUNGLE: 'jungle', MID: 'middle', ADC: 'bottom', SUPPORT: 'utility' };
+  var ROLE_LABEL = {
+    TOP: 'TOP', JUNGLE: 'JUNGLE', MID: 'MID', MIDDLE: 'MID',
+    ADC: 'ADC', BOTTOM: 'ADC', SUPPORT: 'SUPPORT', UTILITY: 'SUPPORT'
+  };
+  var NAME_MAX_WIDTH = 848;
+  var NAME_MAX_SIZE = 96;
+  var NAME_MIN_SIZE = 56;
 
   function byId(id) { return document.getElementById(id); }
   function esc(value) {
@@ -53,16 +59,33 @@ const MVP_SCRIPT = String.raw`(function () {
   }
   function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
   function q(name) { var v = PARAMS.get(name); return v === null ? '' : String(v).trim(); }
-  function setIfChanged(id, html) {
+  function setText(id, value) {
     var node = byId(id);
-    if (!node || node.innerHTML === html) return;
+    if (!node) return;
+    var next = String(value === null || value === undefined ? '' : value);
+    if (node.textContent !== next) node.textContent = next;
+  }
+  function setHtml(id, html) {
+    var node = byId(id);
+    if (!node || node.__rbHtml === html) return;
     node.innerHTML = html;
+    node.__rbHtml = html;
   }
 
   function getConfig() {
     if (config) return config;
     if (state && state.broadcastConfig) return state.broadcastConfig;
     return {};
+  }
+  function teamConfig(side) {
+    var teams = getConfig().teams;
+    var team = teams && typeof teams === 'object' ? teams[side] : null;
+    return team && typeof team === 'object' ? team : {};
+  }
+  function tournamentName() {
+    var cfg = getConfig();
+    var series = cfg && cfg.series && typeof cfg.series === 'object' ? cfg.series : {};
+    return text(state && state.tournamentName, text(cfg && cfg.tournamentName, text(series.name, '')));
   }
   function formatComma(value) {
     return String(Math.round(num(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -71,6 +94,12 @@ const MVP_SCRIPT = String.raw`(function () {
     if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
     var n = Math.round(Number(value));
     return (n >= 0 ? '+' : '-') + formatComma(Math.abs(n));
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function formatTime(seconds) {
+    var total = Math.max(0, Math.round(num(seconds)));
+    if (!total) return '';
+    return pad2(Math.floor(total / 60)) + ':' + pad2(total % 60);
   }
 
   // 演示兜底：与结算页同口径（配置 10 名选手 + DEMO_LINES），并补 MVP 页需要的 taken/position/gd。
@@ -160,6 +189,7 @@ const MVP_SCRIPT = String.raw`(function () {
         champion: text(p.champion, ''),
         championId: p.championId,
         team: side,
+        role: text(p.role, ''),
         position: text(p.position, ''),
         kills: num(p.kills), deaths: num(p.deaths), assists: num(p.assists),
         gold: num(p.gold), damage: num(p.damage), taken: num(p.taken),
@@ -197,24 +227,98 @@ const MVP_SCRIPT = String.raw`(function () {
     return null;
   }
 
-  function positionIcon(position) {
-    var file = POSITION_FILES[String(position || '').toUpperCase()];
-    if (!file) return '<i class="mv-pos-fb">—</i>';
-    return '<img src="/assets/positions/position-' + file + '.svg" alt="' + esc(position) + '" onerror="this.style.display=\'none\'">';
+  function roleLabel(player) {
+    var raw = text(player.position, text(player.role, '')).toUpperCase();
+    if (!raw || raw === 'NONE') return '';
+    return ROLE_LABEL[raw] || raw;
   }
-  function splashMarkup(player) {
-    var centered = RB.championCenteredSplashUrl ? RB.championCenteredSplashUrl(player.championId || player.champion) : '';
-    var fallback = RB.championSplashUrl ? RB.championSplashUrl(player.championId || player.champion, RB.version) : '';
-    if (!centered && !fallback) return '';
-    var srcAttr = centered || fallback;
-    var fb = fallback && fallback !== srcAttr ? ' data-fallback="' + esc(fallback) + '"' : '';
-    return '<img src="' + esc(srcAttr) + '"' + fb + ' alt="' + esc(player.champion) + '">';
+  function sideLabel(side) { return side === 'red' ? 'RED SIDE' : 'BLUE SIDE'; }
+
+  // 舞台按 1920×1080 设计坐标排版，整页缩放：OBS 源改成 1280×720 也只是等比缩小。
+  function fitStage() {
+    var width = window.innerWidth || 1920;
+    var height = window.innerHeight || 1080;
+    var scale = Math.min(width / 1920, height / 1080) || 1;
+    ROOT.style.setProperty('--mvp-scale', String(scale));
   }
-  function itemIcon(item, index) {
-    var markup = RB.icon
-      ? RB.icon('item', item, '', 'mv-item', RB.version)
-      : '<span class="icon"><i class="icon-fb">·</i></span>';
-    return '<span class="mv-item-slot' + (index === 6 ? ' trinket' : '') + '">' + markup + '</span>';
+  // 名字自适应：Range 量到的是缩放后的视觉宽度，必须除以舞台缩放换回设计 px。
+  function fitName() {
+    var node = byId('mv-name');
+    if (!node) return;
+    var rect = ROOT.getBoundingClientRect();
+    var scale = rect.width ? rect.width / 1920 : 1;
+    var range = document.createRange();
+    var size = NAME_MAX_SIZE;
+    node.style.fontSize = size + 'px';
+    while (size > NAME_MIN_SIZE) {
+      range.selectNodeContents(node);
+      var width = range.getBoundingClientRect().width / (scale || 1);
+      if (width <= NAME_MAX_WIDTH) break;
+      size -= 2;
+      node.style.fontSize = size + 'px';
+    }
+  }
+
+  function splashFor(player) {
+    var key = player.championId || player.champion;
+    var centered = RB.championCenteredSplashUrl ? RB.championCenteredSplashUrl(key) : '';
+    var fallback = RB.championSplashUrl ? RB.championSplashUrl(key, RB.version) : '';
+    return { src: centered || fallback, fallback: fallback && fallback !== (centered || fallback) ? fallback : '' };
+  }
+
+  function kdaMarkup(player) {
+    var cells = [
+      { cls: 'k', value: player.kills, label: 'KILLS' },
+      { cls: 'd', value: player.deaths, label: 'DEATHS' },
+      { cls: 'a', value: player.assists, label: 'ASSISTS' }
+    ];
+    var html = '';
+    for (var i = 0; i < cells.length; i += 1) {
+      if (i) html += '<i class="s">/</i>';
+      html += '<span class="num ' + cells[i].cls + '"><b>' + esc(cells[i].value) + '</b>' +
+        '<span class="lb">' + cells[i].label + '</span></span>';
+    }
+    return html;
+  }
+
+  function pctValue(value) {
+    if (value === null || value === undefined || !Number.isFinite(Number(value))) return '<b class="missing">—</b>';
+    return '<b>' + Math.round(clamp(Number(value), 0, 100)) + '<i>%</i></b>';
+  }
+  function signedValue(value) {
+    var formatted = formatSigned(value);
+    if (formatted === null) return '<b class="missing">—</b>';
+    return '<b' + (Number(value) < 0 ? ' class="neg"' : '') + '>' + esc(formatted) + '</b>';
+  }
+  function tableMarkup(player) {
+    var rows = [
+      { key: 'kp', label: 'KP%', html: pctValue(player.kp) },
+      { key: 'dmg', label: 'DMG%', html: pctValue(player.damagePct) },
+      { key: 'dt', label: 'DT%', html: pctValue(player.takenPct) },
+      { key: 'gd', label: 'GD@END', html: signedValue(player.gd), cls: ' gd' }
+    ];
+    return rows.map(function (row) {
+      return '<div class="b-row' + (row.cls || '') + '"><span class="lb">' + row.label + '</span>' + row.html + '</div>';
+    }).join('');
+  }
+
+  function itemsMarkup(items) {
+    var list = Array.isArray(items) ? items : [];
+    var html = '';
+    for (var i = 0; i < 7; i += 1) {
+      var item = list[i];
+      var icon = item && RB.icon
+        ? RB.icon('item', item, '', 'mv-item', RB.version)
+        : '<span class="icon"><i class="icon-fb">·</i></span>';
+      html += '<li' + (i === 6 ? ' class="trinket"' : '') + '>' + icon + '</li>';
+    }
+    return html;
+  }
+
+  function killsBySide(players) {
+    var totals = { blue: 0, red: 0 };
+    players.forEach(function (p) { totals[p.team === 'red' ? 'red' : 'blue'] += p.kills; });
+    return totals;
   }
 
   function render(pg) {
@@ -223,40 +327,58 @@ const MVP_SCRIPT = String.raw`(function () {
     var demo = !!(pg && pg.demo);
     ROOT.setAttribute('data-demo', demo ? '1' : '0');
     ROOT.setAttribute('data-state', mvp ? 'selected' : 'waiting');
-    byId('mv-demo-badge').hidden = !demo;
-    if (!mvp) return;
+    var badge = byId('mv-demo');
+    if (badge) badge.hidden = !demo;
 
-    byId('mv-name').textContent = mvp.name;
-    byId('mv-champ').textContent = mvp.champion || '';
-    setIfChanged('mv-pos', positionIcon(mvp.position));
-    var artHtml = '<div class="mv-art-img">' + splashMarkup(mvp) + '</div>' +
-      '<div class="mv-kda">' +
-        '<span class="mv-kda-num" id="mv-k"><b>' + mvp.kills + '</b></span>' +
-        '<span class="mv-kda-sep">/</span>' +
-        '<span class="mv-kda-num" id="mv-d"><b>' + mvp.deaths + '</b></span>' +
-        '<span class="mv-kda-sep">/</span>' +
-        '<span class="mv-kda-num" id="mv-a"><b>' + mvp.assists + '</b></span>' +
-      '</div>';
-    setIfChanged('mv-art', artHtml);
-    var itemsHtml = '';
-    for (var i = 0; i < 7; i += 1) itemsHtml += itemIcon(mvp.items[i], i);
-    setIfChanged('mv-items', itemsHtml);
-    var gdText = formatSigned(mvp.gd);
-    var stats = [
-      { label: 'KP%', value: clamp(num(mvp.kp), 0, 100) + '%', note: '参团率' },
-      { label: 'DMG%', value: mvp.damagePct == null ? '—' : clamp(num(mvp.damagePct), 0, 100) + '%', note: '伤害占比' },
-      { label: 'DT%', value: mvp.takenPct == null ? '—' : clamp(num(mvp.takenPct), 0, 100) + '%', note: '承伤占比' },
-      { label: 'GD@END', value: gdText === null ? '—' : gdText, note: '对位经济差', cls: gdText === null ? '' : (mvp.gd >= 0 ? ' pos' : ' neg') }
-    ];
-    var statsHtml = '';
-    for (var s = 0; s < stats.length; s += 1) {
-      statsHtml += '<div class="mv-stat' + (stats[s].cls || '') + '">' +
-        '<b class="mv-stat-val">' + esc(stats[s].value) + '</b>' +
-        '<span class="mv-stat-label">' + esc(stats[s].label) + '</span>' +
-        '<span class="mv-stat-note">' + esc(stats[s].note) + '</span>' +
-      '</div>';
+    var time = formatTime(pg && pg.gameLength);
+    setText('mv-time', time ? 'GAME TIME ' + time : 'GAME TIME —');
+    var kills = killsBySide(players);
+    setText('mv-kills', 'KILLS ' + kills.blue + ' — ' + kills.red);
+    setText('mv-tour', tournamentName() || 'KHADA JHIN');
+
+    if (!mvp) {
+      ROOT.setAttribute('data-ready', '1');
+      return;
     }
-    setIfChanged('mv-stats', statsHtml);
+
+    var side = mvp.team === 'red' ? 'red' : 'blue';
+    var team = teamConfig(side);
+    ROOT.setAttribute('data-side', side);
+    setText('mv-art-tag', sideLabel(side));
+    setText('mv-side-label', sideLabel(side));
+    var sideState = state && typeof state[side] === 'object' ? state[side] : null;
+    setText('mv-team-name', text(team.name, text(sideState && sideState.name, side === 'red' ? '红方' : '蓝方')));
+    setText('mv-crest', text(team.shortName, side === 'red' ? 'RED' : 'BLUE').slice(0, 1).toUpperCase());
+
+    var name = byId('mv-name');
+    if (name && name.textContent !== mvp.name) {
+      name.textContent = mvp.name;
+      fitName();
+    }
+    var role = roleLabel(mvp);
+    setText('mv-champ', mvp.champion);
+    setText('mv-role', role);
+    var dot = byId('mv-dot');
+    if (dot) dot.hidden = !(mvp.champion && role);
+
+    var art = byId('mv-art-img');
+    if (art) {
+      var splash = splashFor(mvp);
+      if (splash.src && art.getAttribute('src') !== splash.src) {
+        art.dataset.fallback = splash.fallback || '';
+        art.src = splash.src;
+      }
+      art.onerror = function () {
+        var fb = this.dataset.fallback;
+        if (fb && this.src.indexOf(fb) < 0) { this.dataset.fallback = ''; this.src = fb; }
+      };
+      art.alt = mvp.champion || '';
+    }
+
+    setHtml('mv-kda', kdaMarkup(mvp));
+    setHtml('mv-table', tableMarkup(mvp));
+    setHtml('mv-items', itemsMarkup(mvp.items));
+    ROOT.setAttribute('data-ready', '1');
   }
 
   function renderAll() {
@@ -275,6 +397,12 @@ const MVP_SCRIPT = String.raw`(function () {
     }).catch(function () { return null; });
   }
 
+  fitStage();
+  window.addEventListener('resize', fitStage);
+  if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+    document.fonts.ready.then(function () { fitName(); }).catch(function () {});
+  }
+
   Promise.all([fetchJson('/api/state'), fetchJson('/api/broadcast-config')]).then(function (results) {
     var loadedState = results[0];
     var loadedConfig = results[1];
@@ -291,28 +419,38 @@ const MVP_SCRIPT = String.raw`(function () {
 })()`;
 
 const MVP_BODY = [
-  '<main id="mvp-broadcast" class="mvp-broadcast mv" data-state="waiting" data-demo="0">',
-  '<div class="mv-bg" aria-hidden="true"><span class="mv-beam b1"></span><span class="mv-beam b2"></span></div>',
-  '<header class="mv-top">',
-    '<div class="mv-player">',
-      '<h1 class="mv-name" id="mv-name">—</h1>',
-      '<div class="mv-sub"><span class="mv-pos" id="mv-pos"></span><span class="mv-champ" id="mv-champ"></span></div>',
+  '<main id="mvp-broadcast" class="mvp-broadcast" data-state="waiting" data-side="blue" data-demo="0" data-ready="0">',
+  '<div class="b-art" aria-hidden="true"><img id="mv-art-img" alt=""><span class="b-art-tag" id="mv-art-tag">BLUE SIDE</span></div>',
+  '<span class="b-topbar" aria-hidden="true"></span>',
+  '<span class="b-divider" aria-hidden="true"></span>',
+  '<div class="b-panel">',
+    '<div class="b-meta">',
+      '<span class="b-tag">MVP</span>',
+      '<span class="b-meta-rule" aria-hidden="true"></span>',
+      '<span class="b-eyebrow">PLAYER OF THE GAME</span>',
+      '<span class="b-tour" id="mv-tour"></span>',
     '</div>',
-    '<div class="mv-award">',
-      '<span class="mv-kicker">PLAYER OF THE GAME</span>',
-      '<b class="mv-badge">MVP</b>',
+    '<h1 class="b-name" id="mv-name">—</h1>',
+    '<p class="b-sub"><span class="b-champ" id="mv-champ"></span><span class="b-dot" id="mv-dot" hidden></span><span class="b-role" id="mv-role"></span></p>',
+    '<div class="b-team">',
+      '<span class="b-crest" id="mv-crest">B</span>',
+      '<span class="b-tn" id="mv-team-name"></span>',
+      '<span class="b-side" id="mv-side-label">BLUE SIDE</span>',
     '</div>',
-  '</header>',
-  '<section class="mv-stage">',
-    '<div class="mv-art" id="mv-art"></div>',
-    '<aside class="mv-items-panel">',
-      '<h3>ITEMS</h3>',
-      '<div class="mv-item-grid" id="mv-items"></div>',
-    '</aside>',
-  '</section>',
-  '<footer class="mv-stats" id="mv-stats"></footer>',
-  '<div class="mv-waiting"><span>等待导播评选 MVP</span></div>',
-  '<span class="mv-demo-badge" id="mv-demo-badge" hidden>DEMO DATA</span>',
+    '<span class="b-band-rule" aria-hidden="true"></span>',
+    '<div class="b-body">',
+      '<div class="b-kda" id="mv-kda"></div>',
+      '<div class="b-table" id="mv-table"></div>',
+    '</div>',
+    '<ul class="b-items" id="mv-items"></ul>',
+    '<div class="b-foot">',
+      '<span id="mv-time">GAME TIME —</span>',
+      '<i class="b-sep" aria-hidden="true"></i>',
+      '<span id="mv-kills">KILLS 0 — 0</span>',
+      '<span class="b-demo" id="mv-demo" hidden>DEMO DATA</span>',
+    '</div>',
+  '</div>',
+  '<div class="b-wait"><span class="wf-eyebrow">SELECTING · 评选进行中</span><span class="wf-name">PLAYER OF THE GAME</span><span class="wf-line"><i></i></span></div>',
   '</main>'
 ].join('');
 

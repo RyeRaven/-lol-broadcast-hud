@@ -1,126 +1,140 @@
-/* MVP 时刻页（PLAYER OF THE GAME）：1920×1080 场景页，LCK 金黑风。
-   由 src/pages/mvp-broadcast.js 内联注入，无独立静态路由。 */
-.mvp-html, .mv-body { margin: 0; padding: 0; background: #0a0e13; }
+/* MVP 时刻页（PLAYER OF THE GAME）· 方向 B「数据牌」。
+   1920×1080 设计坐标，整页用 --mvp-scale 等比缩放到视口（OBS 源任意尺寸都不会散）。
+   由 src/pages/mvp-broadcast.js 内联注入，无独立静态路由；所有选择器带 .mvp-broadcast 前缀，
+   避免和 /styles.css 的全局规则打架。 */
+.mvp-html, .mv-body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+.mvp-body { width: 100vw; height: 100vh; }
+
 .mvp-broadcast {
-  position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: hidden;
-  font-family: 'Rift Broadcast', 'Segoe UI', 'Microsoft YaHei', sans-serif;
-  color: #f4f2ee; background: radial-gradient(120% 140% at 50% 30%, #131a24 0%, #0a0e13 58%, #060a0e 100%);
-  opacity: 0; transition: opacity .5s ease;
+  position: fixed; left: 50%; top: 50%;
+  width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--mvp-scale, 1));
+  transform-origin: 50% 50%;
+  overflow: hidden; background: #07090d; color: #fff;
+  font-family: Bahnschrift, "DIN Alternate", "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  --side-blue: #4aa8ff; --side-red: #ff5a4a;
+  --side: var(--side-blue);
+  --hair: rgba(255,255,255,.12); --dim: rgba(255,255,255,.62); --faint: rgba(255,255,255,.5);
+  --ui: cubic-bezier(.23,1,.32,1);
+  opacity: 0; transition: opacity .4s ease;
 }
 .mvp-broadcast.mv-in { opacity: 1; }
-.mvp-broadcast .mv-bg { position: absolute; inset: 0; pointer-events: none; }
-.mvp-broadcast .mv-beam {
-  position: absolute; width: 60vw; height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(200,170,110,.28), transparent);
-  transform: rotate(-14deg);
-}
-.mvp-broadcast .mv-beam.b1 { top: 30%; left: -8vw; }
-.mvp-broadcast .mv-beam.b2 { top: 62%; left: 24vw; opacity: .6; }
+.mvp-broadcast[data-side="red"] { --side: var(--side-red); }
 
-/* 顶栏：左选手名+分路，右标题+MVP 徽标 */
-.mvp-broadcast .mv-top {
-  position: absolute; top: 0; left: 0; right: 0; height: 15vh;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 3.2vw; z-index: 3;
-}
-.mvp-broadcast .mv-name {
-  margin: 0; font-size: 4.6vh; font-weight: 900; letter-spacing: .06em; line-height: 1.05;
-  color: #f4f2ee; text-transform: uppercase;
-}
-.mvp-broadcast .mv-sub { display: flex; align-items: center; gap: 1.4vh; margin-top: 1vh; }
-.mvp-broadcast .mv-pos { width: 3.4vh; height: 3.4vh; display: inline-flex; }
-.mvp-broadcast .mv-pos img { width: 100%; height: 100%; object-fit: contain; }
-.mvp-broadcast .mv-pos-fb { font-size: 2.4vh; color: rgba(232,236,242,.55); font-style: normal; }
-.mvp-broadcast .mv-champ { font-size: 2.2vh; font-weight: 700; letter-spacing: .12em; color: #c8aa6e; text-transform: uppercase; }
-.mvp-broadcast .mv-award { text-align: right; }
-.mvp-broadcast .mv-kicker { display: block; font-size: 4.2vh; font-weight: 900; letter-spacing: .08em; line-height: 1; color: #f4f2ee; }
-.mvp-broadcast .mv-badge {
-  display: inline-block; margin-top: 1vh; padding: .5vh 1.6vh;
-  font-size: 2.2vh; font-weight: 900; letter-spacing: .3em; text-indent: .3em;
-  color: #0a0e13; background: linear-gradient(180deg, #f0dfae, #c8aa6e);
-  border-radius: 1vh;
-}
+/* ---------- 右栏：硬边原画海报 ---------- */
+.mvp-broadcast .b-art { position: absolute; right: 0; top: 0; width: 880px; height: 1080px; overflow: hidden; background: #0a0c11; }
+.mvp-broadcast .b-art img { position: absolute; left: -4%; top: -3%; width: 110%; height: 106%; object-fit: cover; object-position: 42% 18%;
+  filter: saturate(.94) contrast(1.04) brightness(.96); }
+.mvp-broadcast .b-art::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(7,9,13,.97) 0%, rgba(7,9,13,.62) 9%, rgba(7,9,13,0) 27%),
+              linear-gradient(0deg, rgba(7,9,13,.82) 0%, rgba(7,9,13,0) 26%); }
+.mvp-broadcast .b-art-tag { position: absolute; right: 44px; bottom: 42px; font-size: 11px; letter-spacing: .32em; color: rgba(255,255,255,.55); }
 
-/* 中央舞台：英雄原画大面板 + 右侧 ITEMS 列 */
-.mvp-broadcast .mv-stage {
-  position: absolute; top: 16vh; left: 3.2vw; right: 3.2vw; bottom: 26vh;
-  display: flex; align-items: stretch; gap: 2.4vw; z-index: 2;
-}
-.mvp-broadcast .mv-art {
-  position: relative; flex: 1 1 auto; overflow: hidden;
-  border: 1px solid rgba(200,170,110,.35); border-radius: 1.2vh;
-  background: linear-gradient(135deg, #16202e, #0c1219);
-  box-shadow: 0 2vh 6vh rgba(0,0,0,.55);
-}
-.mvp-broadcast .mv-art-img, .mv-art-img img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.mvp-broadcast .mv-art-img img { object-fit: cover; object-position: center 22%; }
-.mvp-broadcast .mv-art::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(6,10,14,.72) 0%, rgba(6,10,14,.12) 38%, rgba(6,10,14,0) 60%);
-  pointer-events: none;
-}
-/* K/D/A 叠在原画左下 */
-.mvp-broadcast .mv-kda {
-  position: absolute; left: 2.6vw; bottom: 2.6vh; z-index: 3;
-  display: flex; align-items: baseline; gap: 1.2vh;
-  text-shadow: 0 .4vh 1.6vh rgba(0,0,0,.85);
-}
-.mvp-broadcast .mv-kda-num { display: inline-flex; align-items: baseline; gap: .6vh; }
-.mvp-broadcast .mv-kda-num b { font-size: 7.2vh; font-weight: 900; line-height: 1; color: #f4f2ee; }
-.mvp-broadcast .mv-kda-num i { font-size: 1.8vh; font-style: normal; font-weight: 700; letter-spacing: .18em; color: rgba(232,236,242,.72); }
-.mvp-broadcast .mv-kda-sep { font-size: 5vh; font-weight: 900; color: rgba(232,236,242,.4); }
+/* ---------- 结构线 ---------- */
+.mvp-broadcast .b-topbar { position: absolute; left: 0; top: 0; width: 100%; height: 5px; background: var(--side); z-index: 3; }
+.mvp-broadcast .b-divider { position: absolute; left: 1040px; top: 0; width: 1px; height: 100%; z-index: 2;
+  background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.15) 10%, rgba(255,255,255,.15) 90%, rgba(255,255,255,0) 100%); }
 
-/* ITEMS 列 */
-.mvp-broadcast .mv-items-panel {
-  flex: 0 0 13vw; display: flex; flex-direction: column; gap: 1.6vh;
-  padding: 2vh 1.6vw; border: 1px solid rgba(200,170,110,.28); border-radius: 1.2vh;
-  background: rgba(10,14,19,.72);
-}
-.mvp-broadcast .mv-items-panel h3 {
-  margin: 0; font-size: 1.9vh; font-weight: 900; letter-spacing: .3em; color: #c8aa6e;
-}
-.mvp-broadcast .mv-item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2vh; flex: 1; }
-.mvp-broadcast .mv-item-slot {
-  display: flex; align-items: center; justify-content: center;
-  aspect-ratio: 1; border-radius: .9vh; overflow: hidden;
-  background: rgba(22,32,46,.9); border: 1px solid rgba(200,170,110,.22);
-}
-.mvp-broadcast .mv-item-slot.trinket { border-color: rgba(200,170,110,.45); }
-.mvp-broadcast .mv-item-slot .icon, .mv-item-slot .icon img { width: 100%; height: 100%; }
-.mvp-broadcast .mv-item-slot img { object-fit: cover; }
-.mvp-broadcast .mv-item-slot .icon-fb { color: rgba(232,236,242,.35); font-style: normal; }
+/* ---------- 左栏：数据面板 ---------- */
+.mvp-broadcast .b-panel { position: absolute; left: 0; top: 0; width: 1040px; height: 1080px; padding: 72px 96px 0; box-sizing: border-box; }
 
-/* 底部统计条 */
-.mvp-broadcast .mv-stats {
-  position: absolute; left: 3.2vw; right: 3.2vw; bottom: 3.2vh; height: 19vh;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 2vw; z-index: 3;
-}
-.mvp-broadcast .mv-stat {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4vh;
-  border-top: 1px solid rgba(200,170,110,.3);
-  padding-top: 1.6vh;
-}
-.mvp-broadcast .mv-stat-val { font-size: 5.6vh; font-weight: 900; line-height: 1; color: #f4f2ee; }
-.mvp-broadcast .mv-stat-val:empty::after { content: '—'; color: rgba(232,236,242,.4); }
-.mvp-broadcast .mv-stat.pos .mv-stat-val { color: #7bd88f; }
-.mvp-broadcast .mv-stat.neg .mv-stat-val { color: #e07a7a; }
-.mvp-broadcast .mv-stat-label { font-size: 1.9vh; font-weight: 800; letter-spacing: .22em; color: #c8aa6e; }
-.mvp-broadcast .mv-stat-note { font-size: 1.5vh; color: rgba(232,236,242,.55); }
+.mvp-broadcast .b-meta { display: flex; align-items: center; gap: 18px; width: 848px; }
+.mvp-broadcast .b-tag { font-size: 12px; font-weight: 700; letter-spacing: .34em; color: var(--side); }
+.mvp-broadcast .b-meta-rule { flex: 0 0 1px; height: 12px; background: rgba(255,255,255,.18); }
+.mvp-broadcast .b-eyebrow { font-size: 12px; letter-spacing: .38em; color: var(--dim); }
+.mvp-broadcast .b-tour { margin-left: auto; font-size: 12px; letter-spacing: .2em; color: rgba(255,255,255,.55);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
 
-/* 待评选占位 */
-.mvp-broadcast .mv-waiting {
-  position: absolute; inset: 16vh 3.2vw 26vh 3.2vw; z-index: 4;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(6,10,14,.55); border-radius: 1.2vh;
-  opacity: 0; pointer-events: none; transition: opacity .4s ease;
-}
-.mvp-broadcast .mv-waiting span { font-size: 3.4vh; font-weight: 800; letter-spacing: .3em; color: rgba(232,236,242,.8); }
-.mvp-broadcast[data-state="waiting"] .mv-waiting { opacity: 1; }
+.mvp-broadcast .b-name { margin: 76px 0 0; font-size: 96px; font-weight: 700; line-height: .86; letter-spacing: -.012em;
+  text-transform: uppercase; white-space: nowrap; }
 
-/* DEMO 徽标 */
-.mvp-broadcast .mv-demo-badge {
-  position: absolute; right: 1.6vw; bottom: 1.6vh; z-index: 5;
-  padding: .4vh 1vh; font-size: 1.4vh; font-weight: 800; letter-spacing: .18em;
-  color: #c8aa6e; border: 1px solid rgba(200,170,110,.55); border-radius: .6vh;
+.mvp-broadcast .b-sub { display: flex; align-items: center; gap: 14px; margin: 26px 0 0; }
+.mvp-broadcast .b-champ { font-size: 22px; font-weight: 600; letter-spacing: .16em; color: rgba(255,255,255,.88); }
+.mvp-broadcast .b-dot { width: 3px; height: 3px; background: rgba(255,255,255,.4); }
+.mvp-broadcast .b-role { font-size: 12px; letter-spacing: .3em; color: var(--faint); }
+.mvp-broadcast .b-champ:empty, .mvp-broadcast .b-role:empty, .mvp-broadcast .b-dot[hidden] { display: none; }
+
+.mvp-broadcast .b-team { display: flex; align-items: center; gap: 14px; margin-top: 34px; }
+.mvp-broadcast .b-crest { width: 34px; height: 34px; display: grid; place-items: center; font-size: 14px; font-weight: 700; color: var(--side);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--side) 48%, transparent); }
+.mvp-broadcast .b-tn { font-size: 17px; font-weight: 600; letter-spacing: .08em; color: rgba(255,255,255,.9); }
+.mvp-broadcast .b-side { margin-left: 8px; font-size: 10px; letter-spacing: .32em; color: rgba(255,255,255,.48); }
+
+/* 数据带：一条横贯的发丝线开带，K/D/A 与统计表共用同一条底线 */
+.mvp-broadcast .b-band-rule { position: absolute; left: 96px; bottom: 584px; width: 848px; height: 1px; background: rgba(255,255,255,.1); }
+.mvp-broadcast .b-body { position: absolute; left: 96px; bottom: 320px; width: 848px; display: flex; align-items: flex-end; justify-content: space-between; }
+
+.mvp-broadcast .b-kda { width: 452px; display: flex; align-items: flex-end; }
+.mvp-broadcast .b-kda .num { display: flex; flex-direction: column; }
+.mvp-broadcast .b-kda b { font-size: 92px; font-weight: 600; line-height: .8; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.mvp-broadcast .b-kda .lb { margin-top: 16px; font-size: 10px; letter-spacing: .34em; color: rgba(255,255,255,.55); }
+.mvp-broadcast .b-kda .s { font-style: normal; font-size: 46px; font-weight: 300; color: rgba(255,255,255,.2); padding: 0 20px 30px; }
+
+.mvp-broadcast .b-table { width: 340px; }
+.mvp-broadcast .b-row { display: flex; align-items: baseline; justify-content: space-between; padding: 15px 0 13px;
+  border-bottom: 1px solid rgba(255,255,255,.1); }
+.mvp-broadcast .b-row:first-child { border-top: 1px solid rgba(255,255,255,.1); }
+.mvp-broadcast .b-row .lb { font-size: 11px; letter-spacing: .3em; color: var(--dim); }
+.mvp-broadcast .b-row b { font-size: 36px; font-weight: 600; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.mvp-broadcast .b-row b i { font-style: normal; font-size: 19px; font-weight: 500; color: rgba(255,255,255,.62); margin-left: 1px; }
+.mvp-broadcast .b-row.gd b { font-size: 38px; color: #8ff0b0; }
+.mvp-broadcast .b-row.gd b.neg { color: #ff8b7d; }
+.mvp-broadcast .b-row.gd { border-bottom: 2px solid color-mix(in srgb, var(--side) 55%, transparent); }
+.mvp-broadcast .b-row b.missing { color: rgba(255,255,255,.3); }
+
+/* ---------- 底部：装备 + 页脚 ---------- */
+.mvp-broadcast .b-items { position: absolute; left: 96px; bottom: 172px; display: flex; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.mvp-broadcast .b-items li { width: 58px; height: 58px; overflow: hidden; background: #0b0f15;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.mvp-broadcast .b-items li.trinket { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--side) 42%, transparent); }
+.mvp-broadcast .b-items li .icon, .mvp-broadcast .b-items li .icon img, .mvp-broadcast .b-items li img { width: 100%; height: 100%; display: block; }
+.mvp-broadcast .b-items li img { object-fit: cover; }
+.mvp-broadcast .b-items li .icon-fb { color: rgba(255,255,255,.3); font-style: normal; }
+
+.mvp-broadcast .b-foot { position: absolute; left: 96px; right: 96px; bottom: 96px; display: flex; align-items: center; gap: 16px;
+  font-size: 11px; letter-spacing: .26em; color: rgba(255,255,255,.5); }
+.mvp-broadcast .b-sep { width: 3px; height: 3px; background: rgba(255,255,255,.32); }
+.mvp-broadcast .b-demo { margin-left: auto; color: rgba(255,255,255,.62); }
+.mvp-broadcast .b-demo[hidden] { display: none; }
+
+/* ---------- 等待评选 ---------- */
+.mvp-broadcast .b-wait { display: none; position: absolute; left: 96px; top: 404px; }
+.mvp-broadcast[data-state="waiting"] .b-wait { display: block; }
+.mvp-broadcast[data-state="waiting"] .b-name,
+.mvp-broadcast[data-state="waiting"] .b-sub,
+.mvp-broadcast[data-state="waiting"] .b-team,
+.mvp-broadcast[data-state="waiting"] .b-body,
+.mvp-broadcast[data-state="waiting"] .b-items,
+.mvp-broadcast[data-state="waiting"] .b-band-rule { display: none; }
+.mvp-broadcast[data-state="waiting"] .b-art img { filter: saturate(.45) brightness(.4) blur(6px); }
+.mvp-broadcast .wf-eyebrow { display: block; font-size: 12px; letter-spacing: .4em; color: var(--dim); }
+.mvp-broadcast .wf-name { display: block; margin-top: 26px; font-size: 72px; font-weight: 700; letter-spacing: -.01em; color: rgba(255,255,255,.9); }
+.mvp-broadcast .wf-line { display: block; margin-top: 34px; width: 260px; height: 2px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
+.mvp-broadcast .wf-line i { position: absolute; inset: 0; background: var(--side); animation: mvp-sweep 1900ms cubic-bezier(.4,0,.2,1) infinite; }
+
+/* ---------- 入场：首帧数据到达后才触发（data-ready） ---------- */
+.mvp-broadcast[data-ready="1"] .b-art img { animation: mvp-art-in 1100ms var(--ui) both; }
+.mvp-broadcast[data-ready="1"] .b-meta { animation: mvp-rise 340ms var(--ui) 90ms both; }
+.mvp-broadcast[data-ready="1"] .b-name { animation: mvp-rise 420ms var(--ui) 170ms both; }
+.mvp-broadcast[data-ready="1"] .b-sub { animation: mvp-rise 380ms var(--ui) 250ms both; }
+.mvp-broadcast[data-ready="1"] .b-team { animation: mvp-rise 380ms var(--ui) 440ms both; }
+.mvp-broadcast[data-ready="1"] .b-kda { animation: mvp-rise 400ms var(--ui) 320ms both; }
+.mvp-broadcast[data-ready="1"] .b-table { animation: mvp-rise 400ms var(--ui) 380ms both; }
+.mvp-broadcast[data-ready="1"] .b-items li { animation: mvp-rise 320ms var(--ui) both; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(1) { animation-delay: 500ms; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(2) { animation-delay: 530ms; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(3) { animation-delay: 560ms; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(4) { animation-delay: 590ms; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(5) { animation-delay: 620ms; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(6) { animation-delay: 650ms; }
+.mvp-broadcast[data-ready="1"] .b-items li:nth-child(7) { animation-delay: 680ms; }
+.mvp-broadcast[data-ready="1"] .b-foot { animation: mvp-rise 340ms var(--ui) 720ms both; }
+
+@keyframes mvp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes mvp-art-in { from { transform: scale(1.04); } to { transform: scale(1); } }
+@keyframes mvp-sweep { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mvp-broadcast, .mvp-broadcast * { animation: none !important; transition: none !important; }
 }
-.mvp-broadcast .mv-demo-badge[hidden] { display: none; }
