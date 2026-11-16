@@ -71,6 +71,8 @@ function handlePostLayout(req, res, onSaved) {
       sendJson(res, 400, { ok: false, error: 'invalid_layout' });
       return true;
     }
+    const count = saved && saved.items ? Object.keys(saved.items).length : 0;
+    console.log('[hud-layout] saved ' + count + ' item(s) -> ' + layoutPath());
     sendJson(res, 200, { ok: true, layout: saved });
     // 通知所有已连接的 HUD（含 OBS 里那一个）立刻套用新布局。
     if (typeof onSaved === 'function') { try { onSaved(saved); } catch { /* 推送失败不影响保存结果 */ } }
@@ -115,6 +117,8 @@ const PAGE_SCRIPT = `(function () {
   var items = {};
   var selected = null;
   var dirty = false;
+  // 上一次从服务端读到 / 存下去的微调项数：用来拦住「本来有微调，却被一键保存成空」。
+  var knownCount = 0;
 
   function status(text, tone) {
     if (!statusNode) return;
@@ -344,13 +348,19 @@ const PAGE_SCRIPT = `(function () {
     }).then(function (response) { return response.json().catch(function () { return null; }); });
   }
   function save() {
+    var count = Object.keys(items || {}).length;
+    if (!count && knownCount > 0) {
+      var ok = window.confirm('当前没有任何微调，保存会清空已有的 ' + knownCount + ' 项改动（HUD 恢复出厂布局）。确定要清空吗？');
+      if (!ok) { status('已取消保存，' + knownCount + ' 项微调保持不变', 'warn'); return; }
+    }
     status('保存中…');
     post({ items: items }).then(function (data) {
       if (!data || !data.ok) { status('保存失败：' + (data && data.error || 'unknown'), 'bad'); return; }
       items = (data.layout && data.layout.items) || {};
+      knownCount = Object.keys(items).length;
       dirty = false;
       buildList();
-      status('已保存 · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }), 'good');
+      status('已保存 · ' + knownCount + ' 项微调 · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }), 'good');
     }).catch(function () { status('保存失败：网络错误', 'bad'); });
   }
   function resetAll() {
@@ -366,9 +376,10 @@ const PAGE_SCRIPT = `(function () {
     if (data.event === 'ready') {
       targets = Array.isArray(data.targets) ? data.targets : [];
       items = data.items && typeof data.items === 'object' ? data.items : {};
+      knownCount = Object.keys(items).length;
       dirty = false;
       buildList();
-      status('已连接 HUD · ' + targets.length + ' 个可调元素', 'good');
+      status('已连接 HUD · ' + targets.length + ' 个可调元素 · 当前 ' + knownCount + ' 项微调', 'good');
       window.setTimeout(refreshAbsent, 700);
       if (!absentTimer) absentTimer = window.setInterval(refreshAbsent, 2000);
       // 实测值跟着 HUD 变（挖孔 60ms 去抖、文字变长等），单独用快节拍刷；正在输入的框不碰。
