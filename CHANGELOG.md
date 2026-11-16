@@ -78,3 +78,15 @@
 ## 2026-11-13 · 交接文档（本次，m03265）
 
 - 用户「我要换模型了，你给我写这些文件便于切换模型维护」→ 新建 `PROJECT.md`、`ARCHITECTURE.md`、`TASKS.md`、`CONVENTIONS.md`、`CHANGELOG.md` 五份文档，事实全部从 `README.md`、`DEVELOPMENT_LOG.md`、`REVIEW.md`、`VERIFICATION.md`、`VISUAL-QA.md`、`docs/`、`config/`、`package.json`、`src/` 源码与团队任务状态核实。**未改动任何源码、未动团队任务。**
+
+## 2026-11-14 ~ 11-16 · Khada Jhin 0.2.x：HUD 重做、0xdd 解码链、血条像素流、GitHub 开源
+
+- **改名与版本**：全面改名 Khada Jhin（原 RiftBroadcast），0.2.1 应用图标（build/icon.ico + public/app-icon.png），现 version 0.2.2；内部事件名前缀 riftbroadcast: 保留。
+- **底部 HUD 一整块落地**：中心对称积分版 + .hb-native-hole 原生洞位像素校准（.tmp/hole-probe.cjs）+ 防闪烁 setHtml 守卫（.tmp/hud-flicker-check.cjs 两帧像素差 0.036%）+ 分路排序（src/draft.js cellId→assignedPosition）。
+- **HUD 数据接入**：修复 post_game 赛后快照锁死管线（src/main.js pollLiveClient 新局自动解锁）；KDA/等级/顶部栏确认早已具备渲染端；龙/塔改事件增量账本（src/live-data.js createObjectiveLedger+accumulateObjectives，身份键去重只增不减）；新增 logLcdaEvents → .tmp/lcda-events.jsonl。
+- **0xdd 解码链（tools/decode0dd/）**：decode_statblocks.py v12（残差分表 PERIOD=64，真值局 300/300 floor-exact）；live_feed.py 纯 stdlib Blowfish-ECB 过 schneier 官方向量 + Observer REST + LiveSolver live-sim 全绿；replay_feed.py LCDA 同步回放喂流器（实测回放局金币/经验进 HUD）；契约 docs/PROTOCOL-FEED.md + src/protocol-feed.js（precision=exact 才转发）+ docs/DECODE-CAPABILITY.md 白皮书。
+- **血条像素流**：tools/pixel-bars/hp_bars.py（OBS GetSourceScreenshot 游戏采集源、侧栏游程检测、EMA、10Hz POST）+ src/pixel-bars.js（TTL 2s 整包替换）+ hud-broadcast.js pixelBars 消费端；实机标定 2560 蓝 gx0=42/红 gx0=116 全命中。
+- **修复与教训**：LCDA(2999) 是自签 TLS 服务，http 裸请求挂起（曾误判死锁错杀进程两次），有效端点仅 /liveclientdata/allgamedata；fixture 事件里名字段也要匿名化。
+- **GitHub 开源（2026-11-16）**：git init + GitHub 公开库 https://github.com/RyeRaven/-lol-broadcast-hud.git（仓库名带前导连字符），main=ef6ee23，GPL-3.0，338 文件；.gitignore 剔除 release/.tmp/shot-profile/缓存；fixture 10 个真实 Riot ID → Player1..Player10（128 处，含 events 名字段）；敏感扫描 0 命中；本机 niugit 无 GCM/gh，push 用一次性凭证 URL。
+- **验证**：node --test 195/195。
+- **待办**：见 TASKS.md §3（live_feed 实机验证、潮虫事件名验证、CS 口径、A 键、0.2.3 打包、控台 UI）。

@@ -1,8 +1,8 @@
-# PROJECT.md — RiftBroadcast 项目总览
+# PROJECT.md — Khada Jhin 项目总览
 
 > 切换模型后的第一入口。阅读顺序：本文件 → `ARCHITECTURE.md`（技术选型/模块/设计决策）→ `TASKS.md`（当前任务、进度、待办）→ `CONVENTIONS.md`（编码与接口约定）→ `CHANGELOG.md`（改动时间线）。
-> 最后更新：2026-11-13。项目根：`C:/Users/RyeRaven/Documents/Codex/2026-11-12/windows-lol-mvp-1-lol-2`。
-> 重要：本目录**不是 git 仓库**（`git status` 报 `fatal: not a git repository (or any of the parent directories): .git`），没有 commit 历史可查；改动时间线只能靠 `CHANGELOG.md` 与本目录其他 .md，请每次改动后及时补记。
+> 最后更新：2026-11-16。项目根：`C:/Users/RyeRaven/Documents/Codex/2026-11-12/windows-lol-mvp-1-lol-2`。现名 Khada Jhin（原 RiftBroadcast），version 0.2.2。
+> git 仓库（2026-11-16 起）：GitHub 公开库 <https://github.com/RyeRaven/-lol-broadcast-hud.git>（GPL-3.0，origin=main 已推送）。改动时间线仍以 `CHANGELOG.md` 为准，请每次改动后 commit 并补记。
 
 ## 1. 项目目标
 
