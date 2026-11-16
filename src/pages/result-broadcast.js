@@ -641,7 +641,7 @@ const TRANSITION_BODY = [
   '<main id="overlay-transition" class="overlay-transition" data-direction="left" data-mode="cover" data-debug="0">',
     '<div class="tr-layer tr-layer-back"></div>',
     '<div class="tr-layer tr-layer-front"></div>',
-    '<div class="tr-brand"><b>RIFT BROADCAST</b><i></i><small>SCENE TRANSITION</small></div>',
+    '<div class="tr-brand"><b>KHADA JHIN</b><i></i><small>SCENE TRANSITION</small></div>',
     '<div class="tr-debug" id="tr-debug">WIPE</div>',
   '</main>'
 ].join('');
