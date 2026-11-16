@@ -9,10 +9,15 @@ const { htmlShell } = require('./html');
 const assets = require('../assets');
 
 let cssCache = null;
+let cssCacheMtime = 0;
 function hudCss() {
-  if (cssCache === null) {
+  // dev 直跑时 css 会被反复改：按 mtime 失效缓存，文件变了就重读。
+  let mtime = 0;
+  try { mtime = fs.statSync(path.join(__dirname, '..', '..', 'public', 'hud-broadcast.css')).mtimeMs; } catch { mtime = 0; }
+  if (cssCache === null || mtime !== cssCacheMtime) {
     try { cssCache = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'hud-broadcast.css'), 'utf8'); }
     catch { cssCache = ''; }
+    cssCacheMtime = mtime;
   }
   return cssCache;
 }
