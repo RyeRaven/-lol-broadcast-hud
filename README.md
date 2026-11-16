@@ -4,6 +4,12 @@ Windows 本地《英雄联盟》赛事导播辅助工具。Khada Jhin 将 LCU、
 
 > 合规声明：Khada Jhin 不读取游戏内存、不注入游戏进程、不修改游戏文件、不绕过反作弊、不模拟游戏操作。只使用 Riot 官方本地接口、公开 Data Dragon 数据和本地配置。
 
+## 下载
+
+最新版安装包（Windows x64，无需自行构建）：[Khada Jhin Setup 0.2.2.exe](https://github.com/RyeRaven/-lol-broadcast-hud/releases/latest)
+
+所有历史版本见 [Releases](https://github.com/RyeRaven/-lol-broadcast-hud/releases)。安装包未做代码签名，Windows SmartScreen 首次运行提示未知发布者时，选择「更多信息 → 仍要运行」。
+
 ## 功能概览
 
 - 真实数据：自动发现 LCU（国服客户端优先读取 Ux 日志中的启动参数，兼容启动参数、lockfile 和环境变量兜底）；局内读取 Live Client Data（https://127.0.0.1:2999）；Data Dragon 英雄和装备资源会缓存在 data 目录。
