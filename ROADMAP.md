@@ -13,11 +13,11 @@
 
 ## 近期计划
 
-- [ ] live 协议流实机验证（需管理员权限抓取观战密钥 + 真实观战局）
-- [ ] CS 口径修正：minionsKilled 与 jungleMinionsKilled 求和待拍板 🏷️ **good first issue**
-- [ ] 潮虫 HordeKill 事件名真机验证
-- [ ] CI（GitHub Actions 跑 node --test）🏷️ **good first issue**
-- [ ] README 英文 TLDR 🏷️ **good first issue**
+- [ ] live 协议流实机验证（需管理员权限抓取观战密钥 + 真实观战局）[#5](https://github.com/RyeRaven/-lol-broadcast-hud/issues/5)
+- [ ] CS 口径修正：minionsKilled 与 jungleMinionsKilled 求和待拍板 🏷️ **good first issue** [#2](https://github.com/RyeRaven/-lol-broadcast-hud/issues/2)
+- [ ] 潮虫 HordeKill 事件名真机验证 [#4](https://github.com/RyeRaven/-lol-broadcast-hud/issues/4)
+- [ ] CI（GitHub Actions 跑 node --test）🏷️ **good first issue** [#1](https://github.com/RyeRaven/-lol-broadcast-hud/issues/1)
+- [ ] README 英文 TLDR 🏷️ **good first issue** [#3](https://github.com/RyeRaven/-lol-broadcast-hud/issues/3)
 - [ ] 0.2.3 打包发布
 
 ## 中期想法
