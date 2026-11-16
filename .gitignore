@@ -19,3 +19,4 @@ data/champions-*.json
 data/items-*.json
 data/hud-calib.json
 config/broadcast.json
+__pycache__/
