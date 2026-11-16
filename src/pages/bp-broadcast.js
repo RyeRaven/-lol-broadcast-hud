@@ -128,7 +128,9 @@ const PAGE_SCRIPT = String.raw`(function () {
       blueBans: Array.isArray(source.blueBans) ? source.blueBans : [],
       redBans: Array.isArray(source.redBans) ? source.redBans : [],
       blueHover: Array.isArray(source.blueHover) ? source.blueHover : [],
-      redHover: Array.isArray(source.redHover) ? source.redHover : []
+      redHover: Array.isArray(source.redHover) ? source.redHover : [],
+      blueBanHover: Array.isArray(source.blueBanHover) ? source.blueBanHover : [],
+      redBanHover: Array.isArray(source.redBanHover) ? source.redBanHover : []
     };
   }
   function hasDraftData() {
@@ -148,6 +150,11 @@ const PAGE_SCRIPT = String.raw`(function () {
   function banList(side) {
     var d = draft();
     return side === 'blue' ? d.blueBans : d.redBans;
+  }
+  // ban 悬停预览：数组形状与 pick 悬停相同（5 槽，null 占位），复用同一规范化。
+  function banHoverList(side) {
+    var d = draft();
+    return normalizedPicks(side === 'blue' ? d.blueBanHover : d.redBanHover);
   }
   function normalizedPicks(list) {
     var result = [];
@@ -342,18 +349,29 @@ const PAGE_SCRIPT = String.raw`(function () {
     });
   }
 
-  function banMarkup(champion) {
+  // isHover=true 时画成悬停预览格（半透明+呼吸边，见 bb-ban-hover 样式）。
+  function banMarkup(champion, isHover) {
     if (!champion) return '<span class="bb-ban empty" title="未禁用"></span>';
-    return '<span class="bb-ban banned" title="' + esc(champion) + '">' + icon('champion', champion, champion) + '</span>';
+    return '<span class="bb-ban banned' + (isHover ? ' bb-ban-hover' : '') + '" title="' + esc(champion) + '">' + icon('champion', champion, champion) + '</span>';
   }
   function renderBans() {
     ['blue', 'red'].forEach(function (side) {
       var node = byId('bb-bans-' + side);
       if (!node) return;
       var bans = banList(side);
+      // 悬停预览填进第一个空 ban 槽；已锁定的 ban 不被预览覆盖（真实值优先）。
+      var hovers = banHoverList(side);
+      var hoverVal = null;
+      for (var i = 0; i < 5; i += 1) if (hovers[i]) { hoverVal = hovers[i]; break; }
+      var previewUsed = false;
       var html = '';
-      for (var i = 0; i < 5; i += 1) html += banMarkup(bans[i]);
-      node.innerHTML = html;
+      for (var i = 0; i < 5; i += 1) {
+        var champion = bans[i];
+        var isHover = false;
+        if (!champion && hoverVal && !previewUsed) { champion = hoverVal; isHover = true; previewUsed = true; }
+        html += banMarkup(champion, isHover);
+      }
+      setHtml(node, html);
     });
   }
 

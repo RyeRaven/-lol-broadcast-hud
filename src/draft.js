@@ -50,6 +50,19 @@ function collectHoverPicks(actions) {
   return hover;
 }
 
+// 悬停预览（ban）：未 completed 的 ban action.championId 是当前悬停的禁用候选。
+// 与 pick 同构：cellId 槽位固定，锁定（completed）后悬停自然消失。
+function collectHoverBans(actions) {
+  const hover = new Map();
+  for (const action of actions) {
+    if (action.completed || action.type !== 'ban') continue;
+    const cellId = Number(action.actorCellId);
+    const championId = Number(action.championId);
+    if (Number.isFinite(cellId) && championId > 0) hover.set(cellId, championId);
+  }
+  return hover;
+}
+
 function collectTeamChampions(team) {
   const picks = new Map();
   for (const member of team) {
@@ -115,12 +128,20 @@ function normalizeDraftSession(session, resolveName = id => String(id)) {
 
   // 悬停预览：固定 cellId 槽位（blue 0-4 / red 5-9），锁定后该 action completed，悬停自然消失。
   const hover = collectHoverPicks(actions);
+  const banHover = collectHoverBans(actions);
   const blueHover = [null, null, null, null, null];
   const redHover = [null, null, null, null, null];
   for (let cellId = 0; cellId < 10; cellId += 1) {
     const championId = hover.get(cellId);
     if (!championId) continue;
     (cellId < 5 ? blueHover : redHover)[cellId % 5] = resolveName(championId);
+  }
+  const blueBanHover = [null, null, null, null, null];
+  const redBanHover = [null, null, null, null, null];
+  for (let cellId = 0; cellId < 10; cellId += 1) {
+    const championId = banHover.get(cellId);
+    if (!championId) continue;
+    (cellId < 5 ? blueBanHover : redBanHover)[cellId % 5] = resolveName(championId);
   }
 
   return {
@@ -132,6 +153,8 @@ function normalizeDraftSession(session, resolveName = id => String(id)) {
     redBans,
     blueHover,
     redHover,
+    blueBanHover,
+    redBanHover,
     timer: Number.isFinite(secondsLeft) ? Math.max(0, Math.ceil(secondsLeft / 1000)) : null,
     phase: TIMER_PHASE_LABELS[timer.phase] || null,
     // actorCellId 缺失/非数字时不能落到 red 分支（NaN < 5 为 false 的坑），归 null 表示未知。

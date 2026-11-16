@@ -94,3 +94,23 @@ test('real matchmaking draft fixture parses 10 picks and 10 bans', () => {
   assert.equal(draft.parsed, true);
   assert.equal(draft.phase, '最终调整');
 });
+
+test('ban hover preview lands in fixed cell slots and vanishes once completed', () => {
+  const draft = normalizeDraftSession({
+    actions: [
+      [{ type: 'ban', actorCellId: 0, championId: 1, completed: true }],
+      [{ type: 'ban', actorCellId: 5, championId: 3, completed: false, isInProgress: true }]
+    ],
+    myTeam: [], theirTeam: [], timer: {}
+  }, id => 'c' + id);
+  // 已锁定的 ban 进 blueBans，不进悬停；未锁定的红方 ban 悬停按 cellId 槽位（5 → red[0]）。
+  assert.deepEqual(draft.blueBans, ['c1']);
+  assert.deepEqual(draft.blueBanHover, [null, null, null, null, null]);
+  assert.deepEqual(draft.redBanHover, ['c3', null, null, null, null]);
+});
+
+test('ban hover is all null when nothing is hovering', () => {
+  const draft = normalizeDraftSession({ actions: [], myTeam: [], theirTeam: [], timer: {} });
+  assert.deepEqual(draft.blueBanHover, [null, null, null, null, null]);
+  assert.deepEqual(draft.redBanHover, [null, null, null, null, null]);
+});

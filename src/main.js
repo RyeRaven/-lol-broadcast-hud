@@ -117,7 +117,7 @@ function enterPostGameFromFrozen() {
 }
 function resetDraftState() {
   // 离开 BP 后必须清掉上一局/演示数据，否则 overlay 会继续显示旧阵容。
-  state.draft = { round: '', timer: null, active: 'blue', blueBans: [], redBans: [], bluePicks: [], redPicks: [], blueHover: [], redHover: [] };
+  state.draft = { round: '', timer: null, active: 'blue', blueBans: [], redBans: [], bluePicks: [], redPicks: [], blueHover: [], redHover: [], blueBanHover: [], redBanHover: [] };
   // 分路表跟着 BP 清空：新房间必须重新采集 assignedPosition，旧局的分路不能带进下一局。
   state.draftRoles = { blue: [null, null, null, null, null], red: [null, null, null, null, null] };
 }
@@ -149,6 +149,8 @@ function applyDraftSession(session) {
   state.draft.redBans = Array.isArray(draft.redBans) ? draft.redBans : [];
   state.draft.blueHover = Array.isArray(draft.blueHover) ? draft.blueHover : [];
   state.draft.redHover = Array.isArray(draft.redHover) ? draft.redHover : [];
+  state.draft.blueBanHover = Array.isArray(draft.blueBanHover) ? draft.blueBanHover : [];
+  state.draft.redBanHover = Array.isArray(draft.redBanHover) ? draft.redBanHover : [];
   state.draft.timer = draft.timer === null || draft.timer === undefined ? null : draft.timer;
   state.draft.round = draft.phase || '';
   state.draft.active = draft.active || 'blue';

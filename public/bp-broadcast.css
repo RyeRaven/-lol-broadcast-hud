@@ -42,6 +42,11 @@ html, body { background: transparent !important; }
 .bb-stage-tile.bb-hover::after { content: ''; position: absolute; inset: 0; z-index: 4; border: 2px solid var(--bb-gold); border-radius: inherit; opacity: .35; animation: bb-hover-breath 1.6s ease-in-out infinite; pointer-events: none; }
 @keyframes bb-hover-breath { 0%, 100% { opacity: .3; box-shadow: inset 0 0 6px rgba(232,200,119,.2); } 50% { opacity: 1; box-shadow: inset 0 0 16px rgba(232,200,119,.5); } }
 .bp-broadcast.anim-off .bb-stage-tile.bb-hover::after { animation: none; opacity: .8; }
+/* ban 悬停预览：半透明头像+暗金描边呼吸，视觉上弱于已锁定 ban（红斜杠会盖在预览上） */
+.bb-ban.bb-ban-hover { box-shadow: 0 0 0 1px rgba(232,200,119,.55), 0 0 8px rgba(232,200,119,.25); animation: bb-ban-breath 1.6s ease-in-out infinite; }
+.bb-ban.bb-ban-hover .icon img, .bb-ban.bb-ban-hover .icon-fb { opacity: .45; filter: grayscale(.5); }
+@keyframes bb-ban-breath { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.bp-broadcast.anim-off .bb-ban.bb-ban-hover { animation: none; opacity: .7; }
 .bb-stage-tile.bb-spot .bb-stage-art { transform: scale(1.05); }
 .bb-stage-tile.bb-spot .bb-pid-name { font-size: 2vh; color: var(--bb-gold); }
 
