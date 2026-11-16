@@ -754,15 +754,16 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/hud-toggle' && req.method === 'POST') { if (state.broadcastConfig && state.broadcastConfig.hudKeyHook === false) return json(res, 200, { ok: false, disabled: true, hudHidden: state.hudHidden }); state.hudHidden = !state.hudHidden; broadcast(); return json(res, 200, { ok: true, hudHidden: state.hudHidden }); }
   if (url.pathname === '/api/phase' && req.method === 'POST') { readBody(req, res).then(body => { state.phase = normalizePhase(body && body.phase); broadcast(); json(res,200,{ok:true,phase:state.phase}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
   if (url.pathname === '/api/config' && req.method === 'POST') { readBody(req, res).then(body => { if (body.tournamentName !== undefined) state.tournamentName = normalizeTournamentName(body.tournamentName); if (body.mode !== undefined) { if (body.mode !== 'mock' && body.mode !== 'live') throw badRequest('invalid_mode'); state.mode = body.mode; if (body.mode === 'mock') { state.goldEstimated = false; state.goldSource = 'mock'; state.players = createMockPlayers(); } else { state.postGame = null; frozenSnapshot = null; resetLiveGameData(); } } if (body.phase !== undefined) state.phase = normalizePhase(body.phase); saveConfig(); broadcast(); json(res,200,{ok:true}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
-  if (url.pathname === '/') return res.end(consolePage(PORT));
-  if (url.pathname === '/overlay/hud-calibrate' || url.pathname === '/broadcast/hud-calibrate') return res.end(hudCalibratePage());
-  if (url.pathname === '/overlay/bp-broadcast' || url.pathname === '/broadcast/bp') return res.end(bpBroadcastPage());
-  if (url.pathname === '/overlay/hud-broadcast' || url.pathname === '/broadcast/hud') return res.end(hudBroadcastPage());
-  if (url.pathname === '/broadcast/result' || url.pathname === '/overlay/result-broadcast') return res.end(resultBroadcastPage());
-  if (url.pathname === '/broadcast/stage' || url.pathname === '/overlay/stage-broadcast') return res.end(stageBroadcastPage());
-  if (url.pathname === '/broadcast/mvp' || url.pathname === '/overlay/mvp-broadcast') return res.end(mvpBroadcastPage());
-  if (url.pathname === '/overlay/transition') return res.end(transitionPage());
-  if (url.pathname.startsWith('/overlay/')) { const type=url.pathname.split('/')[2]; if (OVERLAY_TYPES.includes(type)) return res.end(overlayPage(type)); }
+  const sendPage = html => { res.setHeader('Content-Type','text/html; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(html); };
+  if (url.pathname === '/') return sendPage(consolePage(PORT));
+  if (url.pathname === '/overlay/hud-calibrate' || url.pathname === '/broadcast/hud-calibrate') return sendPage(hudCalibratePage());
+  if (url.pathname === '/overlay/bp-broadcast' || url.pathname === '/broadcast/bp') return sendPage(bpBroadcastPage());
+  if (url.pathname === '/overlay/hud-broadcast' || url.pathname === '/broadcast/hud') return sendPage(hudBroadcastPage());
+  if (url.pathname === '/broadcast/result' || url.pathname === '/overlay/result-broadcast') return sendPage(resultBroadcastPage());
+  if (url.pathname === '/broadcast/stage' || url.pathname === '/overlay/stage-broadcast') return sendPage(stageBroadcastPage());
+  if (url.pathname === '/broadcast/mvp' || url.pathname === '/overlay/mvp-broadcast') return sendPage(mvpBroadcastPage());
+  if (url.pathname === '/overlay/transition') return sendPage(transitionPage());
+  if (url.pathname.startsWith('/overlay/')) { const type=url.pathname.split('/')[2]; if (OVERLAY_TYPES.includes(type)) return sendPage(overlayPage(type)); }
   if (url.pathname === '/styles.css') { serveStyles(res); return; }
   if (url.pathname.startsWith('/assets/')) { serveAsset(res, url.pathname.slice('/assets/'.length)); return; }
   res.writeHead(404); res.end('Not found');
