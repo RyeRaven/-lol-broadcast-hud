@@ -429,6 +429,22 @@ function broadcast() {
     }
   }
 }
+// 保存布局后立刻推给所有打开的 HUD / 编辑页：OBS 的 browser source 不会自己重载，
+// 靠这条 SSE 事件让新布局当场生效，不用右键「刷新缓存」。
+function broadcastLayout(layout) {
+  let items = {};
+  try { items = (layout && layout.items) || {}; } catch { items = {}; }
+  const payload = 'event: hud-layout\ndata: ' + JSON.stringify(items) + '\n\n';
+  for (const res of clients) {
+    try {
+      if (res.writableEnded || res.destroyed) { clients.delete(res); continue; }
+      res.write(payload);
+    } catch {
+      clients.delete(res);
+      try { res.end(); } catch {}
+    }
+  }
+}
 // 像素读条过期保护：读数超过 2000ms 没更新就必须把生命/资源条降回 unavailable 并把玩家字段清成 null，
 // 绝不保留上一轮百分比冒充当前血量。每秒执行一次，即使 Live Client Data 断流也照样生效。
 function refreshPixelBars() {
@@ -840,7 +856,7 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/broadcast-config') { handleBroadcastConfigApi(req, res, url, { readBody, json, broadcast, state }); return; }
   if (url.pathname === '/api/uploads/logo' && req.method === 'POST') { handleLogoUploadApi(req, res, url, { json }); return; }
   if (url.pathname === '/api/hud-calib') { handleHudCalibApi(req, res, url); return; }
-  if (url.pathname === '/api/hud-layout') { handleHudLayoutApi(req, res, url); return; }
+  if (url.pathname === '/api/hud-layout') { handleHudLayoutApi(req, res, url, broadcastLayout); return; }
   if (url.pathname === '/api/sources') { const force = url.searchParams.get('refresh') === '1'; const lockfile = process.env.RIOT_LOCKFILE || path.join(process.env.LOCALAPPDATA || '', 'Riot Games', 'Riot Client', 'Config', 'lockfile'); Promise.all([getLcuConnection(force).then(c => probeLcu(c || lockfile)), probeLiveClient({ url: LIVE_CLIENT_URL })]).then(results => json(res, 200, { results, live: state.live })).catch(error => json(res, 500, { error: error.message })); return; }
   if (url.pathname === '/api/replay' && req.method === 'GET') { replay.readReplayState().then(result => json(res, 200, result)).catch(error => json(res, 500, { connected: false, error: error.message })); return; }
   if (url.pathname === '/api/replay/camera' && req.method === 'POST') { readBody(req, res).then(body => replay.setCamera(body)).then(result => json(res, 200, { ok: true, result })).catch(error => json(res, error.statusCode || 500, { ok: false, error: error.message })); return; }

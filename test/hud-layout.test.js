@@ -156,6 +156,27 @@ test('POST 合法微调 200 落盘，随后 GET source=file', async () => {
   }
 });
 
+test('POST 成功后回调 onSaved（服务端据此 SSE 推给 OBS）；失败不推', async () => {
+  const tmp = tempLayoutPath();
+  try {
+    await withLayoutPath(tmp.file, async () => {
+      const pushed = [];
+      const res = fakeRes();
+      await handleHudLayoutApi(fakeReq({ items: { topbar: { dy: -4 } } }), res, new URL('http://127.0.0.1/api/hud-layout'), layout => pushed.push(layout));
+      assert.equal(res.statusCode, 200);
+      assert.equal(pushed.length, 1);
+      assert.deepEqual(pushed[0].items.topbar, { dy: -4 });
+
+      const bad = fakeRes();
+      await handleHudLayoutApi(fakeReq({ items: { topbar: { dx: 9000 } } }), bad, new URL('http://127.0.0.1/api/hud-layout'), layout => pushed.push(layout));
+      assert.equal(bad.statusCode, 400);
+      assert.equal(pushed.length, 1, '非法布局不该推送');
+    });
+  } finally {
+    fs.rmSync(tmp.dir, { recursive: true, force: true });
+  }
+});
+
 test('POST 越界字段 400 invalid_layout 且旧文件保留', async () => {
   const tmp = tempLayoutPath();
   try {

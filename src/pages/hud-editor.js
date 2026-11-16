@@ -60,7 +60,7 @@ function handleGetLayout(res) {
   return sendJson(res, 200, { ok: true, source: loaded.source, layout: loaded.layout });
 }
 
-function handlePostLayout(req, res) {
+function handlePostLayout(req, res, onSaved) {
   if (!isLoopback(req)) {
     sendJson(res, 403, { ok: false, error: 'forbidden' });
     return Promise.resolve(true);
@@ -72,6 +72,8 @@ function handlePostLayout(req, res) {
       return true;
     }
     sendJson(res, 200, { ok: true, layout: saved });
+    // 通知所有已连接的 HUD（含 OBS 里那一个）立刻套用新布局。
+    if (typeof onSaved === 'function') { try { onSaved(saved); } catch { /* 推送失败不影响保存结果 */ } }
     return true;
   }).catch(error => {
     if (!res.headersSent) {
@@ -83,10 +85,10 @@ function handlePostLayout(req, res) {
 }
 
 // 返回 true 表示已接管该请求；main.js 只按 url.pathname 分流。
-function handleHudLayoutApi(req, res, url) {
+function handleHudLayoutApi(req, res, url, onSaved) {
   if (!url || url.pathname !== '/api/hud-layout') return false;
   if (req.method === 'GET') { handleGetLayout(res); return true; }
-  if (req.method === 'POST') { return handlePostLayout(req, res); }
+  if (req.method === 'POST') { return handlePostLayout(req, res, onSaved); }
   sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
   return true;
 }
@@ -474,7 +476,7 @@ function hudEditorPage() {
             '<button id="he-reload" type="button">重新载入</button>' +
             '<button id="he-save" type="button" class="is-primary">保存并应用</button>' +
           '</div>' +
-          '<p class="he-note">保存写入 data/hud-layout.json。OBS 里的 HUD 需要刷新一次（右键 → 刷新缓存，或控台一键换源）才会用上新值；挖孔几何请用 <a href="/broadcast/hud-calibrate" target="_blank" rel="noopener">挖孔标定页</a>。</p>' +
+          '<p class="he-note">保存写入 data/hud-layout.json，并立刻推送给所有打开的 HUD（OBS 里的源也不用刷新）。只有改了页面代码或样式才需要右键「刷新缓存」；挖孔几何请用 <a href="/broadcast/hud-calibrate" target="_blank" rel="noopener">挖孔标定页</a>。</p>' +
         '</footer>' +
       '</aside>' +
       '<section class="he-stage" id="he-stage">' +

@@ -1924,6 +1924,15 @@ var ICONS = {
     try {
       var stream = new EventSource('/events');
       stream.onmessage = function (event) { try { update(JSON.parse(event.data)); } catch (error) { /* 保留上一帧 */ } };
+      // 编辑页保存后服务端推一份新布局过来：立刻套用，OBS 里的源不用重载。
+      stream.addEventListener('hud-layout', function (event) {
+        try {
+          var items = JSON.parse(event.data);
+          LAYOUT_ITEMS = items && typeof items === 'object' ? items : {};
+          layoutApply(LAYOUT_ITEMS);
+          layoutSyncHolesSoon();
+        } catch (error) { /* 坏包忽略，保留当前布局 */ }
+      });
     } catch (error) { /* 离线时保持静态占位 */ }
   }
   Promise.all([fetchJson('/api/state'), fetchJson('/api/broadcast-config')]).then(function (results) {
