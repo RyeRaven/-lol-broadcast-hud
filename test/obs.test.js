@@ -388,6 +388,17 @@ test('obs state changed events update record, stream and replay buffer', () => {
   assert.equal(client.status.replayBuffer.saved, true);
 });
 
+test('obs-websocket 5 events read payloads from d.eventData', () => {
+  const client = new ObsClient();
+  client.handleMessage({ op: 5, d: { eventType: 'CurrentProgramSceneChanged', eventData: { sceneName: 'RB-MVP' } } });
+  assert.equal(client.status.currentScene, 'RB-MVP');
+  client.handleMessage({ op: 5, d: { eventType: 'RecordStateChanged', eventData: { outputActive: true, outputTimecode: '00:00:07.000' } } });
+  assert.equal(client.status.record.active, true);
+  assert.equal(client.status.record.timecode, '00:00:07.000');
+  client.handleMessage({ op: 5, d: { eventType: 'CurrentProgramSceneChanged', eventData: {} } });
+  assert.equal(client.status.currentScene, null);
+});
+
 test('obs connect handshake is cancelled by disconnect or a new connect', async () => {
   class SilentObsWebSocket {
     static instances = [];

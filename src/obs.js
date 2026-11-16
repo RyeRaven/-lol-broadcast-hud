@@ -161,16 +161,18 @@ class ObsClient {
     } else if (message.op === 5) {
       const event = message.d || {};
       const eventType = event.eventType;
+      // obs-websocket 5 的载荷在 d.eventData 里，顶层只有 eventType/eventIntent；兼容扁平旧形状。
+      const eventData = event.eventData || event;
       if (eventType === 'CurrentProgramSceneChanged') {
-        this.status.currentScene = event.sceneName || null;
+        this.status.currentScene = eventData.sceneName || null;
       } else if (eventType === 'SceneListChanged') {
         this.refresh().catch(() => {});
       } else if (eventType === 'RecordStateChanged') {
-        this.status.record = mapRecordStatus({ ...(this.status.record || {}), ...event });
+        this.status.record = mapRecordStatus({ ...(this.status.record || {}), ...eventData });
       } else if (eventType === 'StreamStateChanged') {
-        this.status.stream = mapStreamStatus({ ...(this.status.stream || {}), ...event });
+        this.status.stream = mapStreamStatus({ ...(this.status.stream || {}), ...eventData });
       } else if (eventType === 'ReplayBufferStateChanged') {
-        this.status.replayBuffer = mapReplayBufferStatus({ ...(this.status.replayBuffer || {}), ...event });
+        this.status.replayBuffer = mapReplayBufferStatus({ ...(this.status.replayBuffer || {}), ...eventData });
       }
     }
   }
