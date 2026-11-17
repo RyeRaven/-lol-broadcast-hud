@@ -813,21 +813,28 @@ body.hb-body {
    数量角标（count>1）画在格子右下角。挖孔透原生装备栏退居 ?hbNativeItems=1 显式开启。 */
 .hb-items {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
+  /* 间距与大小对齐原生挖孔排布：装备 24px、格距 1.6px（pitch 25.6）、饰品 22.5px。 */
+  grid-template-columns: repeat(6, 24px) 22.5px;
+  gap: 1.6px;
   align-items: center;
+  height: 24px;
 }
 
 .hb-item {
   position: relative;
   display: block;
-  aspect-ratio: 1 / 1;
-  max-height: var(--hb-native-item-size, 22.5px);
+  width: 100%;
+  height: 100%;
   border: 1px solid rgba(120, 160, 190, 0.16);
-  border-radius: 2px;
   background: rgba(8, 12, 17, 0.8);
   overflow: hidden;
 }
+
+/* 饰品格（第 7 格）比装备格小 1.5px，随行垂直居中。 */
+.hb-items .hb-item:nth-child(7) { height: 22.5px; }
+
+/* 蓝方饰品槽在装备外侧（镜像原生挖孔排布）：反转列流向让第 7 格落到最左。 */
+.hb-row.blue .hb-items { direction: rtl; }
 
 .hb-item .icon { width: 100%; height: 100%; }
 
@@ -1209,8 +1216,8 @@ body.hb-body {
 .hb-vision { width: 34px; }
 .hb-extras { left: 34%; }
 .hb-champ { width: 38px; height: 38px; }
-.hb-items { left: 47.8331%; width: 33.2263%; height: var(--hb-native-item-size, 22.5px); }
-.hb-row.red .hb-items { left: 18.9406%; width: 33.2263%; }
+.hb-items { left: 47.8331%; width: auto; }
+.hb-row.red .hb-items { left: 18.9406%; }
 
 /* KDA 走名字块第二行，等宽数字；CS 数值按需求下掉，KDA 12px 稍放大。 */
 .hb-cs,
