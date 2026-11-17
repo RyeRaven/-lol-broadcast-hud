@@ -1060,7 +1060,7 @@ body.hb-body {
 .hb-row.red .hb-stat-line { flex-direction: row-reverse; }
 
 .hb-bars {
-  /* 独立 grid 列：宽 114px，三条粗细分层（血 7px / 资源 5.25px / 经验 4px）+ 2px 空隙 = 20.25px。 */
+  /* 独立 grid 列：宽 114px，粗细分层（血 7px / 资源 5.25px）+ 2px 空隙。 */
   position: relative;
   display: grid;
   gap: 2px;
@@ -1071,7 +1071,7 @@ body.hb-body {
 .hb-bar {
   position: relative;
   display: block;
-  /* 粗细分层参考原生观战截图（用户 m13142）：血条最粗、资源条次之、经验条最细。 */
+  /* 粗细分层参考原生观战截图（用户 m13142）：血条最粗、资源条次之。 */
   height: 5.25px;
   border-radius: 1.5px;
   background: rgba(148, 163, 184, 0.18);
@@ -1080,7 +1080,6 @@ body.hb-body {
 
 .hb-bar.hp { height: 7px; }
 .hb-bar.res { height: 5.25px; }
-.hb-bar.xp { height: 4px; }
 
 /* 填充层：left:0 固定（原生两侧都从左往右填）。红方轨道整体 scaleX(-1) 镜像（见 .hb-row.red .hb-bar）：
    填充视觉上锚到右端（贴中线侧），消耗从左往右收。
@@ -1120,21 +1119,10 @@ body.hb-body {
    所以 left/width 都由页面脚本按 hpPct 写内联样式，这里只固定垂直方向与外观；
    超出轨道右端由 .hb-bar 的 overflow:hidden 裁掉。
    满宽基准 38px（51px @2560x1440 × 0.75），见页面脚本 PIXEL_BAR_FULL_PX。 */
-/* 经验条不确定性区间（t26）：实心紫条画到低界，这段半透明带从低界画到高界。 */
-.hb-bar-range {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 0;
-  border-radius: 1.5px;
-  background: rgba(168, 85, 247, 0.35);
-  pointer-events: none;
-}
-
 /* .hb-bar-shield 已移除：原生观战 UI 不显示护盾段（shieldPx 保留在 payload schema）。 */
 
 /* 掉血残影（原生动画形式的核心特征）：主填充立刻缩短，浅色残影约 0.4s 内追上来。
-   只有生命条有这一层；经验条与资源条不加（原生没有）。
+   只有生命条有这一层；资源条不加（原生没有）。
    初始宽度 = 掉血前的旧百分比，页面脚本在下一帧把它改成新百分比，靠 transition 自然追上。 */
 .hb-bar-lag {
   position: absolute;
@@ -1147,7 +1135,6 @@ body.hb-body {
   transition: width 400ms ease-out;
 }
 
-.hb-bar.xp .hb-bar-fill { background: linear-gradient(90deg, #a855f7, #d8b4fe); }
 /* 原生实测（t35，2560×1440 逐像素）：满条起点 #10A142、末端 #00FB52，亮度跃迁集中在 50%~90%。 */
 .hb-bar.hp .hb-bar-fill { background: linear-gradient(90deg, #10a142 0%, #00b348 55%, #00fb52 100%); }
 
@@ -1212,7 +1199,7 @@ body.hb-body {
 
 /* 行内落位由 .hb-row 的 grid 列宽决定（见上方 .hb-row.blue/.red），不再写绝对坐标。
    红方镜像文字方向与条目对齐；状态条轨道整体 scaleX(-1)：填充/残影锚到右端（贴中线侧），
-   渐变、护盾段、经验区间、刻度、分段 pips 全部随之镜像，消耗从左往右收。 */
+   渐变、护盾段、刻度、分段 pips 全部随之镜像，消耗从左往右收。 */
 .hb-row.red .hb-info { align-items: flex-end; }
 .hb-row.red .hb-name-line { flex-direction: row-reverse; }
 

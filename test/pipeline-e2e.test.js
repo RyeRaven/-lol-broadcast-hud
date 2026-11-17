@@ -334,14 +334,8 @@ test('t36：假LCDA→协议流→像素条→SSE→HUD 四段链路端到端回
   assert.ok(cells.includes('hb-bar res'), 'HUD 应画资源条');
   assert.ok(cells.includes('width:34.0%'), '资源条宽度必须等于投递的 34%，实际：' + cells);
   assert.ok(cells.includes('background:rgb(49,138,232)'), '资源条必须使用像素条投递的 dominantColor');
-  assert.ok(cells.includes('hb-bar xp'), 'HUD 应保留经验条');
-  // t39：协议流 xp 精确时 xpProgress 契约必须同步升为 exact，经验条画真实进度而不是 unknown 斜纹。
-  // Jayce level=11（XP_TABLE[11]=7300、XP_TABLE[12]=8580），xp=9000 已超过 12 级阈值 → 100.0%。
-  assert.equal(applied.capability.fields.xpProgress.precision, 'exact', '协议流 xp 精确时 xpProgress 必须是 exact');
-  assert.equal(applied.capability.fields.xpProgress.available, true, '协议流 xp 精确时 xpProgress 必须可用');
-  assert.equal(applied.capability.fields.xpProgress.source, 'spectator-protocol');
-  assert.equal(cells.includes('hb-bar xp unknown'), false, 'xpProgress 可用时经验条不能画 unknown 占位');
-  assert.ok(cells.includes('width:100.0%'), '经验条宽度必须按 xp/等级阈值算出真实进度，实际：' + cells);
+  // 经验条已删除（0xdd 解码链休眠后 xp 无真值源，unknown 占位无意义）；xpProgress 契约保留但不再渲染。
+  assert.equal(cells.includes('hb-bar xp'), false, 'HUD 不再画经验条');
   assert.equal(hud.csMarkup(jayce), '100', 'CS 必须显示协议流的精确值 100');
   assert.equal(hud.csMarkup(jayce).startsWith('≈'), false, '精确 CS 绝不能用 ≈ 量化符号');
 
@@ -358,9 +352,6 @@ test('t36：假LCDA→协议流→像素条→SSE→HUD 四段链路端到端回
   hud.setState(stale);
   const staleCells = hud.barCells(stale.players.find(player => player.champion === 'Jayce'));
   assert.ok(staleCells.includes('hb-bar hp unknown'), '过期后 HUD 生命条必须是 unknown 占位');
-  // t39：协议流同样 2000ms 过期（xp 归 null），xpProgress 必须立即回 unavailable、经验条回到 unknown。
-  assert.equal(stale.capability.fields.xpProgress.precision, 'unavailable', '协议流过期后 xpProgress 必须回落 unavailable');
-  assert.ok(staleCells.includes('hb-bar xp unknown'), '协议流过期后经验条必须回到 unknown 占位');
   assert.equal(staleCells.includes('width:12.0%'), false, '过期后绝不能继续画旧百分比');
   const staleWidths = staleCells.match(/width:([0-9.]+)%/g) || [];
   assert.ok(staleWidths.length > 0, 'unknown 占位条应有显式 0 宽度');

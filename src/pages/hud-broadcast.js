@@ -115,8 +115,6 @@ var ICONS = {
   // 占位符由 Node 侧注入（data/resource-bar-spec.json）。未注入时 typeof 不会抛错，
   // 退回 A 类默认（resourceSpecFor 的兜底分支），页面绝不能因为缺注入整页脚本崩掉。
   var RESOURCE_SPEC = (typeof __RESOURCE_SPEC__ === 'undefined') ? null : __RESOURCE_SPEC__;
-  // 标准等级经验阈值（1→18），用于把协议流 xp 归一化成经验条进度。
-  var XP_TABLE = [0, 0, 280, 660, 1140, 1720, 2400, 3180, 4060, 5040, 6120, 7300, 8580, 9960, 11440, 13020, 14700, 16480, 18380];
   // 像素读条满宽（@1920x1080：spec 记 51px @2560x1440 × 0.75），只用于把 shieldPx 折算成叠加段宽度。
   var PIXEL_BAR_FULL_PX = 38;
   function esc(value) {
@@ -580,8 +578,7 @@ var ICONS = {
           ['kda', 'KDA', '#hb-kda-' + id],
           ['vision', '视野分', '#hb-vision-' + id],
           ['items', '自绘装备', '#hb-items-' + id],
-          ['bars', '三条状态条', '#hb-bars-' + id],
-          ['bar-xp', '经验条', '#hb-bars-' + id + ' .hb-bar.xp'],
+          ['bars', '两条状态条', '#hb-bars-' + id],
           ['bar-hp', '生命条', '#hb-bars-' + id + ' .hb-bar.hp'],
           ['bar-res', '资源条', '#hb-bars-' + id + ' .hb-bar.res']
         ];
@@ -1131,12 +1128,12 @@ var ICONS = {
     var stateClass = !known ? ' unknown' : (ready || (remaining !== null && remaining <= 0) ? ' ready' : ' cooling');
     return '<span class="hb-ult' + stateClass + '" title="' + (known ? '大招' : '大招（官方接口未提供）') + '"><i>' + esc(label) + '</i></span>';
   }
-  // ---- 三条状态条：紫=经验、绿=生命、蓝/琥珀=资源；无数据源时渲染 unknown 占位 ----
+  // ---- 两条状态条：绿=生命、蓝/琥珀=资源；无数据源时渲染 unknown 占位 ----
   function ratioOf(current, max) {
     if (!hasNumber(current) || !hasNumber(max) || num(max) <= 0) return null;
     return Math.max(0, Math.min(1, num(current) / num(max)));
   }
-  // 演示模式（非 live）没有真实血量/经验，按名字做确定性伪随机，让版式可验收；
+  // 演示模式（非 live）没有真实血量，按名字做确定性伪随机，让版式可验收；
   // live 模式一律返回 null，交给 unknown 占位，绝不伪造官方数据。
   function demoBars(player) {
     var label = text(player && player.name, '') + '|' + text(player && player.champion, '');
@@ -1144,32 +1141,12 @@ var ICONS = {
     for (var i = 0; i < label.length; i += 1) seed = (seed * 31 + label.charCodeAt(i)) % 99991;
     var level = hasNumber(player && player.level) ? num(player.level) : 8;
     return {
-      xp: Math.min(1, 0.14 + (seed % 53) / 100 + level / 60),
       hp: Math.min(1, 0.4 + (seed % 47) / 100),
       res: Math.min(1, 0.26 + (seed % 61) / 100),
       resAlt: seed % 5 === 0
     };
   }
-  // ---- 三条状态条的取值 ----
-  // 紫=经验：协议流 xp 按标准等级阈值归一化（progress = (xp - thr[level]) / (thr[level+1] - thr[level])，18 级满条）。
-  function xpProgress(player) {
-    // t26 协议流区间：xpProgress 是可选的 0..1 低界，存在时优先于旧版 xp 阈值换算。
-    var direct = pickValue(player, ['xpProgress']);
-    if (hasNumber(direct)) return Math.max(0, Math.min(1, num(direct)));
-    var xp = pickValue(player, ['xp']);
-    var level = hasNumber(player && player.level) ? num(player.level) : null;
-    if (!hasNumber(xp) || level === null || level < 1) return null;
-    if (level >= 18) return 1;
-    var low = XP_TABLE[level]; var high = XP_TABLE[level + 1];
-    if (!hasNumber(low) || !hasNumber(high) || high <= low) return null;
-    return Math.max(0, Math.min(1, (num(xp) - low) / (high - low)));
-  }
-  // 经验条不确定性区间的高界（可选 0..1）。没有高界 = 普通单值条。
-  function xpProgressHi(player) {
-    var hi = pickValue(player, ['xpProgressHi']);
-    if (!hasNumber(hi)) return null;
-    return Math.max(0, Math.min(1, num(hi)));
-  }
+  // ---- 两条状态条的取值 ----
   // 绿=生命 / 资源：来自像素读条（只有百分比、没有绝对值，所以永远不显示数字）。
   // 数据形状（t15 交付、t23 接入）：{ fillPercent:0..100|null, dominantColor:[r,g,b], shieldPx, status }。
   // fillPercent 为 null = 没读到（≠ 0%）；status absent/unsupported = 该条不存在。
@@ -1203,17 +1180,15 @@ var ICONS = {
   }
   function playerBars(player) {
     // 契约说不可用时即便对象上真有数字也不画（例如回放 timeline 里没有生命值）。
-    var xp = capUsable('xpProgress') ? xpProgress(player) : null;
-    var xpHi = capUsable('xpProgress') ? xpProgressHi(player) : null;
     var hpBar = capUsable('hpPercent') ? pixelBar(player, 'hp') : { pct: null, color: '', shield: 0 };
     var resBar = capUsable('resourcePercent') ? pixelBar(player, 'resource') : { pct: null, color: '', shield: 0 };
     var hp = hpBar.pct; var res = resBar.pct;
     var demo = false;
-    if (xp === null && hp === null && res === null && demoMode() && player && !player.placeholder) {
+    if (hp === null && res === null && demoMode() && player && !player.placeholder) {
       var d = demoBars(player);
-      xp = d.xp; hp = d.hp; res = d.res; demo = true;
+      hp = d.hp; res = d.res; demo = true;
     }
-    return { xp: xp, xpHi: xpHi, hp: hp, res: res, hpColor: hpBar.color, hpShield: hpBar.shield, resColor: resBar.color, spec: resourceSpecFor(player), demo: demo };
+    return { hp: hp, res: res, hpColor: hpBar.color, hpShield: hpBar.shield, resColor: resBar.color, spec: resourceSpecFor(player), demo: demo };
   }
   // 渐变锚点（保真关键）：原生是「整条轨道一条固定渐变，按填充长度裁切」，不是「渐变铺满当前填充宽」。
   // CSS 渐变默认铺满元素自身宽度，所以这里把 background-size 设成 (100/pct)% —— pct 越小渐变被拉得越宽，
@@ -1252,22 +1227,14 @@ var ICONS = {
     if (pct !== null && info.pips) return pipsMarkup(kind, label, pct, demo, info);
     if (pct === null) return '<span class="hb-bar ' + kind + ' unknown" title="' + esc(label) + '：暂无数据源（unknown）' + esc(tip) + '"><i class="hb-bar-fill" style="width:0%"></i></span>';
     var fill = '<i class="hb-bar-fill" style="' + barFillStyle(pct, info.color) + '"></i>';
-    // 经验区间：实心紫条画到 xpProgress（低界），再补一段半透明带画到 xpProgressHi（高界）。
-    var range = '';
-    if (hasNumber(info.hi)) {
-      var hi = Math.max(pct, Math.min(1, num(info.hi)));
-      if (hi > pct) range = '<i class="hb-bar-range" style="left:' + (pct * 100).toFixed(1) + '%;width:' + ((hi - pct) * 100).toFixed(1) + '%"></i>';
-    }
-    // 掉血残影：只有生命条有这一层（原生经验条/资源条没有残影）。
+    // 掉血残影：只有生命条有这一层（原生资源条没有残影）。
     var lag = info.lag ? '<i class="hb-bar-lag" style="width:' + (pct * 100).toFixed(1) + '%"></i>' : '';
     // 刻度线位置 = 阈值 / resourceMax（Rumble: 50/150 = 33.3%），由 spec.ticks 驱动。
     var tick = hasNumber(info.tickAt) ? '<i class="hb-bar-tick" style="left:' + (num(info.tickAt) * 100).toFixed(1) + '%"></i>' : '';
     // 原生观战 UI 不显示护盾段，这里也不再渲染（shieldPx 仍在 payload schema 里，只是不上屏）。
   var shield = '';
-    var titleText = hasNumber(info.hi) && num(info.hi) > pct
-      ? label + ' ' + Math.round(pct * 100) + '%~' + Math.round(num(info.hi) * 100) + '%（协议流区间，60s 解析一跳）'
-      : label + ' ' + Math.round(pct * 100) + '%';
-    return '<span class="hb-bar ' + kind + '" title="' + esc(titleText) + note + esc(tip) + '">' + fill + range + lag + tick + shield + '</span>';
+    var titleText = label + ' ' + Math.round(pct * 100) + '%';
+    return '<span class="hb-bar ' + kind + '" title="' + esc(titleText) + note + esc(tip) + '">' + fill + lag + tick + shield + '</span>';
   }
   // 三条状态条的统一取值（barCells 渲染与 updateBarsInto 就地更新共用同一份语义）。
   // 资源条三态门控：D 类永不绘制；gating==='always' 照旧绘制（读不到画 unknown 占位）；
@@ -1278,7 +1245,6 @@ var ICONS = {
     var spec = bars.spec || {};
     var hpExtra = { color: bars.hpColor, shield: bars.hpShield, lag: true, tip: spec.hpNote ? '（' + spec.hpNote + '）' : '' };
     var parts = [
-      { kind: 'xp', label: '经验', pct: bars.xp, extra: { hi: bars.xpHi } },
       { kind: 'hp', label: '生命', pct: bars.hp, extra: hpExtra }
     ];
     var gating = text(spec.gating, 'always');
