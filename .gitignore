@@ -21,5 +21,6 @@ data/items-*.json
 data/hud-calib.json
 data/hud-layout.json
 data/series.json
+data/mock/
 config/broadcast.json
 __pycache__/

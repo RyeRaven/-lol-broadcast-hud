@@ -104,7 +104,7 @@ test('browser client script exposes the same URL logic as the Node module', () =
 test('offline Data Dragon: all four overlays render fallback-first icons from mock state', () => {
   const vm = require('node:vm');
   const { overlayPage, OVERLAY_ROOT_IDS } = require('../src/pages/overlays');
-  const { state, createMockPlayers } = require('../src/app-state');
+  const { state, createMockPlayers, createMockDraft } = require('../src/app-state');
   function renderOffline(type) {
     const html = overlayPage(type);
     const script = html.match(/<script>([\s\S]*)<\/script>/);
@@ -123,6 +123,8 @@ test('offline Data Dragon: all four overlays render fallback-first icons from mo
     assert.equal(source.url, '/events');
     const snapshot = JSON.parse(JSON.stringify(state));
     snapshot.players = createMockPlayers();
+    // BP 数据与本机 data/config.json 的 mode 无关，测试自己铺满。
+    snapshot.draft = createMockDraft();
     snapshot.phase = 'in_game';
     // 显式锁定 mock 模式：initialMode 跟随本地保存的 config（live 会把未解析的 mock BP 清空）。
     snapshot.mode = 'demo';

@@ -230,7 +230,8 @@ function clientScript() {
     nicknames: CHAMPION_NICKNAMES,
     demoItems: DEMO_ITEM_SETS
   });
-  return String.raw`window.RBAssets = (function () {
+  // 挂到全局而不是硬编码 window：测试里用 vm 跑这段脚本时没有 window，会直接 ReferenceError。
+  return String.raw`(typeof window !== 'undefined' ? window : globalThis).RBAssets = (function () {
   var DATA = ${payload};
   var championByAlias = new Map();
   var championById = new Map();

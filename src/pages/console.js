@@ -5,6 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 const { htmlShell } = require('./html');
+const assets = require('../assets');
+
+// 控台没有原生层可透（HUD 走挖孔，控台必须自绘），装备与英雄头像统一用 RBAssets 的 CDN 图标。
 
 // 样式按 mtime 失效：dev 直跑时改 public/console.css 立刻生效（与 hud-broadcast 同策略）。
 let consoleCssCache = null;
@@ -352,30 +355,51 @@ function renderMatch(state) {
 }
 
 // 装备既可能是旧字符串，也可能是 t9 之后的 {itemID,count,slot,price,displayName} 对象。
-function rosterItemChip(item) {
-  if (item === null || item === undefined) return null;
-  if (typeof item === 'object') {
-    var id = item.itemID !== undefined && item.itemID !== null ? item.itemID : (item.itemId !== undefined && item.itemId !== null ? item.itemId : item.id);
-    var name = String(item.displayName || item.name || '').trim();
-    var title = name || (id === undefined || id === null ? '' : '#' + id);
-    var label = name || (id === undefined || id === null ? '' : String(id));
-    if (!label) return null;
-    var count = Math.floor(Number(item.count) || 1);
-    return { label: label, title: title + (count > 1 ? ' ×' + count : '') };
-  }
-  var raw = String(item);
-  var label = raw.replace(/^#/, '');
-  return label ? { label: label, title: raw } : null;
+function rbAssets() {
+  return typeof window !== 'undefined' && window.RBAssets ? window.RBAssets : null;
 }
-function rosterItemChips(items) {
-  if (!Array.isArray(items) || !items.length) return '<span class="roster-item none">—</span>';
-  var chips = [];
-  for (var i = 0; i < items.length && chips.length < 6; i += 1) {
-    var chip = rosterItemChip(items[i]);
-    if (chip) chips.push('<span class="roster-item" title="' + esc(chip.title) + '">' + esc(chip.label) + '</span>');
+// 英雄头像（BP 选人板 / 赛中名单共用）。
+function champAvatar(name, cls, title) {
+  var label = String(name === null || name === undefined ? '' : name).trim();
+  if (!label) return '';
+  var bag = rbAssets();
+  var url = bag && bag.championIconUrl ? bag.championIconUrl(label) : '';
+  var tip = title ? title : label;
+  if (!url) return '<i class="' + cls + ' none" title="' + esc(tip) + '"></i>';
+  return '<i class="' + cls + '" title="' + esc(tip) + '"><img src="' + esc(url) + '" alt="' + esc(label) + '" loading="lazy" onerror="this.parentNode.classList.add(\'none\')"></i>';
+}
+function itemIconInfo(item) {
+  if (item === null || item === undefined || item === '') return null;
+  var bag = rbAssets();
+  var url = bag && bag.itemIconUrl ? bag.itemIconUrl(item) : '';
+  var title = '';
+  var count = 1;
+  if (typeof item === 'object') {
+    title = String(item.displayName || item.name || (item.itemID !== undefined ? item.itemID : (item.itemId !== undefined ? item.itemId : item.id)) || '');
+    count = Math.floor(Number(item.count) || 1);
+  } else {
+    title = String(item).replace(/^#/, '');
   }
-  if (!chips.length) return '<span class="roster-item none">—</span>';
-  return chips.join('');
+  if (count > 1) title += ' ×' + count;
+  // 图标取不到也保留名称：离线时槽位仍要有 tooltip，而不是一片空白。
+  return { url: url || '', title: title };
+}
+// 6 件装备 + 1 个饰品位，图标固定 7 格，空位留槽不塌。
+function rosterItemChips(items) {
+  var list = Array.isArray(items) ? items : [];
+  var out = '';
+  var i;
+  for (i = 0; i < 6; i += 1) {
+    var icon = itemIconInfo(list[i]);
+    out += icon && icon.url
+      ? '<span class="roster-item" title="' + esc(icon.title) + '"><img src="' + esc(icon.url) + '" alt="" loading="lazy"></span>'
+      : '<span class="roster-item none"' + (icon && icon.title ? ' title="' + esc(icon.title) + '"' : '') + '></span>';
+  }
+  var trinket = itemIconInfo(list[6]);
+  out += trinket && trinket.url
+    ? '<span class="roster-item trinket" title="' + esc(trinket.title) + '"><img src="' + esc(trinket.url) + '" alt="" loading="lazy"></span>'
+    : '<span class="roster-item trinket none"' + (trinket && trinket.title ? ' title="' + esc(trinket.title) + '"' : '') + '></span>';
+  return out;
 }
 function rosterRow(player, index) {
   if (!player) {
@@ -390,7 +414,7 @@ function rosterRow(player, index) {
   var respawn = dead && Number(player.respawnTimer) > 0 ? ' · 复活 ' + Math.ceil(Number(player.respawnTimer)) + 's' : '';
   var sub = esc(summoner) + (level ? ' · ' + level : '') + respawn;
   return '<div class="roster-row' + (dead ? ' dead' : '') + '">' +
-    '<span class="roster-name"><b>' + esc(champion) + '</b><small>' + sub + '</small></span>' +
+    '<span class="roster-name">' + champAvatar(champion, 'roster-champ') + '<span class="roster-who"><b>' + esc(champion) + '</b><small>' + sub + '</small></span></span>' +
     '<span class="roster-kda" title="K / D / A">' + kda + '</span>' +
     '<span class="roster-cs" title="补刀">' + esc(fmtNumber(player.cs)) + '</span>' +
     '<span class="roster-items">' + rosterItemChips(player.items) + '</span>' +
@@ -1302,19 +1326,21 @@ function bindControls() {
       });
     });
   });
-  document.querySelectorAll('#mode-switch [data-mode]').forEach(function (button) {
-    button.addEventListener('click', function () {
-      button.disabled = true;
-      postJson('/api/config', { mode: button.getAttribute('data-mode') }).then(function (data) {
-        button.disabled = false;
-        if (data.ok) toast('数据模式：' + button.getAttribute('data-mode'));
-        else toast('模式切换失败：' + data.error, true);
-      });
-    });
-  });
   var save = byId('save');
   if (save) save.addEventListener('click', function () {
-    postJson('/api/config', { tournamentName: byId('tournament').value }).then(function (data) {
+    var name = byId('tournament') ? byId('tournament').value : '';
+    if (matchMode === 'mock') {
+      // 模拟模式的赛事名只写模拟配置，绝不碰真实配置。
+      var base = latestMatchConfig ? cloneConfig(latestMatchConfig) : {};
+      base.series = base.series || {};
+      base.series.name = name;
+      postJson('/api/mock/config', { config: base }).then(function (data) {
+        if (data && data.ok) { latestMatchConfig = data.config || base; toast('模拟赛事名称已保存'); }
+        else toast('保存失败：' + ((data && data.error) || '未知错误'), true);
+      });
+      return;
+    }
+    postJson('/api/config', { tournamentName: name }).then(function (data) {
       if (data.ok) toast('赛事名称已保存'); else toast('保存失败：' + data.error, true);
     });
   });
@@ -1493,6 +1519,14 @@ function showView(name, options) {
   }
   var dock = byId('cue-dock');
   if (dock) dock.hidden = !DOCK_VIEWS[name];
+  var stepsBox = byId('view-switch');
+  if (stepsBox) stepsBox.hidden = !DOCK_VIEWS[name];
+  if (name === 'match') {
+    setTextById('msModeNote', matchMode === 'mock'
+      ? '模拟模式：这份配置只用于模拟演示，保存后按它生成剧本，退出模拟即清空。'
+      : '真实模式：这份配置会写成正式赛事配置，保存后开一轮系列赛，数据来自 LCU / Live Client。');
+  }
+  if (latestState) renderDemo(latestState);
   if (!options.keepScroll && typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
 }
 
@@ -1512,8 +1546,8 @@ function renderDemo(state) {
   if (!bar) return;
   var demo = state && state.demo;
   var isMock = state && state.mode === 'mock';
-  bar.hidden = !isMock || !demo;
-  if (!isMock || !demo) return;
+  bar.hidden = !isMock || !demo || !DOCK_VIEWS[currentView];
+  if (bar.hidden) return;
   var stage = byId('demo-stage');
   if (stage) {
     var label = DEMO_STAGE_TEXT[demo.stage] || '等待开始';
@@ -1608,14 +1642,34 @@ function renderShellExtras(state) {
   setTextById('homePhase', phaseText(state.phase));
   setTextById('homeSeries', state.tournamentName || 'Khada Jhin');
   setTextById('homeMatchTitle', (blue.name || '蓝方') + ' vs ' + (red.name || '红方'));
-  setTextById('homeMatchSub', (state.tournamentName || 'Khada Jhin') + ' · ' + phaseText(state.phase) + ' · ' + (state.mode === 'live' ? '实战数据' : '模拟数据'));
+  setTextById('homeMatchSub', (state.tournamentName || 'Khada Jhin') + ' · ' + (state.mode === 'live' ? '真实模式' : '模拟模式') + ' · ' + phaseText(state.phase));
   renderLineup(state.broadcastConfig);
+  renderModeEntries(state);
+}
+
+function toggleHidden(id, hidden) {
+  var el = byId(id);
+  if (el) el.hidden = !!hidden;
+}
+
+// 首页入口按「当前模式 + 系列赛状态」显隐：模拟与真实只能从首页切，不提供一键互切。
+function renderModeEntries(state) {
+  var mock = !!(state && state.mode === 'mock');
+  var running = !!(latestSeries && latestSeries.status === 'running');
+  toggleHidden('homeResume', !(mock || running));
+  toggleHidden('homeEndSeries', !(running && !mock));
+  toggleHidden('homeMockExit', !mock);
+  toggleHidden('homeMockNote', !mock);
+  toggleHidden('mockExit', !mock);
+  var note = byId('phaseNote');
+  if (note) note.textContent = mock ? '模拟数据 · 每秒刷新，可直接用于 OBS 测试' : '真实数据 · 来自 LCU / Live Client';
 }
 
 /* ---------- 系列赛：局数 / 比分 / 历史 ---------- */
 var latestSeries = null;
 var latestMatchConfig = null;
 var activeBestOf = 3;
+var matchMode = 'live';
 var setupPrompted = false;
 
 function seriesScore() {
@@ -1788,7 +1842,7 @@ function renderDraftBoard(state) {
   var chips = function (list, cls, empty) {
     var out = '';
     var arr = Array.isArray(list) ? list : [];
-    for (var i = 0; i < arr.length; i++) out += '<i class="' + cls + '">' + esc(arr[i]) + '</i>';
+    for (var i = 0; i < arr.length; i++) out += '<i class="' + cls + '">' + champAvatar(arr[i], 'chip-face') + '</i>';
     if (!arr.length) out = '<i class="slot">未开始</i>';
     return out;
   };
@@ -1952,16 +2006,25 @@ function collectMatchForm() {
 
 function saveMatchAndMaybeStart(start) {
   var status = byId('msStatus');
-  if (status) status.textContent = '正在保存赛事配置…';
+  var mock = matchMode === 'mock';
+  if (status) status.textContent = mock ? '正在保存模拟配置…' : '正在保存赛事配置…';
   var config = collectMatchForm();
-  return postJson('/api/broadcast-config', config).then(function (data) {
+  var saved = mock ? postJson('/api/mock/config', { config: config }) : postJson('/api/broadcast-config', config);
+  return saved.then(function (data) {
     if (!data || !data.ok) throw new Error((data && data.error) || '保存失败');
     latestMatchConfig = data.config || config;
     renderMatchForm(latestMatchConfig);
     renderLineup(latestMatchConfig);
-    if (status) status.textContent = '赛事配置已保存';
-    toast('赛事配置已保存');
+    if (status) status.textContent = mock ? '模拟配置已保存' : '赛事配置已保存';
+    toast(mock ? '模拟配置已保存' : '赛事配置已保存');
     if (!start) return null;
+    if (mock) {
+      return postJson('/api/mock/start', { config: latestMatchConfig }).then(function (result) {
+        if (!result || result.ok === false) throw new Error((result && result.error) || '启动模拟失败');
+        showView('wait');
+        toast('模拟已开始，顶部演示条可暂停 / 重播 / 调速');
+      });
+    }
     return postSeries('start', {
       tournament: msVal('msTournament'),
       bestOf: activeBestOf,
@@ -1979,11 +2042,34 @@ function saveMatchAndMaybeStart(start) {
 }
 
 function loadMatchConfig() {
-  return fetchJson('/api/broadcast-config').then(function (config) {
+  var mock = matchMode === 'mock';
+  return fetchJson(mock ? '/api/mock/config' : '/api/broadcast-config').then(function (data) {
+    var config = mock ? ((data && data.config) || {}) : data;
+    if (!config) return;
+    if (mock && (!Array.isArray(config.players) || !config.players.length)) {
+      // 模拟配置第一次是空的：拿真实配置当草稿起点，用户只要改改队名就能演一遍。
+      return fetchJson('/api/broadcast-config').then(function (real) {
+        if (real && real.teams && real.teams.blue) {
+          config.teams = config.teams && config.teams.blue && config.teams.blue.name && config.teams.blue.name !== '蓝方' ? config.teams : real.teams;
+          config.players = real.players || [];
+          if (!Array.isArray(config.coaches) || !config.coaches.length) config.coaches = real.coaches || [];
+          if (!config.series || !config.series.name) {
+            config.series = Object.assign({}, config.series || {}, { name: (real.series && real.series.name) || '' });
+          }
+        }
+        latestMatchConfig = config;
+        renderMatchForm(config);
+        renderLineup(config);
+      }).catch(function () {
+        latestMatchConfig = config;
+        renderMatchForm(config);
+        renderLineup(config);
+      });
+    }
     latestMatchConfig = config;
     renderMatchForm(config);
     renderLineup(config);
-    if (!setupPrompted && config && config.setupCompleted !== true) {
+    if (!mock && !setupPrompted && config.setupCompleted !== true) {
       setupPrompted = true;
       showView('setup');
       refreshSetupStatus();
@@ -2024,7 +2110,27 @@ function finishSetup(skipped) {
 
 function bindSeriesControls() {
   var start = byId('homeStart');
-  if (start) start.addEventListener('click', function () { renderMatchForm(latestMatchConfig); });
+  if (start) start.addEventListener('click', function () { matchMode = 'live'; loadMatchConfig(); });
+  var mockStart = byId('homeMockStart');
+  if (mockStart) mockStart.addEventListener('click', function () { matchMode = 'mock'; loadMatchConfig(); });
+  ['homeMockExit', 'mockExit'].forEach(function (id) {
+    var btn = byId(id);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      postJson('/api/mock/exit', {}).then(function (data) {
+        btn.disabled = false;
+        if (data && data.ok === false) throw new Error(data.error || '退出失败');
+        latestMatchConfig = null;
+        matchMode = 'live';
+        showView('home');
+        toast('已退出模拟，模拟数据已清空');
+      }).catch(function (error) {
+        btn.disabled = false;
+        toast('退出失败：' + ((error && error.message) || error), true);
+      });
+    });
+  });
   var homeEnd = byId('homeEndSeries');
   if (homeEnd) homeEnd.addEventListener('click', function () {
     if (!latestSeries || latestSeries.status === 'idle') return;
@@ -2118,7 +2224,6 @@ function consolePage(port) {
       </div>
     </div>
     <nav class="c2-steps" id="view-switch" aria-label="阶段导航">
-      <button type="button" data-nav="home"><i></i>首页</button>
       <button type="button" data-nav="wait"><i></i>等待开始</button>
       <button type="button" data-nav="bp"><i></i>BP</button>
       <button type="button" data-nav="live"><i></i>赛中</button>
@@ -2136,6 +2241,8 @@ function consolePage(port) {
         <span class="topbar-health-item idle" id="hlObs" title="OBS WebSocket：未配置"><i></i>OBS</span>
       </div>
       <span class="conn-pill" id="connectionState"><i></i>连接中</span>
+      <button type="button" class="c2-ghost-btn" id="mockExit" hidden>退出模拟</button>
+      <button type="button" class="c2-ghost-btn" data-nav="home" id="homeBtn">首页</button>
       <button type="button" class="c2-ghost-btn" data-nav="settings">设置</button>
       <a class="c2-ghost-btn" id="screenshotGallery" href="#" target="_blank" rel="noopener noreferrer">截图</a>
     </div>
@@ -2164,10 +2271,13 @@ function consolePage(port) {
           <h2 id="homeMatchTitle">还没有进行中的比赛</h2>
           <p id="homeMatchSub">先在「设置 · 赛事配置」里填好队伍、选手与赛制，再进入等待开始阶段。</p>
           <div class="c2-hero-actions">
-            <button type="button" class="btn primary" data-nav="match" id="homeStart">开始新比赛</button>
-            <button type="button" class="btn ghost" data-nav="wait">进入比赛流程</button>
-            <button type="button" class="btn ghost" id="homeEndSeries">结束这轮比赛</button>
+            <button type="button" class="btn primary" data-nav="match" data-match-mode="live" id="homeStart">真实模式 · 配置并开始</button>
+            <button type="button" class="btn ghost" data-nav="match" data-match-mode="mock" id="homeMockStart">模拟模式 · 配置并演示</button>
+            <button type="button" class="btn ghost" data-nav="wait" id="homeResume" hidden>回到进行中的比赛</button>
+            <button type="button" class="btn ghost" id="homeEndSeries" hidden>结束这轮比赛</button>
+            <button type="button" class="btn ghost" id="homeMockExit" hidden>退出模拟</button>
           </div>
+          <p class="c2-mock-note" id="homeMockNote" hidden>模拟模式用一份独立的赛事配置和独立系列赛记录，退出即清空，不影响真实数据。两种模式只能从首页切换。</p>
         </div>
         <div class="c2-hero-side">
           <div><small>系列赛</small><b id="homeSeries">--</b></div>
@@ -2180,7 +2290,7 @@ function consolePage(port) {
       <div class="panel-head"><h2>快速开始</h2><span class="kicker">GUIDE</span></div>
       <ol class="quick-steps">
       <li><b>配置赛事</b><small>「设置 · 赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
-      <li><b>选数据模式</b><small>调试用「模拟数据」，正式比赛用「实战数据」</small></li>
+      <li><b>选运行模式</b><small>首页两个入口：模拟模式跑一遍完整流程，真实模式接 LCU / Live Client 打正式比赛</small></li>
       <li><b>OBS 添加广播页</b><small>「设置 · 广播源与诊断」复制聚合舞台页 URL，添加为 OBS 浏览器源（单 URL 全流程自动切换）</small></li>
       <li><b>开赛导播</b><small>「广播控制」按钮或快捷键 1/2/3/4 切换 BP / 局内 / 赛后</small></li>
       </ol>
@@ -2195,17 +2305,12 @@ function consolePage(port) {
       <div class="c2-viewhead"><h1>等待开始</h1><p>开赛前把链路和名单过一遍；用底部 CUE 把 OBS 切到待机画面。</p></div>
       <div class="c2-grid-2">
       <section class="panel control-panel" id="control-panel">
-      <div class="panel-head"><h2>阶段与模式</h2><span class="kicker">CONTROL</span></div>
+      <div class="panel-head"><h2>比赛阶段</h2><span class="kicker">CONTROL</span></div>
       <div class="field-label">比赛阶段</div>
       <div class="segmented" id="phase-switch">
       <button type="button" data-phase="draft">赛前 BP</button>
       <button type="button" data-phase="in_game">局内</button>
       <button type="button" data-phase="post_game">赛后</button>
-      </div>
-      <div class="field-label">数据模式</div>
-      <div class="segmented compact" id="mode-switch">
-      <button type="button" data-mode="mock">模拟数据</button>
-      <button type="button" data-mode="live">实战数据</button>
       </div>
       <label class="field">赛事名称<input id="tournament" value="Khada Jhin 校园赛 · 半决赛" autocomplete="off"></label>
       <button type="button" id="save" class="btn primary wide">保存赛事名称</button>
@@ -2335,7 +2440,7 @@ function consolePage(port) {
     <section class="c2-view" data-view="match">
       <div class="c2-viewhead">
         <h1>配置一场比赛</h1>
-        <p>填双方队名、队标、选手与教练，选好 BO。点「保存并开始」会写入赛事配置并开一轮系列赛。</p>
+        <p id="msModeNote">填双方队名、队标、选手与教练，选好 BO。点「保存并开始」会写入赛事配置并开一轮系列赛。</p>
       </div>
       <div class="c2-grid-2">
         <section class="panel">
@@ -2635,7 +2740,7 @@ function consolePage(port) {
   </div>
 
   <div class="console-toast" id="console-toast" role="status"></div>
-</main>`, CONSOLE_SCRIPT);
+</main>`, assets.clientScript() + '\n' + CONSOLE_SCRIPT);
 }
 
 module.exports = { consolePage };

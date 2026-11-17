@@ -269,18 +269,23 @@ test('t9：局内底部 overlay 用对象装备的 itemID 出图标，旧字符�
   assert.ok(markup.includes('item-slot'), '装备槽容器应存在');
 });
 
-test('t9：控台选手装备 chips 支持对象装备并显示数量，空数据显式占位', () => {
+test('t9：控台选手装备只画图标，6 件 + 饰品位固定 7 格', () => {
   const context = loadConsoleForTest();
+  // 控台没有原生层可透（HUD 是挖孔），图标必须自绘；这里只验证结构与 tooltip。
+  context.window = { RBAssets: { itemIconUrl: (item) => '/assets/img/item/' + (typeof item === 'object' ? item.itemID : String(item).replace(/^#/, '')) + '.png' } };
   const html = context.rosterItemChips([
     { itemID: 1054, count: 2, slot: 0, displayName: '多兰之盾', price: 450 },
     '#6655',
     { itemID: 3086, count: 1, displayName: '狂热' }
   ]);
-  assert.ok(html.includes('>多兰之盾<'), '对象装备应显示中文名');
-  assert.ok(html.includes('×2'), 'count>1 时 chip 的 title 带数量');
-  assert.ok(html.includes('>6655<'), '旧字符串装备仍然去掉前导 # 显示');
+  assert.equal((html.match(/class="roster-item/g) || []).length, 7, '固定 6 件 + 1 饰品位');
+  assert.equal((html.match(/<img /g) || []).length, 3, '有数据的槽位画图标');
+  assert.ok(html.includes('title="多兰之盾 ×2"'), '对象装备的 tooltip 带中文名与数量');
+  assert.ok(html.includes('title="6655"'), '旧字符串装备去掉前导 # 当 tooltip');
   assert.equal(html.includes('[object Object]'), false);
-  assert.equal(context.rosterItemChips([]), '<span class="roster-item none">—</span>');
-  assert.equal(context.rosterItemChips(null), '<span class="roster-item none">—</span>');
+  const empty = context.rosterItemChips(null);
+  assert.equal((empty.match(/class="roster-item/g) || []).length, 7, '空数据也留 7 个槽位');
+  assert.equal(empty.includes('<img '), false);
+  assert.equal(empty.includes('—'), false, '空槽不再画破折号');
 });
 

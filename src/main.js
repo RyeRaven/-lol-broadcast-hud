@@ -22,10 +22,27 @@ const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
 const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
 const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
-const { readBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
+const { readBroadcastConfig, saveBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
 const seriesStore = require('./series');
 const mockDemo = require('./mock-demo');
 state.series = seriesStore.snapshot();
+// 模拟模式是独立的一套数据：系列赛放内存（退出即丢）、赛事配置走 data/mock/broadcast.json、
+// 剧本由那份配置生成。真实战绩与真实配置在模拟模式里一个字节都不会被写到。
+const mockSeriesStore = seriesStore.createStore({ filePath: null });
+function dataDirPath() {
+  return process.env.RB_DATA_DIR
+    ? path.join(path.resolve(process.env.RB_DATA_DIR), 'data')
+    : path.join(__dirname, '..', 'data');
+}
+function mockConfigPath() {
+  return process.env.RB_MOCK_CONFIG || path.join(dataDirPath(), 'mock', 'broadcast.json');
+}
+function readMockConfig() {
+  try { return readBroadcastConfig(mockConfigPath()); } catch (error) { return null; }
+}
+function activeSeriesStore() {
+  return state.mode === 'mock' ? mockSeriesStore : seriesStore;
+}
 // 演示剧本状态（mock 模式）：默认自动播放，控台可暂停 / 重播 / 调速。
 state.demo = { playing: state.mode === 'mock', speed: 1, elapsed: 0, stage: 'lobby', progress: 0 };
 const { handleLogoUploadApi } = require('./uploads');
@@ -180,13 +197,12 @@ async function pollLcuDraft() {
     state.live.lcu = { connected: true, discovery: connection.source || 'environment', phase, lastError: null };
     // InProgress 优先级最高：新一局必须切回局内。只有同一局（gameId 相同且赛后数据刚生成）
     // 的赛后状态才保留，避免 :2999 短暂断流后刚生成的赛后数据被下一轮轮询抹掉。
-    if (phase === 'InProgress' && state.phase !== 'in_game') {
+    if (phase === 'InProgress' && state.mode === 'live' && state.phase !== 'in_game') {
       const postGame = state.postGame;
       const sameGame = postGame && postGame.gameId && state.live.game && state.live.game.gameId &&
         String(postGame.gameId) === String(state.live.game.gameId);
       const recent = postGame && postGame.capturedAt && Date.now() - postGame.capturedAt < 5 * 60 * 1000;
       if (!(sameGame && recent)) {
-        state.mode = 'live';
         state.phase = 'in_game';
         state.postGame = null;
         state.goldTimeline = null;
@@ -196,8 +212,7 @@ async function pollLcuDraft() {
       }
     }
     // 结算窗口很短：PreEndOfGame / EndOfGame 期间 eog-stats-block 才可读，错过就只能用局内快照。
-    if (phase === 'PreEndOfGame' || phase === 'EndOfGame' || phase === 'WaitForStatsScreen') {
-      state.mode = 'live';
+    if (state.mode === 'live' && (phase === 'PreEndOfGame' || phase === 'EndOfGame' || phase === 'WaitForStatsScreen')) {
       state.phase = 'post_game';
       if (!state.postGame) {
         let eog = null;
@@ -216,9 +231,8 @@ async function pollLcuDraft() {
         }
       }
     }
-    if (phase === 'ChampSelect') {
+    if (phase === 'ChampSelect' && state.mode === 'live') {
       // 进入 BP 就是实战：即使 session 还是空的（刚进房间），阶段也必须切到 draft。
-      state.mode = 'live';
       state.phase = 'draft';
       state.postGame = null;
       frozenSnapshot = null;
@@ -589,45 +603,62 @@ function onProtocolFeedUpdate(snapshot) {
 // ---- 演示剧本（mock 模式）---------------------------------------------------
 // 一场比赛压缩成 ~3 分钟循环：等待开始 → BP → 赛中 → 赛后（含 MVP 评选），
 // 剧本内容本身是纯函数（src/mock-demo.js），这里只把快照写进 state 并推进系列赛。
+function demoConfig() {
+  return readMockConfig() || state.broadcastConfig || {};
+}
 function demoTournamentName() {
-  const cfg = state.broadcastConfig || {};
-  return state.tournamentName || (cfg.series && cfg.series.name) || '';
+  const cfg = demoConfig();
+  return (cfg.series && cfg.series.name) || cfg.tournamentName || '';
 }
 function demoTeams() {
-  const cfg = state.broadcastConfig || {};
-  const blue = (cfg.teams && cfg.teams.blue && cfg.teams.blue.name) || '';
-  const red = (cfg.teams && cfg.teams.red && cfg.teams.red.name) || '';
-  return { blue: { name: blue || mockDemo.TEAMS.blue.name }, red: { name: red || mockDemo.TEAMS.red.name } };
+  const script = mockDemo.script();
+  return { blue: { name: script.teams.blue.name }, red: { name: script.teams.red.name } };
+}
+// 用模拟专用配置重建剧本：队名/简称/队标、十名选手、BO 全部来自 data/mock/broadcast.json。
+function applyMockScript() {
+  const cfg = readMockConfig() || {};
+  return mockDemo.setInput({
+    teams: {
+      blue: cfg.teams && cfg.teams.blue,
+      red: cfg.teams && cfg.teams.red
+    },
+    players: Array.isArray(cfg.players) ? cfg.players : []
+  });
 }
 function demoSeriesStart() {
+  const store = mockSeriesStore;
   try {
-    state.series = seriesStore.snapshot(seriesStore.start({ tournament: demoTournamentName(), bestOf: 3, teams: demoTeams() }));
+    const cfg = readMockConfig() || {};
+    const bestOf = (cfg.series && cfg.series.bestOf) || 3;
+    state.series = store.snapshot(store.start({ tournament: demoTournamentName(), bestOf, teams: demoTeams() }));
   } catch (error) {
-    state.series = seriesStore.snapshot();
+    state.series = store.snapshot();
   }
 }
 function demoSeriesAdvance() {
   // 演示里每次循环 = 一局：比分够就收尾开新一轮，否则进下一局。
+  const store = mockSeriesStore;
   try {
-    const series = seriesStore.read();
-    const snap = seriesStore.snapshot(series);
+    const series = store.read();
+    const snap = store.snapshot(series);
     // 局数在记录那一局时已经推进过；这里只在比分打满（或已收尾）时换一场新的演示比赛。
     if (series.status === 'running' && !snap.decided) {
       state.series = snap;
       return;
     }
-    if (series.status === 'running' || series.status === 'finished') seriesStore.end();
+    if (series.status === 'running' || series.status === 'finished') store.end();
     demoSeriesStart();
   } catch (error) {
-    state.series = seriesStore.snapshot();
+    state.series = store.snapshot();
     demoSeriesStart();
   }
 }
 function demoRecordGame(scene) {
   if (!scene || !scene.result) return;
+  const store = mockSeriesStore;
   try {
     const mvp = state.mvp && state.mvp.name ? { name: state.mvp.name, team: state.mvp.team } : null;
-    let series = seriesStore.recordGame({
+    let series = store.recordGame({
       winner: scene.result.winner,
       blueKills: scene.result.blueKills,
       redKills: scene.result.redKills,
@@ -635,12 +666,12 @@ function demoRecordGame(scene) {
       mvp
     });
     // 记完立刻进下一局：赛后页显示的「第 N 局」必须是下一局，别让 1:0 挂在本局头上。
-    if (seriesStore.snapshot(series).status === 'running' && !seriesStore.snapshot(series).decided) {
-      series = seriesStore.nextGame();
+    if (store.snapshot(series).status === 'running' && !store.snapshot(series).decided) {
+      series = store.nextGame();
     }
-    state.series = seriesStore.snapshot(series);
+    state.series = store.snapshot(series);
   } catch (error) {
-    state.series = seriesStore.snapshot();
+    state.series = store.snapshot();
   }
 }
 function applyDemoScene(scene, previousStage) {
@@ -657,6 +688,42 @@ function applyDemoScene(scene, previousStage) {
   state.demo.progress = Math.round(scene.progress * 1000) / 1000;
   // 只在刚进入赛后那一帧记这一局：同一次循环里反复渲染 post 不能重复计分。
   if (scene.stage === 'post' && previousStage !== 'post') demoRecordGame(scene);
+}
+
+// 进入模拟模式：读模拟专用配置 → 重建剧本 → 归零模拟系列赛 → 从等待开始演。
+// 真实系列赛与真实配置全程只读不写。
+function startMockSession() {
+  state.mode = 'mock';
+  applyMockScript();
+  state.demo = { playing: true, speed: (state.demo && state.demo.speed) || 1, elapsed: 0, stage: 'lobby', progress: 0 };
+  try { mockSeriesStore.reset(); } catch (error) { /* 内存 store 重置失败不影响开演 */ }
+  demoSeriesStart();
+  state.goldEstimated = false;
+  state.goldSource = 'mock';
+  applyDemoScene(mockDemo.sceneAt(0), null);
+  saveConfig();
+  broadcast();
+  return state;
+}
+
+// 退出模拟模式：模拟系列赛与剧本身份整块丢掉，回到真实数据（真实比分从 data/series.json 重新读）。
+function exitMockSession() {
+  state.mode = 'live';
+  try { mockSeriesStore.reset(); } catch (error) { /* 忽略：退出时清不掉也不该挡住回真实 */ }
+  mockDemo.setInput(null);
+  state.demo = { playing: false, speed: 1, elapsed: 0, stage: 'lobby', progress: 0 };
+  state.series = seriesStore.snapshot();
+  // 退出模拟不能把演示的时间/阶段/BP 留在真实模式里（否则首页显示「赛后 21:00」而比分 0:0）。
+  state.phase = 'draft';
+  state.gameTime = 0;
+  state.draft = { round: '', timer: null, active: 'blue', bluePicks: [], redPicks: [], blueBans: [], redBans: [], blueHover: [], redHover: [] };
+  state.postGame = null;
+  frozenSnapshot = null;
+  state.mvp = null;
+  resetLiveGameData();
+  saveConfig();
+  broadcast();
+  return state;
 }
 
 function tick() {
@@ -893,7 +960,34 @@ const server = http.createServer((req,res)=>{
     return;
   }
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
-  if (url.pathname === '/api/series' && req.method === 'GET') return json(res, 200, { ok: true, series: state.series || seriesStore.snapshot() });
+  if (url.pathname === '/api/series' && req.method === 'GET') return json(res, 200, { ok: true, series: state.series || activeSeriesStore().snapshot() });
+  if (url.pathname === '/api/mock' && req.method === 'GET') return json(res, 200, { ok: true, active: state.mode === 'mock', config: readMockConfig(), series: state.series, demo: state.demo });
+  if (url.pathname === '/api/mock/config') {
+    if (req.method === 'GET') return json(res, 200, { ok: true, config: readMockConfig() });
+    readBody(req, res).then(body => {
+      const saved = saveBroadcastConfig((body && body.config) || {}, mockConfigPath());
+      if (state.mode === 'mock') { applyMockScript(); demoSeriesStart(); broadcast(); }
+      json(res, 200, { ok: true, config: saved });
+    }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); });
+    return;
+  }
+  if (url.pathname === '/api/mock/start' && req.method === 'POST') {
+    readBody(req, res).then(body => {
+      // 允许「配置 + 开演」一步到位：先落模拟配置，再按它生成剧本。
+      if (body && body.config) saveBroadcastConfig(body.config, mockConfigPath());
+      startMockSession();
+      state.demo = { ...state.demo, playing: body && body.paused ? false : true };
+      json(res, 200, { ok: true, mode: state.mode, series: state.series, demo: state.demo });
+    }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); });
+    return;
+  }
+  if (url.pathname === '/api/mock/exit' && req.method === 'POST') {
+    readBody(req, res).then(() => {
+      exitMockSession();
+      json(res, 200, { ok: true, mode: state.mode, series: state.series });
+    }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); });
+    return;
+  }
   if (url.pathname === '/api/demo') {
     if (req.method === 'GET') return json(res, 200, { ok: true, demo: state.demo, loop: mockDemo.LOOP_MS, stages: mockDemo.LOOP });
     readBody(req, res).then(body => {
@@ -903,7 +997,7 @@ const server = http.createServer((req,res)=>{
       else if (action === 'restart') {
         // 重播 = 从头演一场新比赛，系列赛大分/局数也要归零，不能带着上一轮的 1:0 继续演。
         state.demo.elapsed = 0; state.demo.stage = 'lobby'; state.demo.playing = true;
-        try { seriesStore.reset(); } catch (error) { /* 忽略：重置失败不影响剧本重播 */ }
+        try { mockSeriesStore.reset(); } catch (error) { /* 忽略：重置失败不影响剧本重播 */ }
         demoSeriesStart();
       }
       else if (action === 'seek') {
@@ -927,14 +1021,15 @@ const server = http.createServer((req,res)=>{
       const action = url.pathname.slice('/api/series/'.length);
       // 手动动系列赛就暂停演示剧本，否则下一秒就被剧本推进覆盖。
       if (state.demo) state.demo.playing = false;
+      const store = activeSeriesStore();
       let series;
-      if (action === 'start') series = seriesStore.start(body || {});
-      else if (action === 'game') series = seriesStore.recordGame(body || {});
-      else if (action === 'next') series = seriesStore.nextGame();
-      else if (action === 'end') series = seriesStore.end();
-      else if (action === 'reset') series = seriesStore.reset();
+      if (action === 'start') series = store.start(body || {});
+      else if (action === 'game') series = store.recordGame(body || {});
+      else if (action === 'next') series = store.nextGame();
+      else if (action === 'end') series = store.end();
+      else if (action === 'reset') series = store.reset();
       else throw badRequest('invalid_action');
-      state.series = seriesStore.snapshot(series);
+      state.series = store.snapshot(series);
       broadcast();
       json(res, 200, { ok: true, series: state.series });
     }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); });
@@ -1005,7 +1100,7 @@ const server = http.createServer((req,res)=>{
   }
   if (url.pathname === '/api/hud-toggle' && req.method === 'POST') { if (state.broadcastConfig && state.broadcastConfig.hudKeyHook === false) return json(res, 200, { ok: false, disabled: true, hudHidden: state.hudHidden }); state.hudHidden = !state.hudHidden; broadcast(); return json(res, 200, { ok: true, hudHidden: state.hudHidden }); }
   if (url.pathname === '/api/phase' && req.method === 'POST') { readBody(req, res).then(body => { state.phase = normalizePhase(body && body.phase); if (state.mode === 'mock') state.demo.playing = false; broadcast(); json(res,200,{ok:true,phase:state.phase}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
-  if (url.pathname === '/api/config' && req.method === 'POST') { readBody(req, res).then(body => { if (body.tournamentName !== undefined) state.tournamentName = normalizeTournamentName(body.tournamentName); if (body.mode !== undefined) { if (body.mode !== 'mock' && body.mode !== 'live') throw badRequest('invalid_mode'); state.mode = body.mode; if (body.mode === 'mock') { state.goldEstimated = false; state.goldSource = 'mock'; state.players = createMockPlayers(); state.demo = { playing: true, speed: state.demo.speed, elapsed: 0, stage: 'lobby', progress: 0 }; demoSeriesStart(); } else { state.postGame = null; frozenSnapshot = null; resetLiveGameData(); if (state.demo) state.demo.playing = false; } } if (body.phase !== undefined) state.phase = normalizePhase(body.phase); saveConfig(); broadcast(); json(res,200,{ok:true}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
+  if (url.pathname === '/api/config' && req.method === 'POST') { readBody(req, res).then(body => { if (body.tournamentName !== undefined) state.tournamentName = normalizeTournamentName(body.tournamentName); if (body.mode !== undefined) { if (body.mode !== 'mock' && body.mode !== 'live') throw badRequest('invalid_mode'); if (body.mode === 'mock') startMockSession(); else exitMockSession(); } if (body.phase !== undefined) state.phase = normalizePhase(body.phase); saveConfig(); broadcast(); json(res,200,{ok:true}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
   const sendPage = html => { res.setHeader('Content-Type','text/html; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(html); };
   if (url.pathname === '/') return sendPage(consolePage(PORT));
   if (url.pathname === '/overlay/hud-calibrate' || url.pathname === '/broadcast/hud-calibrate') return sendPage(hudCalibratePage());
@@ -1030,5 +1125,5 @@ server.on('error', error => {
 });
 server.listen(PORT,'127.0.0.1',()=>console.log(`Khada Jhin running at http://127.0.0.1:${PORT}`));
 // mock（演示）模式启动就是一轮剧本：没有进行中的比赛就先开一场，保证控台一打开就有比分和局数。
-if (state.mode === 'mock') demoSeriesStart();
+if (state.mode === 'mock') startMockSession();
 startObsAutoConnect({ obs, getObsConfig, setObsConfig, onChange: () => { lastAutoPhase = null; broadcast(); } });

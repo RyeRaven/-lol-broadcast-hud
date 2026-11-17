@@ -50,9 +50,7 @@ const state = {
   // 页面必须画 unknown 占位，不得把上一条读数当成当前血量。
   pixelBars: { active: false, updatedAt: null, stale: false },
   // BP 演示数据只在 mock 模式预置；实盘模式在真实 session 到达前必须是空 BP（和比分/选手同一条原则）。
-  draft: initialMode === 'live'
-    ? { round: '', timer: null, active: 'blue', blueBans: [], redBans: [], bluePicks: [], redPicks: [], blueHover: [], redHover: [] }
-    : { round: '第 3 轮 · 进行中', timer: 18, active: 'blue', blueBans: ['奥恩', '蔚', '卡莎', '洛', '波比'], redBans: ['永恩', '盲僧', '霞', '卡莉丝塔', '兰博'], bluePicks: ['杰斯', '瑟提', '辛德拉', '伊泽瑞尔', '泰坦'], redPicks: ['鳄鱼', '赵信', '阿狸', '厄斐琉斯', '蕾欧娜'] },
+  draft: initialMode === 'live' ? emptyDraft() : createMockDraft(),
   players: [],
   highlights: [],
   updatedAt: Date.now()
@@ -79,6 +77,15 @@ Object.defineProperty(state, 'obsConfig', { value: initialObsConfig, writable: t
 const MOCK_CHAMPIONS = ['杰斯','瑟提','辛德拉','伊泽瑞尔','泰坦','鳄鱼','赵信','阿狸','厄斐琉斯','蕾欧娜'];
 const MOCK_NAMES = ['TopStar','RiftKing','Midnight','CrispAim','Anchor','RedTop','JungleX','FoxMid','MoonShot','Shield'];
 const MOCK_ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+// 演示 BP：mock 模式预置，测试也用它拼快照，避免依赖本机 data/config.json 里的 mode。
+function createMockDraft() {
+  return { round: '第 3 轮 · 进行中', timer: 18, active: 'blue', blueBans: ['奥恩', '蔚', '卡莎', '洛', '波比'], redBans: ['永恩', '盲僧', '霞', '卡莉丝塔', '兰博'], bluePicks: ['杰斯', '瑟提', '辛德拉', '伊泽瑞尔', '泰坦'], redPicks: ['鳄鱼', '赵信', '阿狸', '厄斐琉斯', '蕾欧娜'] };
+}
+// 实盘模式第一次 LCU 轮询回来前的空 BP。
+function emptyDraft() {
+  return { round: '', timer: null, active: 'blue', blueBans: [], redBans: [], bluePicks: [], redPicks: [], blueHover: [], redHover: [] };
+}
+
 function createMockPlayers() {
   return MOCK_NAMES.map((name, i) => ({ name, team: i < 5 ? 'blue' : 'red', champion: MOCK_CHAMPIONS[i], role: MOCK_ROLES[i % 5], level: 7 + (i % 3), kills: i < 5 ? [2,1,2,1,1][i] : [1,1,0,2,0][i], deaths: i % 4 === 0 ? 1 : 0, assists: 3 + i, cs: 58 + i * 7, alive: i !== 6, damage: 12 + i * 1.8, taken: 8 + (9 - i) * 1.7, kp: 42 + i * 3, items: ['◇','◆','◈'].slice(0, 2 + (i % 2)), summoners: ['闪现','引燃'] }));
 }
@@ -146,4 +153,4 @@ function handleBroadcastCueApi(req, res, url, context = {}) {
   return true;
 }
 
-module.exports = { state, saveConfig, createMockPlayers, initialPlayersForMode, dataDir, configPath, normalizeObsConfig, getObsConfig, setObsConfig, BROADCAST_CUE_TYPES, applyBroadcastCue, handleBroadcastCueApi };
+module.exports = { state, saveConfig, createMockPlayers, createMockDraft, emptyDraft, initialPlayersForMode, dataDir, configPath, normalizeObsConfig, getObsConfig, setObsConfig, BROADCAST_CUE_TYPES, applyBroadcastCue, handleBroadcastCueApi };
