@@ -23,6 +23,8 @@ const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require(
 const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
 const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
 const { readBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
+const seriesStore = require('./series');
+state.series = seriesStore.snapshot();
 const { handleLogoUploadApi } = require('./uploads');
 const { overlayPage, OVERLAY_TYPES } = require('./pages/overlays');
 const { consolePage } = require('./pages/console');
@@ -818,6 +820,23 @@ const server = http.createServer((req,res)=>{
     return;
   }
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+  if (url.pathname === '/api/series' && req.method === 'GET') return json(res, 200, { ok: true, series: state.series || seriesStore.snapshot() });
+  if (url.pathname.startsWith('/api/series/') && req.method === 'POST') {
+    readBody(req, res).then(body => {
+      const action = url.pathname.slice('/api/series/'.length);
+      let series;
+      if (action === 'start') series = seriesStore.start(body || {});
+      else if (action === 'game') series = seriesStore.recordGame(body || {});
+      else if (action === 'next') series = seriesStore.nextGame();
+      else if (action === 'end') series = seriesStore.end();
+      else if (action === 'reset') series = seriesStore.reset();
+      else throw badRequest('invalid_action');
+      state.series = seriesStore.snapshot(series);
+      broadcast();
+      json(res, 200, { ok: true, series: state.series });
+    }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); });
+    return;
+  }
   if (url.pathname === '/health') return json(res,200,{ok:true,mode:state.mode,phase:state.phase});
   if (url.pathname === '/api/state') return json(res,200,cloneState());
   if (url.pathname === '/api/highlights') { handleHighlightsApi(req, res, url, { json, state }); return; }

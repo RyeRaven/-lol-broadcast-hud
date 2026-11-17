@@ -182,7 +182,9 @@ function normalizeBroadcastConfig(input = {}) {
     coverCard: normalizeCoverCard(source.coverCard),
     standbyCard: normalizeStandbyCard(source.standbyCard),
     // 局内 A 键隐藏 HUD 的总开关（默认启用；false = 全局钩子与 /api/hud-toggle 都不触发）
-    hudKeyHook: source.hudKeyHook !== false
+    hudKeyHook: source.hudKeyHook !== false,
+    // 首次引导是否已经走过：false 时控台先显示「首次配置」屏，走完写 true 不再打扰。
+    setupCompleted: source.setupCompleted === true
   };
 }
 

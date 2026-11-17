@@ -1437,6 +1437,9 @@ function init() {
   refreshSources();
   loadReplay();
   loadObs();
+  loadSeries();
+  loadMatchConfig();
+  bindSeriesControls();
   fetchJson('/api/state').then(applyState).catch(function () {});
   try {
     var source = new EventSource('/events');
@@ -1460,7 +1463,7 @@ function init() {
   setInterval(function () { if (document.visibilityState !== 'hidden') loadObs(); }, 30000);
 }
 /* ---------- 视图路由：一个阶段一屏 ---------- */
-var VIEW_LIST = ['home', 'wait', 'bp', 'live', 'post', 'settings'];
+var VIEW_LIST = ['home', 'wait', 'bp', 'live', 'post', 'settings', 'setup', 'match'];
 var PHASE_VIEW = { draft: 'bp', in_game: 'live', post_game: 'post' };
 var DOCK_VIEWS = { wait: 1, bp: 1, live: 1, post: 1 };
 var currentView = 'home';
@@ -1535,10 +1538,6 @@ function renderShellExtras(state) {
   if (!state) return;
   var blue = state.blue || {};
   var red = state.red || {};
-  var scoreText = fmtNumber(blue.score) + ' : ' + fmtNumber(red.score);
-  setTextById('scoreBlue', fmtNumber(blue.score));
-  setTextById('scoreRed', fmtNumber(red.score));
-  setTextById('homeScore', scoreText);
   setTextById('homePhase', phaseText(state.phase));
   setTextById('homeSeries', state.tournamentName || 'Khada Jhin');
   setTextById('homeMatchTitle', (blue.name || '蓝方') + ' vs ' + (red.name || '红方'));
@@ -1546,11 +1545,435 @@ function renderShellExtras(state) {
   renderLineup(state.broadcastConfig);
 }
 
+/* ---------- 系列赛：局数 / 比分 / 历史 ---------- */
+var latestSeries = null;
+var latestMatchConfig = null;
+var activeBestOf = 3;
+var setupPrompted = false;
+
+function seriesScore() {
+  var s = latestSeries;
+  var scores = (s && s.scores) || {};
+  return { blue: Number(scores.blue) || 0, red: Number(scores.red) || 0 };
+}
+
+function seriesRunning() {
+  return !!(latestSeries && latestSeries.status === 'running');
+}
+
+function postSeries(action, body) {
+  return postJson('/api/series/' + action, body || {}).then(function (data) {
+    if (data && data.ok && data.series) applySeries(data.series);
+    return data;
+  });
+}
+
+var lastSeriesKey = '';
+
+function applySeries(series) {
+  latestSeries = series || null;
+  renderSeries();
+  var key = '';
+  try { key = JSON.stringify(latestSeries); } catch (error) { key = String(Date.now()); }
+  if (key !== lastSeriesKey) {
+    lastSeriesKey = key;
+    renderHistory();
+    renderGames();
+  }
+}
+
+function renderSeries() {
+  var s = latestSeries;
+  var score = seriesScore();
+  var bo = (s && Number(s.bestOf)) || 3;
+  var running = !!(s && (s.status === 'running' || s.status === 'finished'));
+  setTextById('scoreBlue', String(score.blue));
+  setTextById('scoreRed', String(score.red));
+  setTextById('homeScore', score.blue + ' : ' + score.red);
+  setTextById('gameChip', running ? ('BO' + bo + ' · 第 ' + (Number(s.gameIndex) || 1) + ' 局') : ('BO' + bo));
+  if (running && s.tournament) setTextById('homeSeries', s.tournament);
+  var title = byId('homeMatchTitle');
+  if (title && s && s.teams) {
+    var blueName = (s.teams.blue && s.teams.blue.name) || '蓝方';
+    var redName = (s.teams.red && s.teams.red.name) || '红方';
+    title.textContent = blueName + ' vs ' + redName;
+  }
+  var sub = byId('homeMatchSub');
+  if (sub && s) {
+    var state = latestState || {};
+    var parts = [(s.tournament || state.tournamentName || 'Khada Jhin'), 'BO' + bo, '第 ' + (Number(s.gameIndex) || 1) + ' 局'];
+    if (s.status === 'idle') parts = [(s.tournament || state.tournamentName || 'Khada Jhin'), '尚未开赛'];
+    if (s.status === 'finished') parts.push('系列赛已决出');
+    sub.textContent = parts.join(' · ');
+  }
+  var nowChip = byId('msSeriesNow');
+  if (nowChip) {
+    if (!s || s.status === 'idle') nowChip.textContent = '还没有进行中的系列赛；点「保存并开始」会写入配置并开一轮。';
+    else nowChip.textContent = '进行中：' + ((s.teams && s.teams.blue && s.teams.blue.name) || '蓝方') + ' ' + score.blue + ' : ' + score.red + ' ' + ((s.teams && s.teams.red && s.teams.red.name) || '红方') + ' · BO' + bo + ' 第 ' + (Number(s.gameIndex) || 1) + ' 局（保存并开始会重开一轮）';
+  }
+  var note = byId('postSeriesNote');
+  if (note) {
+    if (!s || s.status === 'idle') note.textContent = '还没有进行中的系列赛，点「开始新比赛」开一轮。';
+    else {
+      var need = s.needed || (Math.floor(bo / 2) + 1);
+      note.textContent = 'BO' + bo + ' · 先拿 ' + need + ' 局者胜 · 当前 ' + score.blue + ' : ' + score.red + (s.status === 'finished' ? ' · 已决出胜负' : '');
+    }
+  }
+  var nextBtn = byId('postNext');
+  if (nextBtn) {
+    var decided = !!(s && (s.decided || s.status === 'finished'));
+    nextBtn.disabled = decided || !seriesRunning();
+    nextBtn.textContent = decided ? '系列赛已结束' : '下一局';
+  }
+  var endBtn = byId('homeEndSeries');
+  if (endBtn) endBtn.disabled = !(s && s.status !== 'idle');
+  var postEnd = byId('postEnd');
+  if (postEnd) postEnd.disabled = !(s && s.status !== 'idle');
+}
+
+function renderHistory() {
+  var box = byId('historyList');
+  if (!box) return;
+  var list = (latestSeries && Array.isArray(latestSeries.history)) ? latestSeries.history : [];
+  if (!list.length) {
+    box.innerHTML = '<div class="c2-note">还没有完成的对局。赛后页点「结束这轮比赛」后会在这里留下记录。</div>';
+    return;
+  }
+  box.innerHTML = list.map(function (item) {
+    var teams = item.teams || {};
+    var names = { blue: (teams.blue && teams.blue.name) || '蓝方', red: (teams.red && teams.red.name) || '红方' };
+    var scores = item.scores || {};
+    var winner = item.winner === 'red' ? names.red : (item.winner === 'blue' ? names.blue : '无结果');
+    var games = Array.isArray(item.games) ? item.games.length : 0;
+    var when = item.endedAt ? new Date(item.endedAt) : null;
+    var stamp = when && !isNaN(when.getTime()) ? (when.getMonth() + 1) + '/' + when.getDate() + ' ' + String(when.getHours()).padStart(2, '0') + ':' + String(when.getMinutes()).padStart(2, '0') : '--';
+    return '<div class="c2-hist-row">' +
+      '<span class="c2-hist-when">' + esc(stamp) + '</span>' +
+      '<span class="c2-hist-teams"><b class="blue">' + esc(names.blue) + '</b><i>' + esc(String(scores.blue || 0)) + ' : ' + esc(String(scores.red || 0)) + '</i><b class="red">' + esc(names.red) + '</b></span>' +
+      '<span class="c2-hist-meta">BO' + esc(String(item.bestOf || 3)) + ' · ' + games + ' 局 · 胜者 ' + esc(winner) + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+function teamKills(postGame, team) {
+  var list = postGame && Array.isArray(postGame.players) ? postGame.players : [];
+  return list.filter(function (p) { return p && p.team === team; }).reduce(function (sum, p) { return sum + (Number(p.kills) || 0); }, 0);
+}
+
+function currentGameResult() {
+  var state = latestState || {};
+  var pg = state.postGame || null;
+  var blueKills = 0;
+  var redKills = 0;
+  var duration = 0;
+  if (pg && pg.teams) {
+    blueKills = Number(pg.teams.blue && pg.teams.blue.kills);
+    redKills = Number(pg.teams.red && pg.teams.red.kills);
+    if (!isFinite(blueKills)) blueKills = teamKills(pg, 'blue');
+    if (!isFinite(redKills)) redKills = teamKills(pg, 'red');
+    duration = Number(pg.gameLength) || Number(state.gameTime) || 0;
+  } else {
+    blueKills = Number(state.blue && state.blue.score) || 0;
+    redKills = Number(state.red && state.red.score) || 0;
+    duration = Number(state.gameTime) || 0;
+  }
+  var winner = redKills > blueKills ? 'red' : 'blue';
+  var mvp = state.mvp && state.mvp.name ? { name: state.mvp.name, team: state.mvp.team || winner } : null;
+  return { winner: winner, blueKills: blueKills, redKills: redKills, duration: duration, mvp: mvp };
+}
+
+function recordAndAdvance(mode) {
+  var s = latestSeries;
+  if (!s || s.status === 'idle') { toast('还没有进行中的系列赛', true); return Promise.resolve(); }
+  var already = (Array.isArray(s.games) ? s.games : []).some(function (g) { return g && Number(g.index) === Number(s.gameIndex); });
+  var chain = already ? Promise.resolve({ ok: true }) : postSeries('game', currentGameResult());
+  return chain.then(function (data) {
+    if (data && data.ok === false) throw new Error(data.error || '记录本局失败');
+    if (!latestSeries || latestSeries.decided || latestSeries.status === 'finished') return { decided: true };
+    return postSeries(mode === 'end' ? 'end' : 'next');
+  }).then(function (data) {
+    if (data && data.decided) {
+      toast('这一局打完系列赛已经决出胜负，点「结束这轮比赛」收尾');
+      return;
+    }
+    if (data && data.ok === false) throw new Error(data.error || '推进系列赛失败');
+    if (mode === 'end') { toast('这轮比赛已结束'); showView('home'); }
+    else { toast('已切到下一局'); showView('wait'); }
+  }).catch(function (error) {
+    toast('操作失败：' + ((error && error.message) || error), true);
+  });
+}
+
+function renderSettle(state) {
+  var box = byId('settleBody');
+  if (!box) return;
+  var pg = state && state.postGame;
+  var list = pg && Array.isArray(pg.players) ? pg.players : [];
+  if (!list.length) {
+    box.innerHTML = '<div class="c2-note">本局结算（伤害 / 经济 / 目标）在赛后自动汇总，随后进入 MVP 评选。现在还没有数据。</div>';
+    return;
+  }
+  var maxDamage = list.reduce(function (max, p) { return Math.max(max, Number(p.damage) || 0); }, 1);
+  var rows = list.slice().sort(function (a, b) { return (Number(b.damage) || 0) - (Number(a.damage) || 0); }).map(function (p) {
+    var side = p.team === 'red' ? 'red' : 'blue';
+    var pct = Math.round(((Number(p.damage) || 0) / maxDamage) * 100);
+    return '<div class="c2-settle-row" data-side="' + side + '">' +
+      '<span class="c2-st-name">' + esc(p.name || '—') + '<i>' + esc(p.champion || '') + '</i></span>' +
+      '<span class="c2-st-bar"><b style="width:' + pct + '%"></b></span>' +
+      '<span class="c2-st-kda">' + esc(String(p.kills || 0) + '/' + String(p.deaths || 0) + '/' + String(p.assists || 0)) + '</span>' +
+      '<span class="c2-st-gold">' + fmtNumber(p.gold) + '</span>' +
+      '</div>';
+  }).join('');
+  var head = '<div class="c2-settle-head"><span>选手</span><span>伤害</span><span>KDA</span><span>经济</span></div>';
+  box.innerHTML = head + rows;
+}
+
+function renderGames() {
+  var box = byId('gameList');
+  if (!box) return;
+  var s = latestSeries;
+  var games = s && Array.isArray(s.games) ? s.games : [];
+  if (!games.length) {
+    box.innerHTML = '<div class="c2-note">这一轮还没有记录任何一局。赛后页点「下一局」或「结束这轮比赛」时会把本局战绩写入这里。</div>';
+    return;
+  }
+  box.innerHTML = games.map(function (g) {
+    var mvp = g.mvp && g.mvp.name ? ' · MVP ' + g.mvp.name : '';
+    var winner = g.winner === 'red' ? '红方胜' : '蓝方胜';
+    var clock = Number(g.duration) ? ' · ' + fmtClock(g.duration) : '';
+    return '<div class="c2-game-row" data-side="' + esc(g.winner === 'red' ? 'red' : 'blue') + '">' +
+      '<span class="c2-game-idx">第 ' + esc(String(g.index || 0)) + ' 局</span>' +
+      '<span class="c2-game-score"><b class="blue">' + esc(String(g.blueKills || 0)) + '</b><i>:</i><b class="red">' + esc(String(g.redKills || 0)) + '</b></span>' +
+      '<span class="c2-game-meta">' + esc(winner + clock + mvp) + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+function loadSeries() {
+  return fetchJson('/api/series').then(function (data) {
+    if (data && data.series) applySeries(data.series);
+  }).catch(function () {});
+}
+
+/* ---------- 比赛配置屏 ---------- */
+function msVal(id) {
+  var el = byId(id);
+  return el && typeof el.value === 'string' ? el.value.trim() : '';
+}
+
+function renderBoButtons() {
+  var box = byId('msBestOf');
+  if (!box) return;
+  var buttons = box.querySelectorAll('[data-bo]');
+  for (var i = 0; i < buttons.length; i += 1) {
+    var value = Number(buttons[i].getAttribute('data-bo'));
+    buttons[i].classList.toggle('active', value === activeBestOf);
+  }
+}
+
+function renderMatchForm(config) {
+  if (!config) return;
+  latestMatchConfig = config;
+  var series = config.series || {};
+  var bo = Number(series.bestOf);
+  activeBestOf = bo === 5 ? 5 : (bo === 1 ? 1 : 3);
+  setFieldValue('msTournament', series.name || '');
+  var teams = config.teams || {};
+  var blue = teams.blue || {};
+  var red = teams.red || {};
+  setFieldValue('msBlueName', blue.name);
+  setFieldValue('msBlueShort', blue.shortName);
+  setFieldValue('msBlueColor', blue.color || '#3B82F6');
+  setFieldValue('msBlueLogo', blue.logo);
+  setLogoPreview('msBlueLogoPreview', blue.logo);
+  setFieldValue('msRedName', red.name);
+  setFieldValue('msRedShort', red.shortName);
+  setFieldValue('msRedColor', red.color || '#EF4444');
+  setFieldValue('msRedLogo', red.logo);
+  setLogoPreview('msRedLogoPreview', red.logo);
+  renderMsPlayers(config.players);
+  var blueCoach = coachFor(config, 'blue');
+  var redCoach = coachFor(config, 'red');
+  setFieldValue('msCoachBlueName', blueCoach.name || '');
+  setFieldValue('msCoachBlueRole', blueCoach.role || '');
+  setFieldValue('msCoachRedName', redCoach.name || '');
+  setFieldValue('msCoachRedRole', redCoach.role || '');
+  renderBoButtons();
+}
+
+function renderMsPlayers(players) {
+  var box = byId('msPlayers');
+  if (!box) return;
+  var list = Array.isArray(players) ? players.slice(0, 10) : [];
+  while (list.length < 10) list.push({ displayName: '', team: list.length < 5 ? 'blue' : 'red', role: '' });
+  box.innerHTML = list.map(playerRowMarkup).join('');
+}
+
+function collectMatchForm() {
+  var base = latestMatchConfig ? cloneConfig(latestMatchConfig) : {};
+  base.series = base.series || {};
+  base.series.name = msVal('msTournament');
+  base.series.bestOf = activeBestOf;
+  base.teams = base.teams || {};
+  base.teams.blue = Object.assign({}, base.teams.blue || {}, {
+    name: msVal('msBlueName'), shortName: msVal('msBlueShort'), color: msVal('msBlueColor') || '#3B82F6', logo: msVal('msBlueLogo')
+  });
+  base.teams.red = Object.assign({}, base.teams.red || {}, {
+    name: msVal('msRedName'), shortName: msVal('msRedShort'), color: msVal('msRedColor') || '#EF4444', logo: msVal('msRedLogo')
+  });
+  var rows = (document.querySelectorAll ? document.querySelectorAll('#msPlayers [data-player-row]') : []) || [];
+  var players = Array.isArray(base.players) ? base.players.slice() : [];
+  for (var i = 0; i < rows.length; i += 1) {
+    var row = rows[i];
+    var nameInput = row.querySelector('.player-display');
+    var teamSelect = row.querySelector('.player-team');
+    var roleSelect = row.querySelector('.player-role');
+    var player = Object.assign({}, players[i] || {});
+    player.displayName = nameInput ? nameInput.value.trim() : '';
+    player.team = teamSelect ? teamSelect.value : 'blue';
+    player.role = roleSelect ? roleSelect.value : '';
+    players[i] = player;
+  }
+  base.players = players;
+  var coaches = Array.isArray(base.coaches) ? base.coaches.slice() : [];
+  [['blue', 'msCoachBlueName', 'msCoachBlueRole'], ['red', 'msCoachRedName', 'msCoachRedRole']].forEach(function (entry) {
+    var team = entry[0];
+    var coach = { name: msVal(entry[1]), team: team, role: msVal(entry[2]) || 'COACH' };
+    var index = -1;
+    for (var j = 0; j < coaches.length; j += 1) { if (coaches[j] && coaches[j].team === team) { index = j; break; } }
+    if (index >= 0) coaches[index] = Object.assign({}, coaches[index], coach);
+    else coaches.push(coach);
+  });
+  base.coaches = coaches;
+  base.setupCompleted = true;
+  return base;
+}
+
+function saveMatchAndMaybeStart(start) {
+  var status = byId('msStatus');
+  if (status) status.textContent = '正在保存赛事配置…';
+  var config = collectMatchForm();
+  return postJson('/api/broadcast-config', config).then(function (data) {
+    if (!data || !data.ok) throw new Error((data && data.error) || '保存失败');
+    latestMatchConfig = data.config || config;
+    renderMatchForm(latestMatchConfig);
+    renderLineup(latestMatchConfig);
+    if (status) status.textContent = '赛事配置已保存';
+    toast('赛事配置已保存');
+    if (!start) return null;
+    return postSeries('start', {
+      tournament: msVal('msTournament'),
+      bestOf: activeBestOf,
+      teams: { blue: { name: msVal('msBlueName') }, red: { name: msVal('msRedName') } }
+    }).then(function (result) {
+      if (!result || result.ok === false) throw new Error((result && result.error) || '开局失败');
+      showView('wait');
+      toast('已开始这一轮比赛');
+    });
+  }).catch(function (error) {
+    var message = (error && error.message) || String(error);
+    if (status) status.textContent = '失败：' + message;
+    toast('保存失败：' + message, true);
+  });
+}
+
+function loadMatchConfig() {
+  return fetchJson('/api/broadcast-config').then(function (config) {
+    latestMatchConfig = config;
+    renderMatchForm(config);
+    renderLineup(config);
+    if (!setupPrompted && config && config.setupCompleted !== true) {
+      setupPrompted = true;
+      showView('setup');
+      refreshSetupStatus();
+    }
+  }).catch(function () {});
+}
+
+/* ---------- 首次引导 ---------- */
+function refreshSetupStatus() {
+  setTextById('obObs', '检测中…');
+  fetchJson('/api/obs').then(function (data) {
+    var connected = !!(data && (data.connected || data.ok || data.status === 'connected' || data.currentScene));
+    setTextById('obObs', connected ? ('已连接 OBS' + (data.currentScene ? ' · 场景 ' + data.currentScene : '')) : ('未连接' + (data && data.error ? '：' + data.error : '')));
+  }).catch(function () { setTextById('obObs', '未连接：本地服务无响应'); });
+  Promise.resolve(typeof refreshSources === 'function' ? refreshSources() : null).then(function () {
+    var rows = (document.querySelectorAll ? document.querySelectorAll('#source-health .health-row') : []) || [];
+    var texts = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var text = rows[i].textContent ? rows[i].textContent.replace(/\s+/g, ' ').trim() : '';
+      if (text) texts.push(text);
+    }
+    setTextById('obSources', texts.length ? texts.join(' · ') : '暂无探测结果');
+  });
+  var state = latestState || {};
+  setTextById('obHud', state.broadcastConfig ? 'HUD 已就绪 · 1920×1080 设计坐标' : '使用默认几何 · 1920×1080 设计坐标');
+}
+
+function finishSetup(skipped) {
+  var base = latestMatchConfig ? cloneConfig(latestMatchConfig) : {};
+  base.setupCompleted = true;
+  postJson('/api/broadcast-config', base).then(function (data) {
+    if (data && data.ok && data.config) { latestMatchConfig = data.config; renderMatchForm(data.config); }
+    setTextById('obStatus', '已记录，不再打扰');
+    showView('home');
+    toast(skipped ? '已跳过首次配置，随时可在设置里补' : '配置完成，开始导播吧');
+  }).catch(function () { showView('home'); });
+}
+
+function bindSeriesControls() {
+  var start = byId('homeStart');
+  if (start) start.addEventListener('click', function () { renderMatchForm(latestMatchConfig); });
+  var homeEnd = byId('homeEndSeries');
+  if (homeEnd) homeEnd.addEventListener('click', function () {
+    if (!latestSeries || latestSeries.status === 'idle') return;
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm('结束这轮比赛并回到首页？')) return;
+    postSeries('end').then(function (data) {
+      if (data && data.ok === false) throw new Error(data.error || '结束失败');
+      toast('这轮比赛已结束');
+    }).catch(function (error) { toast('结束失败：' + ((error && error.message) || error), true); });
+  });
+  var next = byId('postNext');
+  if (next) next.addEventListener('click', function () { recordAndAdvance('next'); });
+  var end = byId('postEnd');
+  if (end) end.addEventListener('click', function () { recordAndAdvance('end'); });
+  var bo = byId('msBestOf');
+  if (bo) bo.addEventListener('click', function (event) {
+    var target = event.target && event.target.closest ? event.target.closest('[data-bo]') : null;
+    if (!target) return;
+    activeBestOf = Number(target.getAttribute('data-bo')) || 3;
+    renderBoButtons();
+  });
+  var save = byId('msSave');
+  if (save) save.addEventListener('click', function () { saveMatchAndMaybeStart(false); });
+  var startBtn = byId('msStart');
+  if (startBtn) startBtn.addEventListener('click', function () { saveMatchAndMaybeStart(true); });
+  [['msBlueLogoFile', 'msBlueLogo', 'msBlueLogoPreview'], ['msRedLogoFile', 'msRedLogo', 'msRedLogoPreview']].forEach(function (entry) {
+    var input = byId(entry[0]);
+    if (input) input.addEventListener('change', function () { uploadLogoFile(input, entry[1], entry[2]); });
+  });
+  var msLogo = byId('msBlueLogo');
+  if (msLogo) msLogo.addEventListener('input', function () { setLogoPreview('msBlueLogoPreview', msLogo.value); });
+  var msLogoRed = byId('msRedLogo');
+  if (msLogoRed) msLogoRed.addEventListener('input', function () { setLogoPreview('msRedLogoPreview', msLogoRed.value); });
+  var done = byId('obDone');
+  if (done) done.addEventListener('click', function () { finishSetup(false); });
+  var skip = byId('obSkip');
+  if (skip) skip.addEventListener('click', function () { finishSetup(true); });
+  var recheck = byId('obRecheck');
+  if (recheck) recheck.addEventListener('click', refreshSetupStatus);
+}
+
 // 阶段一变就跟着换屏（用户在首页/设置里时不打断）。
 var applyStateCore = applyState;
 applyState = function (state) {
   applyStateCore(state);
   renderShellExtras(state);
+  if (state) {
+    if (state.series) applySeries(state.series);
+    else if (latestSeries) renderSeries();
+    renderSettle(state);
+  }
   var phase = state && state.phase;
   if (phase && phase !== lastPhaseForView) {
     lastPhaseForView = phase;
@@ -1599,7 +2022,8 @@ function consolePage(port) {
       <button type="button" data-nav="post"><i></i>赛后</button>
     </nav>
     <div class="c2-topmeta">
-      <span class="c2-score" id="scoreChip" title="当前比分"><b class="blue" id="scoreBlue">0</b><i>:</i><b class="red" id="scoreRed">0</b></span>
+      <span class="c2-score" id="scoreChip" title="系列赛比分"><b class="blue" id="scoreBlue">0</b><i>:</i><b class="red" id="scoreRed">0</b></span>
+      <span class="c2-stat c2-stat-game"><small>系列</small><b id="gameChip">BO3</b></span>
       <span class="c2-stat c2-stat-clock"><small>时间</small><b id="gameClock">--:--</b></span>
       <span class="c2-stat c2-stat-phase"><small>阶段</small><b id="phaseLabel">--</b></span>
       <span class="topbar-mode mock" id="topbarMode">MOCK</span>
@@ -1623,8 +2047,9 @@ function consolePage(port) {
           <h2 id="homeMatchTitle">还没有进行中的比赛</h2>
           <p id="homeMatchSub">先在「设置 · 赛事配置」里填好队伍、选手与赛制，再进入等待开始阶段。</p>
           <div class="c2-hero-actions">
-            <button type="button" class="btn primary" data-nav="wait">进入比赛流程</button>
-            <button type="button" class="btn ghost" data-nav="settings" data-settings-tab="config">编辑赛事配置</button>
+            <button type="button" class="btn primary" data-nav="match" id="homeStart">开始新比赛</button>
+            <button type="button" class="btn ghost" data-nav="wait">进入比赛流程</button>
+            <button type="button" class="btn ghost" id="homeEndSeries">结束这轮比赛</button>
           </div>
         </div>
         <div class="c2-hero-side">
@@ -1644,7 +2069,7 @@ function consolePage(port) {
       </ol>
       </section>
         <section class="panel"><div class="panel-head"><h2>已完成场次</h2><span class="kicker">HISTORY</span></div>
-          <div class="c2-note">还没有完成的对局。赛后阶段点「结束这轮比赛」后会在这里留下记录。</div>
+          <div class="c2-history" id="historyList"><div class="c2-note">还没有完成的对局。赛后阶段点「结束这轮比赛」后会在这里留下记录。</div></div>
         </section>
       </div>
     </section>
@@ -1739,10 +2164,115 @@ function consolePage(port) {
       </div>
       <div class="footnote" id="mvp-note">未评选</div>
       </section>
-        <section class="panel"><div class="panel-head"><h2>结算数据</h2><span class="kicker">POST GAME</span></div>
-          <div class="c2-note">本局结算（伤害占比 / 参团 / 经济差）在赛后阶段汇总，随后进入 MVP 评选。</div>
+        <section class="panel" id="settle-panel"><div class="panel-head"><h2>结算数据</h2><span class="kicker">POST GAME</span></div>
+          <div class="c2-settle" id="settleBody"><div class="c2-note">本局结算（伤害 / 经济 / 目标）在赛后阶段汇总，随后进入 MVP 评选。</div></div>
+          <div class="c2-actions">
+            <button type="button" class="btn primary" id="postNext">下一局</button>
+            <button type="button" class="btn ghost" id="postEnd">结束这轮比赛</button>
+          </div>
+          <div class="footnote" id="postSeriesNote">--</div>
         </section>
       </div>
+      <section class="panel">
+        <div class="panel-head"><h2>系列赛进度</h2><span class="kicker">SERIES</span></div>
+        <div class="c2-games" id="gameList"><div class="c2-note">这一轮还没有打完的局。</div></div>
+      </section>
+    </section>
+
+    <section class="c2-view" data-view="setup">
+      <div class="c2-viewhead">
+        <h1>首次配置</h1>
+        <p>三件事确认完就能开始导播。做完这一步不再出现，之后随时在「设置」里改。</p>
+      </div>
+      <div class="c2-grid-3">
+        <section class="panel">
+          <div class="panel-head"><h2>连接 OBS</h2><span class="kicker">OBS</span></div>
+          <p class="c2-note">填 OBS WebSocket 地址与密码，控台才能切场景、控录制与回放。</p>
+          <div class="c2-status" id="obObs">检测中…</div>
+          <button type="button" class="btn ghost" data-nav="settings" data-settings-tab="connect">去填连接信息</button>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>数据源</h2><span class="kicker">LCU / LIVE</span></div>
+          <p class="c2-note">LCU 需要以管理员身份启动客户端与 Khada Jhin；Live Client Data 只在观战或对局中存在。</p>
+          <div class="c2-status" id="obSources">检测中…</div>
+          <button type="button" class="btn ghost" id="obRecheck">重新检测</button>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>画面与 HUD</h2><span class="kicker">HUD</span></div>
+          <p class="c2-note">HUD 按 1920×1080 设计坐标绘制，OBS 源尺寸变了会自动缩放；血条、装备位在赛事配置里调。</p>
+          <div class="c2-status" id="obHud">默认几何</div>
+          <button type="button" class="btn ghost" data-nav="settings" data-settings-tab="config">打开赛事配置</button>
+        </section>
+      </div>
+      <div class="c2-actions">
+        <button type="button" class="btn primary" id="obDone">配置完成，进入控台</button>
+        <button type="button" class="btn ghost" id="obSkip">先跳过</button>
+      </div>
+      <div class="footnote" id="obStatus">--</div>
+    </section>
+
+    <section class="c2-view" data-view="match">
+      <div class="c2-viewhead">
+        <h1>配置一场比赛</h1>
+        <p>填双方队名、队标、选手与教练，选好 BO。点「保存并开始」会写入赛事配置并开一轮系列赛。</p>
+      </div>
+      <div class="c2-grid-2">
+        <section class="panel">
+          <div class="panel-head"><h2>赛事</h2><span class="kicker">SERIES</span></div>
+          <label class="config-field wide"><span>赛事名</span><input id="msTournament" autocomplete="off" placeholder="Khada Jhin Invitational"></label>
+          <div class="c2-status" id="msSeriesNow">还没有进行中的系列赛</div>
+          <div class="c2-ms-bo" id="msBestOf">
+            <span class="c2-ms-bl">赛制</span>
+            <button type="button" class="btn ghost" data-bo="1">BO1</button>
+            <button type="button" class="btn ghost" data-bo="3">BO3</button>
+            <button type="button" class="btn ghost" data-bo="5">BO5</button>
+          </div>
+          <div class="footnote">BO3 先拿 2 局者胜，比分与第几局由系列赛自动累计。</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>队标与队名</h2><span class="kicker">TEAMS</span></div>
+          <div class="c2-ms-teams">
+            <div class="c2-ms-team" data-side="blue">
+              <span class="c2-ms-tag">蓝方</span>
+              <label class="config-field wide"><span>队名</span><input id="msBlueName" autocomplete="off"></label>
+              <div class="c2-ms-inline">
+                <label class="config-field"><span>缩写</span><input id="msBlueShort" autocomplete="off" maxlength="6"></label>
+                <label class="config-field"><span>队色</span><input id="msBlueColor" type="color"></label>
+              </div>
+              <label class="config-field wide"><span>队标路径</span><input id="msBlueLogo" autocomplete="off" placeholder="/api/uploads/..."></label>
+              <label class="config-field wide logo-upload"><span>本地上传队标</span><input id="msBlueLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+              <img class="c2-ms-logo" id="msBlueLogoPreview" alt="" style="display:none">
+            </div>
+            <div class="c2-ms-team" data-side="red">
+              <span class="c2-ms-tag">红方</span>
+              <label class="config-field wide"><span>队名</span><input id="msRedName" autocomplete="off"></label>
+              <div class="c2-ms-inline">
+                <label class="config-field"><span>缩写</span><input id="msRedShort" autocomplete="off" maxlength="6"></label>
+                <label class="config-field"><span>队色</span><input id="msRedColor" type="color"></label>
+              </div>
+              <label class="config-field wide"><span>队标路径</span><input id="msRedLogo" autocomplete="off" placeholder="/api/uploads/..."></label>
+              <label class="config-field wide logo-upload"><span>本地上传队标</span><input id="msRedLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+              <img class="c2-ms-logo" id="msRedLogoPreview" alt="" style="display:none">
+            </div>
+          </div>
+        </section>
+      </div>
+      <section class="panel">
+        <div class="panel-head"><h2>选手与教练</h2><span class="kicker">LINEUP</span></div>
+        <div class="c2-ms-players" id="msPlayers"></div>
+        <div class="c2-ms-coaches">
+          <label class="config-field"><span>蓝方教练</span><input id="msCoachBlueName" autocomplete="off"></label>
+          <label class="config-field"><span>蓝方职务</span><input id="msCoachBlueRole" autocomplete="off" placeholder="COACH"></label>
+          <label class="config-field"><span>红方教练</span><input id="msCoachRedName" autocomplete="off"></label>
+          <label class="config-field"><span>红方职务</span><input id="msCoachRedRole" autocomplete="off" placeholder="COACH"></label>
+        </div>
+      </section>
+      <div class="c2-actions">
+        <button type="button" class="btn primary" id="msStart">保存并开始这轮比赛</button>
+        <button type="button" class="btn ghost" id="msSave">只保存配置</button>
+        <button type="button" class="btn ghost" data-nav="home">返回首页</button>
+      </div>
+      <div class="footnote" id="msStatus">--</div>
     </section>
 
     <section class="c2-view" data-view="settings">
