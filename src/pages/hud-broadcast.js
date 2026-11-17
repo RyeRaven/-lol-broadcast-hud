@@ -1394,15 +1394,20 @@ var ICONS = {
   function itemCells(player, globalIndex) {
     var slots = playerItemSlots(player, globalIndex);
     var html = '';
+    // 视野得分常驻饰品槽（第 7 格）左上角；饰品为空时整格居中显示数字。
+    var ward = capUsable('wardScore') && hasNumber(player.wardScore)
+      ? '<i class="hb-item-ward" title="' + esc(capTitle('wardScore', '视野得分')) + '">' + num(player.wardScore) + '</i>'
+      : '';
     for (var i = 0; i < 7; i += 1) {
       var slot = slots[i];
       if (!slot) {
-        html += '<span class="hb-item empty"><i>' + (i === 6 ? '◇' : '·') + '</i></span>';
+        html += '<span class="hb-item empty">' + (i === 6 && ward ? ward : '<i>' + (i === 6 ? '◇' : '·') + '</i>') + '</span>';
         continue;
       }
       html += '<span class="hb-item"' + (slot.count ? ' title="' + esc(text(slot.name, '装备') + ' ×' + slot.count) + '"' : '') + '>' +
         icon('item', slot.value, text(slot.name, ''), 'hb-item-ico') +
         (slot.count ? '<b class="hb-item-count">' + slot.count + '</b>' : '') +
+        (i === 6 ? ward : '') +
         '</span>';
     }
     return html;
@@ -1413,7 +1418,6 @@ var ICONS = {
   function rowMarkup(side, index, player, globalIndex) {
     var p = player || {};
     var id = side + '-' + index;
-    var vision = capUsable('wardScore') && hasNumber(p.wardScore) ? num(p.wardScore) : '—';
     var level = capUsable('level') && hasNumber(p.level) ? num(p.level) : '—';
     var extras = extrasEnabled()
       ? '<span class="hb-extras" id="hb-extras-' + id + '">' +
@@ -1424,7 +1428,6 @@ var ICONS = {
       : '';
     var items = nativeItemsEnabled() ? '' : '<span class="hb-items" id="hb-items-' + id + '">' + itemCells(p, globalIndex) + '</span>';
     return '<div class="hb-row ' + side + '" id="hb-row-' + id + '">' +
-      (nativeItemsEnabled() ? '' : '<span class="hb-vision' + capClass('wardScore') + '" title="' + esc(capTitle('wardScore', '视野得分')) + '"><b id="hb-vision-' + id + '">' + vision + '</b><i>✦</i></span>') +
       extras +
       '<span class="hb-champ" id="hb-champ-' + id + '">' + championMarkup(p) +
         '<span class="hb-level" id="hb-level-' + id + '">' + level + '</span>' + '</span>' +

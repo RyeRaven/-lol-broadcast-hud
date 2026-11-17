@@ -44,11 +44,11 @@ const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 
 // 每件装备都按位置给一组常见出装，够 HUD 画出 6 格 + 饰品。
 const ITEM_SETS = {
-  TOP: ['#3078', '#3047', '#3742', '#6333', '#3053', '#3065'],
-  JUNGLE: ['#3047', '#3742', '#3116', '#3065', '#3087', '#3364'],
-  MID: ['#3020', '#3116', '#3046', '#4645', '#3089', '#3135'],
-  ADC: ['#3031', '#3006', '#3035', '#3072', '#3036', '#3033'],
-  SUPPORT: ['#3853', '#3158', '#3222', '#3107', '#3067', '#3040']
+  TOP: ['#3078', { itemID: 2003, count: 2 }, '#3047', '#3742', '#6333', '#3053'],
+  JUNGLE: ['#3047', { itemID: 2003, count: 2 }, '#3742', '#3116', '#3065', '#3087'],
+  MID: ['#3020', { itemID: 2003, count: 3 }, '#3116', '#3046', '#4645', '#3089'],
+  ADC: ['#3031', { itemID: 2055, count: 2 }, '#3006', '#3035', '#3072', '#3036'],
+  SUPPORT: ['#3853', { itemID: 2003, count: 3 }, '#3158', '#3222', '#3107', '#3067'],
 };
 
 const BAN_BLUE = ['Yone', 'Vi', "Kai'Sa", 'Rakan', 'Poppy'];
@@ -188,7 +188,9 @@ function playerFrame(player, gameSeconds) {
   const assists = Math.round(player.assists * frac);
   const cs = Math.round(player.csPerMin * minute);
   const level = Math.max(1, Math.min(18, 1 + Math.floor(minute * 0.85)));
-  const items = Math.max(1, Math.min(6, Math.floor(minute / 3.6) + 1));
+  // 演示只有 3 分钟：放慢到 1.1 分钟一件，让堆叠装备在局中就出现
+  const items = Math.max(1, Math.min(6, Math.floor(minute / 1.1) + 1));
+  const visionValue = Math.round(player.vision * Math.min(1, minute / 10)) || 0;
   return {
     name: player.name,
     team: player.team,
@@ -202,7 +204,8 @@ function playerFrame(player, gameSeconds) {
     gold: Math.round(500 + minute * (330 + player.csPerMin * 22)),
     damage: Math.round(player.damagePerMin * minute),
     taken: Math.round(player.takenPerMin * minute),
-    vision: Math.round(player.vision * Math.min(1, minute / 18)) || 0,
+    vision: visionValue,
+    wardScore: visionValue,
     kp: Math.round((kills + assists) / Math.max(1, scoreAt(player.team, gameSeconds)) * 100),
     alive: true,
     items: ITEM_SETS[player.role].slice(0, items),
@@ -267,6 +270,7 @@ function postGameFrame() {
       damage: frame.damage,
       taken: frame.taken,
       vision: player.vision,
+      wardScore: player.vision,
       level: 18,
       items: ITEM_SETS[player.role].slice(0, 6)
     };

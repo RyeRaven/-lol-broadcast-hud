@@ -841,6 +841,24 @@ body.hb-body {
 .hb-item.empty { display: grid; place-items: center; }
 .hb-item.empty i { font-style: normal; font-size: 8px; color: rgba(148, 163, 184, 0.35); }
 
+.hb-item-ward {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  font-style: normal;
+  font-size: 9px;
+  line-height: 11px;
+  font-weight: 700;
+  color: #9fd0ff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+}
+
+.hb-item.empty .hb-item-ward {
+  position: static;
+  font-size: 10px;
+  color: rgba(159, 208, 255, 0.8);
+}
+
 .hb-item-count {
   position: absolute;
   right: 2px;
@@ -1216,8 +1234,10 @@ body.hb-body {
 .hb-vision { width: 34px; }
 .hb-extras { left: 34%; }
 .hb-champ { width: 38px; height: 38px; }
-.hb-items { left: 47.8331%; width: auto; }
-.hb-row.red .hb-items { left: 18.9406%; }
+/* 装备带与状态条的间距两侧对称（= BAR_GAP 10px）：蓝带右缘钉在状态条列左缘前 10px，
+   红带左缘钉在状态条列右缘后 10px；128 = 状态条 114 + 尾隙 4 + 10。 */
+.hb-row.blue .hb-items { right: 128px; }
+.hb-row.red .hb-items { left: 128px; }
 
 /* KDA 走名字块第二行，等宽数字；CS 数值按需求下掉，KDA 12px 稍放大。 */
 .hb-cs,
