@@ -1506,6 +1506,31 @@ function showSettingsTab(name) {
   }
 }
 
+var ROLE_ORDER = { TOP: 0, JUNGLE: 1, MID: 2, ADC: 3, SUPPORT: 4 };
+var ROLE_LABEL = { TOP: '上单', JUNGLE: '打野', MID: '中单', ADC: '下路', SUPPORT: '辅助' };
+
+function lineupMarkup(players, team) {
+  var list = (Array.isArray(players) ? players : []).filter(function (p) { return p && p.team === team; });
+  list.sort(function (a, b) {
+    var ra = ROLE_ORDER[a.role] == null ? 9 : ROLE_ORDER[a.role];
+    var rb = ROLE_ORDER[b.role] == null ? 9 : ROLE_ORDER[b.role];
+    return ra - rb;
+  });
+  if (!list.length) return '<li class="c2-lu-empty">未配置选手</li>';
+  return list.slice(0, 5).map(function (p) {
+    var role = ROLE_LABEL[p.role] || p.role || '—';
+    return '<li><span>' + esc(role) + '</span><b>' + esc(p.displayName || p.gameName || '—') + '</b></li>';
+  }).join('');
+}
+
+function renderLineup(config) {
+  var players = config && Array.isArray(config.players) ? config.players : [];
+  var blue = byId('lineupBlue');
+  if (blue) blue.innerHTML = lineupMarkup(players, 'blue');
+  var red = byId('lineupRed');
+  if (red) red.innerHTML = lineupMarkup(players, 'red');
+}
+
 function renderShellExtras(state) {
   if (!state) return;
   var blue = state.blue || {};
@@ -1518,6 +1543,7 @@ function renderShellExtras(state) {
   setTextById('homeSeries', state.tournamentName || 'Khada Jhin');
   setTextById('homeMatchTitle', (blue.name || '蓝方') + ' vs ' + (red.name || '红方'));
   setTextById('homeMatchSub', (state.tournamentName || 'Khada Jhin') + ' · ' + phaseText(state.phase) + ' · ' + (state.mode === 'live' ? '实战数据' : '模拟数据'));
+  renderLineup(state.broadcastConfig);
 }
 
 // 阶段一变就跟着换屏（用户在首页/设置里时不打断）。
@@ -1611,9 +1637,9 @@ function consolePage(port) {
       <section class="panel" id="quick-start">
       <div class="panel-head"><h2>快速开始</h2><span class="kicker">GUIDE</span></div>
       <ol class="quick-steps">
-      <li><b>配置赛事</b><small>右侧「赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
+      <li><b>配置赛事</b><small>「设置 · 赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
       <li><b>选数据模式</b><small>调试用「模拟数据」，正式比赛用「实战数据」</small></li>
-      <li><b>OBS 添加广播页</b><small>把下方「广播页」URL 添加为 OBS 浏览器源；推荐聚合舞台页（单 URL 全流程自动切换）</small></li>
+      <li><b>OBS 添加广播页</b><small>「设置 · 广播源与诊断」复制聚合舞台页 URL，添加为 OBS 浏览器源（单 URL 全流程自动切换）</small></li>
       <li><b>开赛导播</b><small>「广播控制」按钮或快捷键 1/2/3/4 切换 BP / 局内 / 赛后</small></li>
       </ol>
       </section>
@@ -1654,7 +1680,10 @@ function consolePage(port) {
       <button type="button" id="refreshSources" class="btn ghost wide">重新探测数据源</button>
       </section>
         <section class="panel"><div class="panel-head"><h2>首发阵容</h2><span class="kicker">STARTING LINEUP</span></div>
-          <div class="c2-note">名单来自「设置 · 赛事配置 · 选手」，配置完成后按分路显示在这里。</div>
+          <div class="c2-lineup">
+  <div class="c2-lu-col" data-side="blue"><span class="c2-lu-head">蓝方</span><ol class="c2-lu-list" id="lineupBlue"><li class="c2-lu-empty">未配置选手</li></ol></div>
+  <div class="c2-lu-col" data-side="red"><span class="c2-lu-head">红方</span><ol class="c2-lu-list" id="lineupRed"><li class="c2-lu-empty">未配置选手</li></ol></div>
+</div>
         </section>
         <section class="panel"><div class="panel-head"><h2>开赛前检查</h2><span class="kicker">CHECKLIST</span></div>
           <ol class="c2-checklist">
