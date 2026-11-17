@@ -175,7 +175,10 @@ function normalizePlayer(player, options = {}) {
     resourcePercent: null,
     shieldPercent: null,
     resourceColor: null,
-    pixelBars: null
+    pixelBars: null,
+    // 屏幕经济面板 OCR（econ-ocr）的真值锚：非 null 时 totalGold 归 OCR 所有，协议流失效
+    // 保护不得清它；每轮由 normalizeLiveState 按行序回填，没读到的必须是 null，绝不留旧值。
+    econGold: null
   };
 }
 

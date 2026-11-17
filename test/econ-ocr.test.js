@@ -377,3 +377,73 @@ test('econ-ocr：econ_ocr.py --image 解析真实截图（设置 ECON_OCR_TEST_I
   // 用户截图真值：107(1457) 782(2582) 331(2031) 566(1716) 468(1418)
   assert.deepEqual(blue, [1457, 2582, 2031, 1716, 1418]);
 });
+
+// ---------- 回归：协议流失效保护不得清掉 econ-ocr 保持期内的 totalGold ----------
+
+test('econ-ocr：协议流失效时 OCR 保持期内的 totalGold 不被清掉（防每秒闪回 —），过期后正常失效', { timeout: 90000 }, async t => {
+  const livePort = await allocatePort();
+  const live = { child: spawnNode('tools/fake-live-server.js', [String(livePort)], {}) };
+  t.after(() => stopRun(live));
+  await waitForOutput(live, /fake live client on \d+/);
+  const port = await allocatePort();
+  const app = { child: spawnNode('src/main.js', [], {
+    PORT: String(port),
+    LIVE_CLIENT_URL: 'http://127.0.0.1:' + livePort,
+    RIOT_LCU_PORT: '9',
+    RIOT_REMOTING_AUTH_TOKEN: '',
+    RIOT_CLIENT_COMMAND_LINE: '',
+    RIOT_LOCKFILE: ''
+  }) };
+  t.after(() => stopRun(app));
+  await waitForOutput(app, /Khada Jhin running at http:\/\/127\.0\.0\.1:\d+/);
+
+  const inGame = await waitFor('进入局内阶段', async () => {
+    const response = await getJson(port, '/api/state');
+    return response.body.mode === 'live' && response.body.players.length === 10 ? response.body : null;
+  });
+  assert.equal(inGame.players.filter(p => p.team === 'blue')[0].totalGold, null, 'OCR 读数到达前必须是 null');
+
+  // OCR 正常上报（协议流自始至终不活跃——假 LCDA 不带协议字段）。
+  const posted = await request(port, '/api/econ-ocr', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ts: Date.now(), source: 'econ-ocr', rows: [
+      { side: 'blue', rowIndex: 0, totalGold: 1457 },
+      { side: 'red', rowIndex: 0, totalGold: 1987 }
+    ] })
+  });
+  assert.equal(posted.status, 200);
+  const applied = await waitFor('玩家拿到 OCR 金币', async () => {
+    const response = await getJson(port, '/api/state');
+    const blue = response.body.players.filter(p => p.team === 'blue')[0];
+    const red = response.body.players.filter(p => p.team === 'red')[0];
+    return blue && blue.totalGold === 1457 && red && red.totalGold === 1987 ? response.body : null;
+  });
+  assert.equal(applied.econOcr.active, true);
+
+  // 关键回归窗口：跨过多个 tick（refreshProtocolFeed 每秒跑一次），OCR 不再上报但仍在 6s 保持期内。
+  // 修复前：refreshProtocolFeed 每秒把 totalGold 清成 null，约 0.2s 后才被轮询恢复——HUD 每秒闪一次。
+  // 持续高频采样，任何一次采到 null 都算回归。
+  const holdMs = 2400;
+  const started = Date.now();
+  let samples = 0;
+  while (Date.now() - started < holdMs) {
+    const response = await getJson(port, '/api/state');
+    const blue = response.body.players.filter(p => p.team === 'blue')[0];
+    const red = response.body.players.filter(p => p.team === 'red')[0];
+    samples += 1;
+    assert.equal(blue.totalGold, 1457, '保持期内协议流失效不得清掉 OCR 金币（蓝）');
+    assert.equal(red.totalGold, 1987, '保持期内协议流失效不得清掉 OCR 金币（红）');
+    await delay(150);
+  }
+  assert.ok(samples >= 8, '回归窗口必须采到足够多的样本：' + samples);
+
+  // 超过 6s 保持期：OCR 读数真正失效，字段清空、契约降级（协议流依旧不活跃，也不许伪造别的值）。
+  const expired = await waitFor('OCR 保持期过后读数失效', async () => {
+    const response = await getJson(port, '/api/state');
+    const blue = response.body.players.filter(p => p.team === 'blue')[0];
+    return blue && blue.econGold === null && blue.totalGold === null ? response.body : null;
+  }, 12000);
+  assert.equal(expired.econOcr.active, false);
+  assert.equal(expired.capability.fields.totalGold.available, false, '过期后契约必须降回 unavailable');
+});

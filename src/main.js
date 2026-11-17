@@ -568,6 +568,14 @@ function refreshProtocolFeed() {
   for (const player of Array.isArray(state.players) ? state.players : []) {
     if (!player || typeof player !== 'object') continue;
     player.csExact = null;
+    // econ-ocr 保持期内（econGold 非空）totalGold 归 OCR 所有：协议流失效不许把它清掉，
+    // 否则 HUD 每秒在「真值→—」之间闪一次。字段归属与 capability 层 applyProtocolAvailability 同构。
+    if (player.econGold !== null && player.econGold !== undefined) {
+      player.xp = null;
+      player.csAsOf = null;
+      player.xpAsOf = null;
+      continue;
+    }
     player.totalGold = null;
     player.xp = null;
     player.csAsOf = null;
