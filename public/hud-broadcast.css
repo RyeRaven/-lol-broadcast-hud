@@ -841,22 +841,17 @@ body.hb-body {
 .hb-item.empty { display: grid; place-items: center; }
 .hb-item.empty i { font-style: normal; font-size: 8px; color: rgba(148, 163, 184, 0.35); }
 
+/* 视野分：参考客户端饰品槽的计数比例 —— 数字约占格子高的 2/3，锚在左下角，白字重描边。 */
 .hb-item-ward {
   position: absolute;
-  top: 0;
-  left: 2px;
+  left: 1px;
+  bottom: 0;
   font-style: normal;
-  font-size: 9px;
-  line-height: 11px;
-  font-weight: 700;
-  color: #9fd0ff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
-}
-
-.hb-item.empty .hb-item-ward {
-  position: static;
-  font-size: 10px;
-  color: rgba(159, 208, 255, 0.8);
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000, 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .hb-item-count {
