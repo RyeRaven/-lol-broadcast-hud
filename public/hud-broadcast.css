@@ -836,18 +836,13 @@ body.hb-body {
 
 .hb-item-count {
   position: absolute;
-  right: 1px;
+  right: 2px;
   bottom: 0;
-  min-width: 9px;
-  padding: 0 2px;
-  font-size: 9px;
-  line-height: 11px;
+  font-size: 10px;
+  line-height: 12px;
   font-weight: 800;
   color: #ffd76a;
-  background: rgba(4, 8, 12, 0.78);
-  border-radius: 3px 0 0 0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.85);
 }
 
 /* 可选装饰列（?hbExtras=1）：符文基石 / 分路任务 / 召唤师技能 / 大招圆徽。
