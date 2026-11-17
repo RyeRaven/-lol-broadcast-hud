@@ -155,6 +155,9 @@
 
 /* 经济差曲线：绘图区细边框，Y 标签在外侧 */
 .rs-goldchart { flex: 1; min-height: 0; }
+/* 逐人金币真值曲线：10 条线（蓝红各 5），复用 rs-gline/rs-gframe/rs-gtick/rs-gylab */
+.rs-pgold { flex: 1; min-height: 0; }
+.rs-pgold svg { width: 100%; height: 100%; display: block; }
 .rs-goldchart svg { width: 100%; height: 100%; display: block; }
 .rs-gline { stroke: rgba(232,230,227,.1); stroke-width: 1; }
 .rs-gzero { stroke: rgba(232,230,227,.3); stroke-width: 1; stroke-dasharray: 4 4; }

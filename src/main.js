@@ -17,7 +17,7 @@ const { buildHighlights, latestHighlights, handleHighlightsApi, MAX_HIGHLIGHTS }
 const { createDirectorEngine, handleDirectorApi } = require('./director');
 const replay = require('./replay');
 const { buildPostGame } = require('./post-game');
-const { parseTimelineGold } = require('./gold-timeline');
+const { parseTimelineGold, parseTimelineGoldPlayers } = require('./gold-timeline');
 const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
 const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
@@ -107,6 +107,19 @@ function championLabel(championId) {
   const name = championIndex && typeof championIndex.name === 'function' ? championIndex.name(numeric) : '';
   return name || '#' + numeric;
 }
+// participantId → 选手标签（英雄/名字）。eog 不暴露 participantId 时映射为空，
+// 赛后页只画线不写名；绝不按顺序猜（队伍内出场顺序 ≠ participantId）。
+function rosterByParticipantId(postGame) {
+  const map = Object.create(null);
+  const players = postGame && Array.isArray(postGame.players) ? postGame.players : [];
+  for (const p of players) {
+    const id = Number(p && p.participantId);
+    if (!id || id < 1 || id > 10 || map[id]) continue;
+    map[id] = { champion: p.champion || '', name: p.name || '' };
+  }
+  return map;
+}
+
 // 赛后经济差曲线：异步拉取本局 timeline（LCU），解析成蓝/红每分钟总经济后写入 state 供页面透传。
 // 拉取失败或数据缺失时保持 null，赛后页自动回退演示曲线，不阻塞结算窗口。
 async function fetchGoldTimeline(gameId) {
@@ -118,6 +131,12 @@ async function fetchGoldTimeline(gameId) {
     const parsed = parseTimelineGold(timeline);
     if (parsed && parsed.length) {
       state.goldTimeline = parsed;
+      broadcast();
+    }
+    // 逐人金币真值（每 60s 一帧、全 10 人），赛后页画逐人曲线；拿不到时保持 null → 页面演示曲线。
+    const playerSeries = parseTimelineGoldPlayers(timeline, rosterByParticipantId(state.postGame));
+    if (playerSeries && playerSeries.length) {
+      state.goldPlayers = playerSeries;
       broadcast();
     }
   } catch (error) {
@@ -135,6 +154,7 @@ function enterPostGameFromFrozen() {
   state.mode = 'live'; state.phase = 'post_game'; state.postGame = { ...postGame, capturedAt: Date.now() }; state.players = postGame.players;
   state.gameTime = Math.floor(postGame.gameLength) || state.gameTime;
   state.goldTimeline = null;
+  state.goldPlayers = null;
   void fetchGoldTimeline(postGame.gameId);
   for (const side of ['blue', 'red']) for (const key of ['score', 'towers', 'dragons', 'barons']) state[side][key] = postGame[side][key];
   return true;
@@ -206,6 +226,7 @@ async function pollLcuDraft() {
         state.phase = 'in_game';
         state.postGame = null;
         state.goldTimeline = null;
+        state.goldPlayers = null;
         frozenSnapshot = null;
         resetLiveGameData();
         liveClientWatchdog.reset();
@@ -227,6 +248,7 @@ async function pollLcuDraft() {
             for (const key of ['score', 'towers', 'dragons', 'barons']) state[side][key] = postGame[side][key];
           }
           state.goldTimeline = null;
+          state.goldPlayers = null;
           void fetchGoldTimeline(postGame.gameId);
         }
       }

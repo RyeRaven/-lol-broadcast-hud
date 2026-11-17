@@ -35,6 +35,8 @@ function normalizeEogStats(block) {
       return {
         name: entry.summonerName || entry.riotIdGameName || entry.gameName || '',
         championId: num(entry.championId),
+        // eog 目前不一定暴露 participantId：有就透传（timeline 逐人金币用它对齐英雄标签），没有保持 null，绝不按顺序猜。
+        participantId: num(entry.participantId) || null,
         champion: entry.championName || '',
         team: side,
         kills: num(stats.kills),
