@@ -1864,7 +1864,10 @@ function renderDraftBoard(state) {
   var round = byId('draftRound');
   if (!draft || (!(draft.bluePicks || []).length && !(draft.redPicks || []).length && !(draft.blueBans || []).length && !(draft.redBans || []).length)) {
     if (round) round.textContent = '等待 BP';
-    box.innerHTML = '<span class="empty">等待 BP 数据…</span>';
+    if (box.__rbHtml !== '<span class="empty">等待 BP 数据…</span>') {
+      box.__rbHtml = '<span class="empty">等待 BP 数据…</span>';
+      box.innerHTML = box.__rbHtml;
+    }
     return;
   }
   if (round) {
@@ -1888,7 +1891,11 @@ function renderDraftBoard(state) {
       '<span class="c2-draft-line"><small>已选</small>' + chips(picks, 'pick') + '</span>' +
       '</div>';
   };
-  box.innerHTML = row('blue', draft.bluePicks, draft.blueBans) + row('red', draft.redPicks, draft.redBans);
+  // 每秒一次的状态推送不该把 <img> 全部重建（会闪）；内容没变就一个节点都不碰。
+  var html = row('blue', draft.bluePicks, draft.blueBans) + row('red', draft.redPicks, draft.redBans);
+  if (box.__rbHtml === html) return;
+  box.__rbHtml = html;
+  box.innerHTML = html;
 }
 
 function renderSettle(state) {

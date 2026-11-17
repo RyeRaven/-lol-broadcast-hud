@@ -247,8 +247,10 @@ async function pollLcuDraft() {
         resetDraftState();
         state.live.draft = { source: 'lcu', parsed: false, actions: 0, error: e.message, updatedAt: Date.now() };
       }
-    } else if (state.phase === 'draft') {
+    } else if (state.mode === 'live' && state.phase === 'draft') {
       // 离开 ChampSelect（Lobby/Matchmaking/None）：退出 BP，清空旧阵容。
+      // 模拟模式必须挡在外面：剧本每秒把 phase 写回 draft，这里若照样清空，页面会以 1Hz 在
+      // 「有 BP 数据」和「空 BP」之间跳（控台整页上下弹、OBS ban 栏头像闪）。
       state.phase = 'lobby';
       resetDraftState();
       state.live.draft = { source: 'lcu', parsed: false, actions: 0, phase, updatedAt: Date.now() };

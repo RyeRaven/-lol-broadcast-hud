@@ -222,7 +222,9 @@ const PAGE_SCRIPT = String.raw`(function () {
     } else {
       base = livePlayers(side)[index] || configPlayers(side)[index] || {};
     }
-    var champion = text(base.champion, text(picks[index], ''));
+    // BP 页的 pick 只认 BP 进度（LCU 选人顺序 / 模拟剧本），不能拿选手名单里的 champion 当结果：
+    // 名单是赛前填报的，会让五个 pick 在开场就全部显示出来。
+    var champion = text(picks[index], '');
     return {
       name: text(base.displayName, text(base.name, text(base.gameName, '—'))),
       champion: champion,
@@ -407,7 +409,7 @@ const PAGE_SCRIPT = String.raw`(function () {
       var node = byId('bb-coach-' + side);
       if (!node) return;
       var coach = (all.coaches || []).filter(function (item) { return item && item.team === side; })[0] || {};
-      node.innerHTML = '<span>COACH:</span><b>' + esc(text(coach.name, '—')) + '</b>' + (coach.role ? '<small>' + esc(coach.role) + '</small>' : '');
+      setHtml(node, '<span>COACH:</span><b>' + esc(text(coach.name, '—')) + '</b>' + (coach.role ? '<small>' + esc(coach.role) + '</small>' : ''));
     });
   }
 
