@@ -1444,7 +1444,7 @@ var ICONS = {
     var items = nativeItemsEnabled() ? '' : '<span class="hb-items" id="hb-items-' + id + '">' + itemCells(p, globalIndex) + '</span>';
     return '<div class="hb-row ' + side + '" id="hb-row-' + id + '">' +
       extras +
-      '<span class="hb-champ" id="hb-champ-' + id + '">' + championMarkup(p) +
+      '<span class="hb-champ" id="hb-champ-' + id + '"><span class="hb-champ-art" id="hb-champ-art-' + id + '">' + championMarkup(p) + '</span>' +
         '<span class="hb-level" id="hb-level-' + id + '">' + level + '</span>' + '</span>' +
       items +
       '<span class="hb-info" id="hb-info-' + id + '">' +
@@ -1462,12 +1462,7 @@ var ICONS = {
       return side + ':' + playerList(side).map(function (player) { return playerDisplayName(player) + '|' + text(player.champion, '') + '|' + playerRole(player); }).join(',');
     }).join('||');
   }
-  function animateRows() {
-    if (!ROOT.querySelectorAll) return;
-    var rows = ROOT.querySelectorAll('.hb-row');
-    if (A.staggerIn) A.staggerIn(rows, { step: 45, className: 'hb-in' });
-    else Array.prototype.forEach.call(rows, function (row) { row.classList.add('hb-in'); });
-  }
+  // 入场级联动画已删（hb-row-in）：名单重建不重播动效，行直接就位。
   function ensureRows() {
     var key = rosterKey();
     if (key === lastRosterKey) return false;
@@ -1486,7 +1481,6 @@ var ICONS = {
       for (var m = 0; m < 5; m += 1) cells += '<span class="hb-diff-cell" id="hb-diff-cell-' + m + '"></span>';
       mid.innerHTML = cells;
     }
-    if (introPlayed) animateRows();
     return true;
   }
   function updateRows() {
@@ -1501,8 +1495,8 @@ var ICONS = {
         if (player) row.setAttribute('title', playerDisplayName(player) + ' · ' + text(player.champion, ''));
         setText('hb-vision-' + id, player && capUsable('wardScore') && hasNumber(player.wardScore) ? Math.round(num(player.wardScore)) : '—');
         setText('hb-level-' + id, player && capUsable('level') && hasNumber(player.level) ? num(player.level) : '—');
-        var champ = byId('hb-champ-' + id);
-        setHtml(champ, championMarkup(player || {}) + '<span class="hb-level" id="hb-level-' + id + '">' + (player && capUsable('level') && hasNumber(player.level) ? num(player.level) : '—') + '</span>');
+        // 头像与等级分节点更新：等级变化只 setText 角标，头像 <img> 不再随 innerHTML 重建（OBS 里眨眼）。
+        setHtml(byId('hb-champ-art-' + id), championMarkup(player || {}));
         var ult = byId('hb-ult-' + id); setHtml(ult, ultMarkup(player || {}));
         setText('hb-pname-' + id, player ? playerDisplayName(player) : '—');
         var roleNode = byId('hb-prole-' + id);
@@ -1839,7 +1833,6 @@ var ICONS = {
   function playIntro() {
     var top = byId('hb-topbar');
     if (top) { top.classList.remove('hb-in'); void top.offsetWidth; top.classList.add('hb-in'); }
-    animateRows();
   }
   function replayIntro(withWipe) { if (withWipe && A.sceneWipe) A.sceneWipe(ROOT, { duration: 360 }); playIntro(); }
   function renderAll(previous) {

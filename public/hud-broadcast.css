@@ -708,8 +708,7 @@ body.hb-body {
   height: var(--hb-row-h);
   /* 行本身不铺底、不画分隔线：底色与行线统一由 .hb-half::before 绘制，才能整体挖孔。 */
   background: none;
-  opacity: 0;
-  transform: translateY(10px);
+  /* 入场级联动画（hb-row-in）已按需求删除：行默认可见，名单重建不再重播「刷新动效」。 */
 }
 
 /* 原生挖孔模式下 --hb-grid-* 由 syncLayout 按标定计算：名字块（蓝第 4 列）右缘必须让出饰品孔；
@@ -745,18 +744,6 @@ body.hb-body {
 .hb-row > .hb-items { position: absolute; top: 50%; transform: translateY(-50%); }
 
 .hb-half .hb-row:last-child { border-bottom: 0; }
-
-.hb-row.hb-in { animation: hb-row-in 0.42s cubic-bezier(0.2, 0.75, 0.25, 1) forwards; }
-
-.hb-half .hb-row:nth-child(2) { animation-delay: 45ms; }
-.hb-half .hb-row:nth-child(3) { animation-delay: 90ms; }
-.hb-half .hb-row:nth-child(4) { animation-delay: 135ms; }
-.hb-half .hb-row:nth-child(5) { animation-delay: 180ms; }
-
-@keyframes hb-row-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 .hb-row.dead {
   opacity: 0.44;
