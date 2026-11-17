@@ -1,6 +1,6 @@
 {
   "name": "khada-jhin",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Windows 本地 LoL 赛事导播 MVP：模拟数据、OBS Overlay 与控台",
   "author": "Khada Jhin Team",
