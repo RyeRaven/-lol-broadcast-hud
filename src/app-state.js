@@ -49,12 +49,18 @@ const state = {
   // 像素读条（t23）：{active, updatedAt, stale}。active=false 表示本轮没有有效读数，
   // 页面必须画 unknown 占位，不得把上一条读数当成当前血量。
   pixelBars: { active: false, updatedAt: null, stale: false },
-  draft: { round: '第 3 轮 · 进行中', timer: 18, active: 'blue', blueBans: ['奥恩', '蔚', '卡莎', '洛', '波比'], redBans: ['永恩', '盲僧', '霞', '卡莉丝塔', '兰博'], bluePicks: ['杰斯', '瑟提', '辛德拉', '伊泽瑞尔', '泰坦'], redPicks: ['鳄鱼', '赵信', '阿狸', '厄斐琉斯', '蕾欧娜'] },
+  // BP 演示数据只在 mock 模式预置；实盘模式在真实 session 到达前必须是空 BP（和比分/选手同一条原则）。
+  draft: initialMode === 'live'
+    ? { round: '', timer: null, active: 'blue', blueBans: [], redBans: [], bluePicks: [], redPicks: [], blueHover: [], redHover: [] }
+    : { round: '第 3 轮 · 进行中', timer: 18, active: 'blue', blueBans: ['奥恩', '蔚', '卡莎', '洛', '波比'], redBans: ['永恩', '盲僧', '霞', '卡莉丝塔', '兰博'], bluePicks: ['杰斯', '瑟提', '辛德拉', '伊泽瑞尔', '泰坦'], redPicks: ['鳄鱼', '赵信', '阿狸', '厄斐琉斯', '蕾欧娜'] },
   players: [],
   highlights: [],
   updatedAt: Date.now()
 };
-state.live = { lcu: { connected: false, discovery: null, phase: null, lastError: null }, draft: { source: 'mock', parsed: false }, game: { source: 'mock', parsed: false } };
+// 实盘模式在第一次 LCU 轮询回来前是「未知」而不是「已解析为空」，避免页面把空 BP 当成真实结果。
+state.live = initialMode === 'live'
+  ? { lcu: { connected: false, discovery: null, phase: null, lastError: null }, draft: { source: null, parsed: null }, game: { source: null, parsed: null } }
+  : { lcu: { connected: false, discovery: null, phase: null, lastError: null }, draft: { source: 'mock', parsed: false }, game: { source: 'mock', parsed: false } };
 state.postGame = null;
 // MVP 手选：控台 POST /api/mvp 写入 {name,team,champion,championId,at}；null=待评选。
 state.mvp = null;

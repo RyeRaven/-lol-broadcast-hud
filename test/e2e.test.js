@@ -10,11 +10,23 @@ const http = require('node:http');
 const https = require('node:https');
 const net = require('node:net');
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { createFakeLcu, DRAFT_SESSION } = require('../tools/fake-lcu');
 
 const ROOT = path.resolve(__dirname, '..');
 const TOKEN = ['local', 'fake', 'lcu'].join('-');
+// 隔离数据目录：绝不读写开发者本机的 data/config.json。
+// 这里显式给一份 mode=live 的初始配置，测试不依赖本机上一次运行的持久状态。
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rb-e2e-'));
+// 每个用例起服务前重写一次：上一个用例的进程被 kill 时可能正写到一半，不能把脏配置留给下一个用例。
+// 真实配置落在 <RB_DATA_DIR>/data/config.json（见 src/app-state.js）。
+function resetTestConfig() {
+  fs.mkdirSync(path.join(TEST_DATA_DIR, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(TEST_DATA_DIR, 'data', 'config.json'), JSON.stringify({ mode: 'live', phase: 'draft', tournamentName: 'E2E CUP' }));
+}
+resetTestConfig();
 const PORT_RANGE_START = 3212;
 const PORT_RANGE_END = 3219;
 
@@ -166,7 +178,9 @@ function openSse(port) {
 test('e2e：假 LCU 驱动 draft -> in_game -> post_game 全链路', { timeout: 90000 }, async t => {
   const [appPort, lcuPort, livePort] = await pickPorts(3);
   const lcu = spawnNode('tools/fake-lcu.js', [String(lcuPort), '--token', TOKEN], {});
+  resetTestConfig();
   const app = spawnNode('src/main.js', [], {
+    RB_DATA_DIR: TEST_DATA_DIR,
     PORT: String(appPort),
     RIOT_LCU_PORT: String(lcuPort),
     RIOT_REMOTING_AUTH_TOKEN: TOKEN,
@@ -389,7 +403,9 @@ test('e2e：空 BP session 仍进入 draft，post_game 后新局 InProgress 清�
   DRAFT_SESSION.myTeam = [];
   DRAFT_SESSION.theirTeam = [];
   DRAFT_SESSION.actions = [];
+  resetTestConfig();
   const app = spawnNode('src/main.js', [], {
+    RB_DATA_DIR: TEST_DATA_DIR,
     PORT: String(appPort),
     RIOT_LCU_PORT: String(lcuPort),
     RIOT_REMOTING_AUTH_TOKEN: TOKEN,
@@ -457,7 +473,9 @@ test('e2e：空 BP session 仍进入 draft，post_game 后新局 InProgress 清�
 test('e2e：session 404 不抛错，离开 ChampSelect 清空 BP 数据', { timeout: 45000 }, async t => {
   const [appPort, lcuPort] = await pickPorts(2);
   const fake = await createFakeLcu({ port: lcuPort, token: TOKEN, phase: 'ChampSelect', sessionMissing: true });
+  resetTestConfig();
   const app = spawnNode('src/main.js', [], {
+    RB_DATA_DIR: TEST_DATA_DIR,
     PORT: String(appPort),
     RIOT_LCU_PORT: String(lcuPort),
     RIOT_REMOTING_AUTH_TOKEN: TOKEN,

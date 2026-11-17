@@ -24,7 +24,10 @@ const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, 
 const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
 const { readBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
 const seriesStore = require('./series');
+const mockDemo = require('./mock-demo');
 state.series = seriesStore.snapshot();
+// 演示剧本状态（mock 模式）：默认自动播放，控台可暂停 / 重播 / 调速。
+state.demo = { playing: state.mode === 'mock', speed: 1, elapsed: 0, stage: 'lobby', progress: 0 };
 const { handleLogoUploadApi } = require('./uploads');
 const { overlayPage, OVERLAY_TYPES } = require('./pages/overlays');
 const { consolePage } = require('./pages/console');
@@ -583,24 +586,87 @@ function onProtocolFeedUpdate(snapshot) {
   broadcast();
 }
 
+// ---- 演示剧本（mock 模式）---------------------------------------------------
+// 一场比赛压缩成 ~3 分钟循环：等待开始 → BP → 赛中 → 赛后（含 MVP 评选），
+// 剧本内容本身是纯函数（src/mock-demo.js），这里只把快照写进 state 并推进系列赛。
+function demoTournamentName() {
+  const cfg = state.broadcastConfig || {};
+  return state.tournamentName || (cfg.series && cfg.series.name) || '';
+}
+function demoTeams() {
+  const cfg = state.broadcastConfig || {};
+  const blue = (cfg.teams && cfg.teams.blue && cfg.teams.blue.name) || '';
+  const red = (cfg.teams && cfg.teams.red && cfg.teams.red.name) || '';
+  return { blue: { name: blue || mockDemo.TEAMS.blue.name }, red: { name: red || mockDemo.TEAMS.red.name } };
+}
+function demoSeriesStart() {
+  try {
+    state.series = seriesStore.snapshot(seriesStore.start({ tournament: demoTournamentName(), bestOf: 3, teams: demoTeams() }));
+  } catch (error) {
+    state.series = seriesStore.snapshot();
+  }
+}
+function demoSeriesAdvance() {
+  // 演示里每次循环 = 一局：比分够就收尾开新一轮，否则进下一局。
+  try {
+    const series = seriesStore.read();
+    if (series.status === 'running' && !seriesStore.snapshot(series).decided) {
+      state.series = seriesStore.snapshot(seriesStore.nextGame());
+      return;
+    }
+    if (series.status === 'running' || series.status === 'finished') seriesStore.end();
+    demoSeriesStart();
+  } catch (error) {
+    state.series = seriesStore.snapshot();
+    demoSeriesStart();
+  }
+}
+function demoRecordGame(scene) {
+  if (!scene || !scene.result) return;
+  try {
+    const mvp = state.mvp && state.mvp.name ? { name: state.mvp.name, team: state.mvp.team } : null;
+    state.series = seriesStore.snapshot(seriesStore.recordGame({
+      winner: scene.result.winner,
+      blueKills: scene.result.blueKills,
+      redKills: scene.result.redKills,
+      duration: scene.result.duration,
+      mvp
+    }));
+  } catch (error) {
+    state.series = seriesStore.snapshot();
+  }
+}
+function applyDemoScene(scene, previousStage) {
+  const teams = demoTeams();
+  state.phase = scene.phase;
+  state.gameTime = scene.gameTime;
+  for (const side of ['blue', 'red']) {
+    state[side] = { ...(state[side] || {}), ...scene[side], name: teams[side].name || scene[side].name };
+  }
+  state.draft = scene.draft;
+  state.players = scene.players;
+  state.postGame = scene.postGame;
+  state.demo.stage = scene.stage;
+  state.demo.progress = Math.round(scene.progress * 1000) / 1000;
+  // 只在刚进入赛后那一帧记这一局：同一次循环里反复渲染 post 不能重复计分。
+  if (scene.stage === 'post' && previousStage !== 'post') demoRecordGame(scene);
+}
+
 function tick() {
   refreshPixelBars();
   refreshProtocolFeed();
-  if (state.mode === 'mock' && state.phase === 'in_game') {
+  if (state.mode === 'mock') {
     state.goldEstimated = false;
     state.goldSource = 'mock';
-    state.gameTime += 1;
-    if (state.gameTime % 17 === 0) state.blue.score += 1;
-    if (state.gameTime % 29 === 0) state.red.score += 1;
-    state.blue.gold += 38; state.red.gold += 35;
-    // 补刀按 ~10 cs/min 的真人节奏涨，绝不再「每秒给奇数位 +1」（旧实现跑满 90 分钟能把
-    // 估算经济放大到 10 万级，中栏显示 107.7K 这种假数字）。
-    state.players.forEach((p, i) => {
-      if ((state.gameTime + i * 2) % 6 === 0) p.cs += 1;
-      p.level = Math.min(18, p.level + (state.gameTime % 73 === i ? 1 : 0));
-    });
-  } else if (state.mode === 'mock' && state.phase === 'draft') {
-    state.draft.timer -= 1; if (state.draft.timer <= 0) { state.draft.timer = 30; state.draft.active = state.draft.active === 'blue' ? 'red' : 'blue'; }
+    const before = state.demo.stage;
+    if (state.demo.playing) {
+      state.demo.elapsed += 1000 * state.demo.speed;
+      while (state.demo.elapsed >= mockDemo.LOOP_MS) {
+        state.demo.elapsed -= mockDemo.LOOP_MS;
+        demoSeriesAdvance();
+      }
+    }
+    applyDemoScene(mockDemo.sceneAt(state.demo.elapsed), before);
   }
   broadcast();
 }
@@ -821,9 +887,34 @@ const server = http.createServer((req,res)=>{
   }
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   if (url.pathname === '/api/series' && req.method === 'GET') return json(res, 200, { ok: true, series: state.series || seriesStore.snapshot() });
+  if (url.pathname === '/api/demo') {
+    if (req.method === 'GET') return json(res, 200, { ok: true, demo: state.demo, loop: mockDemo.LOOP_MS, stages: mockDemo.LOOP });
+    readBody(req, res).then(body => {
+      const action = String((body && body.action) || '');
+      if (action === 'play') state.demo.playing = true;
+      else if (action === 'pause') state.demo.playing = false;
+      else if (action === 'restart') { state.demo.elapsed = 0; state.demo.stage = 'lobby'; state.demo.playing = true; }
+      else if (action === 'seek') {
+        const at = Number(body && body.at);
+        if (!Number.isFinite(at) || at < 0 || at >= mockDemo.LOOP_MS) throw badRequest('invalid_seek');
+        state.demo.elapsed = at;
+        state.demo.playing = false;
+      } else if (action === 'speed') {
+        const speed = Number(body && body.speed);
+        if (![1, 2, 4].includes(speed)) throw badRequest('invalid_speed');
+        state.demo.speed = speed;
+      } else throw badRequest('invalid_action');
+      applyDemoScene(mockDemo.sceneAt(state.demo.elapsed), state.demo.stage);
+      broadcast();
+      json(res, 200, { ok: true, demo: state.demo });
+    }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); });
+    return;
+  }
   if (url.pathname.startsWith('/api/series/') && req.method === 'POST') {
     readBody(req, res).then(body => {
       const action = url.pathname.slice('/api/series/'.length);
+      // 手动动系列赛就暂停演示剧本，否则下一秒就被剧本推进覆盖。
+      if (state.demo) state.demo.playing = false;
       let series;
       if (action === 'start') series = seriesStore.start(body || {});
       else if (action === 'game') series = seriesStore.recordGame(body || {});
@@ -901,8 +992,8 @@ const server = http.createServer((req,res)=>{
     return;
   }
   if (url.pathname === '/api/hud-toggle' && req.method === 'POST') { if (state.broadcastConfig && state.broadcastConfig.hudKeyHook === false) return json(res, 200, { ok: false, disabled: true, hudHidden: state.hudHidden }); state.hudHidden = !state.hudHidden; broadcast(); return json(res, 200, { ok: true, hudHidden: state.hudHidden }); }
-  if (url.pathname === '/api/phase' && req.method === 'POST') { readBody(req, res).then(body => { state.phase = normalizePhase(body && body.phase); broadcast(); json(res,200,{ok:true,phase:state.phase}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
-  if (url.pathname === '/api/config' && req.method === 'POST') { readBody(req, res).then(body => { if (body.tournamentName !== undefined) state.tournamentName = normalizeTournamentName(body.tournamentName); if (body.mode !== undefined) { if (body.mode !== 'mock' && body.mode !== 'live') throw badRequest('invalid_mode'); state.mode = body.mode; if (body.mode === 'mock') { state.goldEstimated = false; state.goldSource = 'mock'; state.players = createMockPlayers(); } else { state.postGame = null; frozenSnapshot = null; resetLiveGameData(); } } if (body.phase !== undefined) state.phase = normalizePhase(body.phase); saveConfig(); broadcast(); json(res,200,{ok:true}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
+  if (url.pathname === '/api/phase' && req.method === 'POST') { readBody(req, res).then(body => { state.phase = normalizePhase(body && body.phase); if (state.mode === 'mock') state.demo.playing = false; broadcast(); json(res,200,{ok:true,phase:state.phase}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
+  if (url.pathname === '/api/config' && req.method === 'POST') { readBody(req, res).then(body => { if (body.tournamentName !== undefined) state.tournamentName = normalizeTournamentName(body.tournamentName); if (body.mode !== undefined) { if (body.mode !== 'mock' && body.mode !== 'live') throw badRequest('invalid_mode'); state.mode = body.mode; if (body.mode === 'mock') { state.goldEstimated = false; state.goldSource = 'mock'; state.players = createMockPlayers(); state.demo = { playing: true, speed: state.demo.speed, elapsed: 0, stage: 'lobby', progress: 0 }; demoSeriesStart(); } else { state.postGame = null; frozenSnapshot = null; resetLiveGameData(); if (state.demo) state.demo.playing = false; } } if (body.phase !== undefined) state.phase = normalizePhase(body.phase); saveConfig(); broadcast(); json(res,200,{ok:true}); }).catch(error => { if (!res.headersSent) json(res, error.statusCode || 500, { ok: false, error: error.message }); }); return; }
   const sendPage = html => { res.setHeader('Content-Type','text/html; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(html); };
   if (url.pathname === '/') return sendPage(consolePage(PORT));
   if (url.pathname === '/overlay/hud-calibrate' || url.pathname === '/broadcast/hud-calibrate') return sendPage(hudCalibratePage());
@@ -926,4 +1017,6 @@ server.on('error', error => {
   process.exit(1);
 });
 server.listen(PORT,'127.0.0.1',()=>console.log(`Khada Jhin running at http://127.0.0.1:${PORT}`));
+// mock（演示）模式启动就是一轮剧本：没有进行中的比赛就先开一场，保证控台一打开就有比分和局数。
+if (state.mode === 'mock') demoSeriesStart();
 startObsAutoConnect({ obs, getObsConfig, setObsConfig, onChange: () => { lastAutoPhase = null; broadcast(); } });

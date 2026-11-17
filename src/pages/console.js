@@ -1440,6 +1440,7 @@ function init() {
   loadSeries();
   loadMatchConfig();
   bindSeriesControls();
+  bindDemoControls();
   fetchJson('/api/state').then(applyState).catch(function () {});
   try {
     var source = new EventSource('/events');
@@ -1493,6 +1494,72 @@ function showView(name, options) {
   var dock = byId('cue-dock');
   if (dock) dock.hidden = !DOCK_VIEWS[name];
   if (!options.keepScroll && typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+}
+
+// ---- 演示控制条（仅 mock 模式）---------------------------------------------
+var DEMO_STAGE_TEXT = { lobby: '等待开始', draft: 'BP 选人', game: '赛中', post: '赛后' };
+var DEMO_LOOP_MS = 180000;
+
+function demoClock(ms) {
+  var total = Math.max(0, Math.round(ms / 1000));
+  var m = Math.floor(total / 60);
+  var s = total % 60;
+  return m + ':' + (s < 10 ? '0' + s : s);
+}
+
+function renderDemo(state) {
+  var bar = byId('demo-bar');
+  if (!bar) return;
+  var demo = state && state.demo;
+  var isMock = state && state.mode === 'mock';
+  bar.hidden = !isMock || !demo;
+  if (!isMock || !demo) return;
+  var stage = byId('demo-stage');
+  if (stage) {
+    var label = DEMO_STAGE_TEXT[demo.stage] || '等待开始';
+    if (demo.stage === 'game' && state.gameTime != null) label += ' · ' + demoClock(state.gameTime * 1000);
+    stage.textContent = label;
+  }
+  var fill = byId('demo-fill');
+  if (fill && fill.style) fill.style.width = Math.max(0, Math.min(100, (demo.progress || 0) * 100)).toFixed(2) + '%';
+  var clock = byId('demo-clock');
+  if (clock) clock.textContent = demoClock(demo.elapsed) + ' / ' + demoClock(DEMO_LOOP_MS);
+  var toggle = byId('demo-toggle');
+  if (toggle) toggle.textContent = demo.playing ? '暂停' : '继续';
+  var speeds = (document.querySelectorAll ? document.querySelectorAll('[data-demo-speed]') : []) || [];
+  for (var i = 0; i < speeds.length; i++) {
+    if (!speeds[i] || !speeds[i].classList) continue;
+    speeds[i].classList.toggle('active', Number(speeds[i].getAttribute('data-demo-speed')) === (demo.speed || 1));
+  }
+}
+
+function postDemo(body) {
+  return fetch('/api/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (!data || !data.ok) throw new Error((data && data.error) || '演示控制失败');
+      if (data.demo && latestState) { latestState.demo = data.demo; renderDemo(latestState); }
+      return data;
+    })
+    .catch(function (error) { toast(error.message || '演示控制失败', true); });
+}
+
+function bindDemoControls() {
+  var toggle = byId('demo-toggle');
+  if (toggle && toggle.addEventListener) toggle.addEventListener('click', function () {
+    var playing = !!(latestState && latestState.demo && latestState.demo.playing);
+    postDemo({ action: playing ? 'pause' : 'play' });
+  });
+  var replay = byId('demo-replay');
+  if (replay && replay.addEventListener) replay.addEventListener('click', function () { postDemo({ action: 'restart' }); });
+  var speeds = (document.querySelectorAll ? document.querySelectorAll('[data-demo-speed]') : []) || [];
+  for (var i = 0; i < speeds.length; i++) {
+    if (!speeds[i] || !speeds[i].addEventListener) continue;
+    speeds[i].addEventListener('click', function (event) {
+      var el = event && event.currentTarget;
+      postDemo({ action: 'speed', speed: Number(el && el.getAttribute('data-demo-speed')) || 1 });
+    });
+  }
 }
 
 function showSettingsTab(name) {
@@ -1702,6 +1769,60 @@ function recordAndAdvance(mode) {
   }).catch(function (error) {
     toast('操作失败：' + ((error && error.message) || error), true);
   });
+}
+
+function renderDraftBoard(state) {
+  var box = byId('draftBoard');
+  if (!box) return;
+  var draft = state && state.draft;
+  var round = byId('draftRound');
+  if (!draft || (!(draft.bluePicks || []).length && !(draft.redPicks || []).length && !(draft.blueBans || []).length && !(draft.redBans || []).length)) {
+    if (round) round.textContent = '等待 BP';
+    box.innerHTML = '<span class="empty">等待 BP 数据…</span>';
+    return;
+  }
+  if (round) {
+    var active = draft.active === 'red' ? '红方' : '蓝方';
+    round.textContent = '第 ' + (draft.round || 1) + ' 手 · ' + active + '行动' + (draft.timer != null ? ' · ' + Math.max(0, Math.round(draft.timer)) + 's' : '');
+  }
+  var chips = function (list, cls, empty) {
+    var out = '';
+    var arr = Array.isArray(list) ? list : [];
+    for (var i = 0; i < arr.length; i++) out += '<i class="' + cls + '">' + esc(arr[i]) + '</i>';
+    if (!arr.length) out = '<i class="slot">未开始</i>';
+    return out;
+  };
+  var row = function (side, label, picks, bans) {
+    return '<div class="c2-draft-row ' + side + '">' +
+      '<span class="c2-draft-side">' + label + '</span>' +
+      '<span class="c2-draft-line"><small>禁用</small>' + chips(bans, 'ban') + '</span>' +
+      '<span class="c2-draft-line"><small>已选</small>' + chips(picks, 'pick') + '</span>' +
+      '</div>';
+  };
+  box.innerHTML = row('blue', '蓝方', draft.bluePicks, draft.blueBans) + row('red', '红方', draft.redPicks, draft.redBans);
+}
+
+function renderObjectives(state) {
+  var box = byId('objectiveBoard');
+  if (!box || !state) return;
+  var blue = state.blue || {}, red = state.red || {};
+  var dif = (Number(blue.gold) || 0) - (Number(red.gold) || 0);
+  var signed = function (n) { return (n > 0 ? '+' : '') + Math.round(n / 100) / 10 + 'K'; };
+  var metric = function (label, b, r, fmt) {
+    var f = fmt || function (v) { return fmtNumber(v); };
+    return '<div class="c2-obj-row">' +
+      '<b class="blue">' + f(b) + '</b>' +
+      '<span>' + label + '</span>' +
+      '<b class="red">' + f(r) + '</b>' +
+      '</div>';
+  };
+  box.innerHTML =
+    metric('经济差', dif, -dif, signed) +
+    metric('击杀', blue.score, red.score) +
+    metric('防御塔', blue.towers, red.towers) +
+    metric('小龙', blue.dragons, red.dragons) +
+    metric('大龙', blue.barons, red.barons) +
+    metric('峡谷先锋', blue.heralds, red.heralds);
 }
 
 function renderSettle(state) {
@@ -1969,6 +2090,9 @@ var applyStateCore = applyState;
 applyState = function (state) {
   applyStateCore(state);
   renderShellExtras(state);
+  renderDemo(state);
+  renderDraftBoard(state);
+  renderObjectives(state);
   if (state) {
     if (state.series) applySeries(state.series);
     else if (latestSeries) renderSeries();
@@ -2037,6 +2161,20 @@ function consolePage(port) {
       <a class="c2-ghost-btn" id="screenshotGallery" href="#" target="_blank" rel="noopener noreferrer">截图</a>
     </div>
   </header>
+
+  <div class="c2-demo" id="demo-bar" hidden>
+    <span class="c2-demo-tag">演示</span>
+    <span class="c2-demo-stage" id="demo-stage">等待开始</span>
+    <span class="c2-demo-track"><i id="demo-fill"></i></span>
+    <span class="c2-demo-clock" id="demo-clock">0:00 / 3:00</span>
+    <span class="c2-demo-btns">
+      <button type="button" id="demo-toggle">暂停</button>
+      <button type="button" id="demo-replay">重播</button>
+      <button type="button" class="c2-demo-speed" data-demo-speed="1">1×</button>
+      <button type="button" class="c2-demo-speed" data-demo-speed="2">2×</button>
+      <button type="button" class="c2-demo-speed" data-demo-speed="4">4×</button>
+    </span>
+  </div>
 
   <div class="c2-views">
     <section class="c2-view" data-view="home">
@@ -2136,15 +2274,25 @@ function consolePage(port) {
       <div class="scene-quick" id="scene-shortcuts"><span class="empty">连接 OBS 后显示场景</span></div>
       </section>
       </div>
+      <article class="panel c2-draft-panel">
+      <div class="panel-head"><h2>本局选人</h2><span class="kicker" id="draftRound">等待 BP</span></div>
+      <div class="c2-draft" id="draftBoard"><span class="empty">等待 BP 数据…</span></div>
+      </article>
     </section>
 
     <section class="c2-view" data-view="live">
       <div class="c2-viewhead"><h1>赛中</h1><p>十人实时数据与事件流；底部 CUE 切局内 / 转场，「设置 · 自动导播」可开规则引擎。</p></div>
       <div class="c2-live-grid">
+      <div class="c2-live-left">
       <section class="panel roster-panel" id="roster-panel">
       <div class="panel-head"><h2>实时选手 · KDA / 装备</h2><span class="kicker" id="rosterCount">0 / 10</span></div>
       <div class="roster-body" id="rosterBody"><div class="roster-empty">等待选手数据…</div></div>
       </section>
+      <section class="panel">
+      <div class="panel-head"><h2>本局目标 · 经济</h2><span class="kicker">OBJECTIVES</span></div>
+      <div class="c2-obj" id="objectiveBoard"><span class="empty">等待对局数据…</span></div>
+      </section>
+      </div>
       <section class="panel feed-panel">
       <div class="panel-head"><h2>实时事件流</h2><span class="kicker" id="feedCount">0 / 30</span></div>
       <div class="event-feed" id="event-feed"><div class="feed-empty">等待比赛事件…</div></div>

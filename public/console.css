@@ -708,6 +708,52 @@ html,body{
 .c2-set-panel > .panel{max-width:1080px}
 .c2-set-panel[data-set-panel="sources"] > .panel{max-width:1240px}
 
+/* ---- BP 选人板 / 本局目标 ------------------------------------------------ */
+.c2-live-grid{align-items:stretch}
+.c2-live-left{display:flex;flex-direction:column;gap:13px;min-width:0}
+.c2-live-grid .event-feed{max-height:calc(100vh - 300px)}
+.c2-draft-panel{margin-top:16px}
+.c2-draft{display:flex;flex-direction:column;gap:10px}
+.c2-draft-row{display:grid;grid-template-columns:72px 1fr;gap:8px 14px;padding:11px 14px;background:rgba(255,255,255,.02);border-left:2px solid var(--line)}
+.c2-draft-row.blue{border-left-color:var(--blue)}
+.c2-draft-row.red{border-left-color:var(--red)}
+.c2-draft-side{grid-row:span 2;align-self:center;font-size:12px;letter-spacing:.14em;color:var(--muted)}
+.c2-draft-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.c2-draft-line>small{width:34px;font-size:10px;letter-spacing:.2em;color:var(--muted-2);text-transform:uppercase}
+.c2-draft-line>i{font-style:normal;font-size:11px;padding:4px 9px;border-radius:2px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text)}
+.c2-draft-line>i.ban{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.35)}
+.c2-draft-line>i.slot{color:var(--muted-2);background:transparent;border-style:dashed}
+.c2-obj{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.c2-obj-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:2px}
+.c2-obj-row>span{font-size:10.5px;letter-spacing:.16em;color:var(--muted);white-space:nowrap}
+.c2-obj-row>b{font-size:17px;font-variant-numeric:tabular-nums;font-weight:600}
+.c2-obj-row>b.blue{color:var(--blue)}
+.c2-obj-row>b.red{color:var(--red)}
+@media (max-width:1180px){
+.c2-obj{grid-template-columns:repeat(2,minmax(0,1fr))}
+.c2-draft-row{grid-template-columns:58px 1fr}
+}
+
+/* ---- 演示控制条（仅 mock 模式显示） ---------------------------------------- */
+.c2-demo{display:flex;align-items:center;gap:14px;padding:9px 26px;background:#080c11;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.c2-demo[hidden]{display:none}
+.c2-demo-tag{letter-spacing:.28em;font-size:10px;text-transform:uppercase;color:#0a0d12;background:var(--amber);padding:3px 7px;border-radius:2px;font-weight:700}
+.c2-demo-stage{color:var(--text);min-width:170px;font-variant-numeric:tabular-nums}
+.c2-demo-track{position:relative;flex:1;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;min-width:120px}
+.c2-demo-track>i{position:absolute;inset:0 auto 0 0;width:0;background:var(--amber);transition:width .9s linear}
+.c2-demo-clock{font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
+.c2-demo-btns{display:flex;gap:6px}
+.c2-demo-btns>button{font:inherit;font-size:11px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:2px;padding:5px 10px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.c2-demo-btns>button:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.c2-demo-btns>button.active{color:var(--text);border-color:rgba(232,179,86,.6);background:rgba(232,179,86,.12)}
+@media (max-width:1180px){
+.c2-demo{flex-wrap:wrap;gap:8px 12px;padding:8px 16px}
+.c2-demo-stage,.c2-demo-clock{min-width:0}
+}
+@media (prefers-reduced-motion:reduce){
+.c2-demo-track>i{transition:none}
+}
+
 /* 首发阵容 */
 .c2-lineup{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .c2-lu-head{display:block;font-size:10px;letter-spacing:.18em;color:var(--muted-2);margin-bottom:6px}
@@ -750,13 +796,13 @@ html,body{
   border-radius: 8px;
   background: rgba(255, 255, 255, .018);
 }
-.c2-hist-when { font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.c2-hist-when { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .c2-hist-teams { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .c2-hist-teams b { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c2-hist-teams b.blue { color: var(--blue); }
 .c2-hist-teams b.red { color: var(--red); }
 .c2-hist-teams i { font-style: normal; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
-.c2-hist-meta { font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+.c2-hist-meta { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 
 .c2-settle { display: flex; flex-direction: column; }
 .c2-settle-head,
@@ -767,19 +813,19 @@ html,body{
   font-size: 10.5px;
   letter-spacing: .22em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--muted);
 }
 .c2-settle-row { padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, .04); font-size: 13px; }
 .c2-settle-row[data-side="blue"] .c2-st-bar b { background: rgba(74, 168, 255, .75); }
 .c2-settle-row[data-side="red"] .c2-st-bar b { background: rgba(255, 90, 74, .75); }
 .c2-st-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.c2-st-name i { font-style: normal; font-size: 11px; color: var(--dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c2-st-name i { font-style: normal; font-size: 11px; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c2-st-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
 .c2-st-bar b { display: block; height: 100%; border-radius: 3px; }
-.c2-st-kda, .c2-st-gold { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--dim); text-align: right; }
+.c2-st-kda, .c2-st-gold { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--muted); text-align: right; }
 
 .c2-ms-bo { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; }
-.c2-ms-bl { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
+.c2-ms-bl { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
 .c2-ms-bo .btn.active { border-color: rgba(74, 168, 255, .55); color: #cfe9ff; background: rgba(74, 168, 255, .12); }
 .c2-ms-bo .btn { min-width: 64px; }
 
@@ -787,7 +833,7 @@ html,body{
 .c2-ms-team { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .c2-ms-team[data-side="blue"] { border-left: 2px solid var(--blue); }
 .c2-ms-team[data-side="red"] { border-right: 2px solid var(--red); }
-.c2-ms-tag { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+.c2-ms-tag { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
 .c2-ms-inline { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; }
 .c2-ms-logo { width: 48px; height: 48px; object-fit: contain; border-radius: 6px; background: rgba(255, 255, 255, .04); }
 .c2-ms-players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
@@ -819,10 +865,10 @@ html,body{
 }
 .c2-game-row[data-side="blue"] { border-left-color: var(--blue); }
 .c2-game-row[data-side="red"] { border-left-color: var(--red); }
-.c2-game-idx { font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.c2-game-idx { font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .c2-game-score { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
 .c2-game-score b { font-size: 15px; font-weight: 600; }
 .c2-game-score b.blue { color: var(--blue); }
 .c2-game-score b.red { color: var(--red); }
-.c2-game-score i { font-style: normal; color: var(--dimmer); }
-.c2-game-meta { font-size: 12px; color: var(--dim); }
+.c2-game-score i { font-style: normal; color: var(--muted-2); }
+.c2-game-meta { font-size: 12px; color: var(--muted); }
