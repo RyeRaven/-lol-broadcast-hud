@@ -813,11 +813,12 @@ body.hb-body {
    数量角标（count>1）画在格子右下角。挖孔透原生装备栏退居 ?hbNativeItems=1 显式开启。 */
 .hb-items {
   display: grid;
-  /* 间距与大小对齐原生挖孔排布：装备 24px、格距 1.6px（pitch 25.6）、饰品 22.5px。 */
-  grid-template-columns: repeat(6, 24px) 22.5px;
+  /* 大小参考客户端计分板：装备格约占行高 70%（43.4 行 → 30px），格距 1.6px，
+   饰品保持比装备格小 2px（28px，比例同挖孔排布 22.5/24）。 */
+  grid-template-columns: repeat(6, 30px) 28px;
   gap: 1.6px;
   align-items: center;
-  height: 24px;
+  height: 30px;
 }
 
 .hb-item {
@@ -830,8 +831,8 @@ body.hb-body {
   overflow: hidden;
 }
 
-/* 饰品格（第 7 格）比装备格小 1.5px，随行垂直居中。 */
-.hb-items .hb-item:nth-child(7) { height: 22.5px; }
+/* 饰品格（第 7 格）比装备格小 2px，随行垂直居中。 */
+.hb-items .hb-item:nth-child(7) { height: 28px; }
 
 /* 蓝方饰品槽在装备外侧（镜像原生挖孔排布）：反转列流向让第 7 格落到最左。 */
 .hb-row.blue .hb-items { direction: rtl; }
@@ -839,7 +840,7 @@ body.hb-body {
 .hb-item .icon { width: 100%; height: 100%; }
 
 .hb-item.empty { display: grid; place-items: center; }
-.hb-item.empty i { font-style: normal; font-size: 8px; color: rgba(148, 163, 184, 0.35); }
+.hb-item.empty i { font-style: normal; font-size: 10px; color: rgba(148, 163, 184, 0.35); }
 
 /* 视野分：参考客户端饰品槽的计数比例 —— 数字约占格子高的 2/3，锚在左下角，白字重描边。 */
 .hb-item-ward {
@@ -847,7 +848,7 @@ body.hb-body {
   left: 1px;
   bottom: 0;
   font-style: normal;
-  font-size: 15px;
+  font-size: 18px;
   line-height: 1;
   font-weight: 800;
   color: #fff;
