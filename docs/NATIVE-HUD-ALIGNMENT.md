@@ -117,9 +117,11 @@ python .tmp/spectator/native_calib4.py C:/Temp/spec1.png
 
 ### 6.3 原生记分板在回放/观战里是「按 Tab 才出现」的
 
-这是挖孔方案最大的运行期风险：**记分板不可见时，挖出来的孔直接露出游戏世界**。
-因此 `?hbNativeItems=0` 必须保留为可切换的自绘降级路径（`items[]` 有 itemID/count/slot/price，
-图标走 `RB.icon`，`count > 1` 画角标），并在文档与 USER-GUIDE 里写明「用挖孔就必须让原生面板保持可见」。
+这是挖孔方案最大的运行期风险：**记分板不可见时，挖出来的孔直接露出游戏世界**——而且按 X 呼出的
+原生经济面板会把原生装备栏整个顶掉（2026-11-17 实机确认），挖孔在那一刻必然失效。
+因此 **自绘装备栏是默认**（`items[]` 有 itemID/count/slot/price，图标走 `RB.icon`，
+`count > 1` 画右下角角标）；要回到挖孔用 `?hbNativeItems=1` 显式开启，
+并在文档与 USER-GUIDE 里写明「用挖孔就必须让原生面板保持可见」。
 
 ### 6.4 实拍验证方法（可复现）
 

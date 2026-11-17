@@ -334,12 +334,13 @@ var ICONS = {
     var value = set[index] === undefined ? null : set[index];
     // DEMO_ITEM_SETS 存的是纯 itemID 数字，而 itemEntry 只认字符串/对象（数字返回 null），
     // 这里包一层对象让饰品槽（第 7 位）也能被 playerItemSlots 正确填充。
-    if (typeof value === 'number') return { itemID: value, count: 1 };
+    // 演示里给守卫一个 ×2 堆叠，让自绘模式的数量角标有东西可看。
+    if (typeof value === 'number') return { itemID: value, count: value === 2055 ? 2 : 1 };
     return value;
   }
-  // ---- 原生装备栏 / 饰品栏「挖孔」 ----
-  // 装备图标与饰品槽由游戏原生 HUD 自己绘制（自带层数角标、冷却转圈、可主动高亮），我们一格都不画；
-  // 只按 items 的数量算出原生栏位占多宽，把那块底色挖成透明孔让原生透出来。
+  // ---- 原生装备栏 / 饰品栏「挖孔」（?hbNativeItems=1 才启用） ----
+  // 挖孔模式下装备图标与饰品槽由游戏原生 HUD 自己绘制（自带层数角标、冷却转圈、可主动高亮），我们一格都不画；
+  // 只按 items 的数量算出原生栏位占多宽，把那块底色挖成透明孔让原生透出来。默认走自绘装备栏。
   // 孔位几何全部走 CSS 变量（.hb-bottom 里的 --hb-native-*），也可用 URL query 现场覆盖：
   //   ?hbNativeItemPitch=24.4&hbNativeBlueX=672&hbNativeRedX=1117&hbNativeRow1Y=846&hbDebugHoles=1
   var QUERY_VARS = {
@@ -385,8 +386,10 @@ var ICONS = {
     HB_SCALE = scale;
     stage.style.setProperty('--hb-scale', String(scale));
   }
-  // 默认挖孔（原生装备栏透出来）；?hbNativeItems=0 降级成自绘 6 格装备 + 饰品。
-  function nativeItemsEnabled() { return !/(?:^|[?&])hbNativeItems=0(?:&|$)/.test(searchString()); }
+  // 自绘装备栏是默认（2026-11-17 定案：按 X 呼出的原生经济面板与原生装备栏互斥——
+  // 面板一开，原生装备栏整个消失，挖孔必然露出游戏世界）。要回到「透出原生装备栏」的
+  // 挖孔模式，用 ?hbNativeItems=1 显式开启（校准/编辑器里的挖孔组仅供该模式使用）。
+  function nativeItemsEnabled() { return /(?:^|[?&])hbNativeItems=1(?:&|$)/.test(searchString()); }
   // 符文 / 召唤师技能 / 大招徽记在 40.7px 行高里默认不渲染（塞不下），?hbExtras=1 才开。
   function extrasEnabled() { return /(?:^|[?&])hbExtras=1(?:&|$)/.test(searchString()); }
   function applyQueryOverrides() {
@@ -579,14 +582,14 @@ var ICONS = {
           ['prole', '复活 / 分路小字', '#hb-prole-' + id],
           ['kda', 'KDA', '#hb-kda-' + id],
           ['vision', '视野分', '#hb-vision-' + id],
-          ['items', '自绘装备（降级模式）', '#hb-items-' + id],
+          ['items', '自绘装备', '#hb-items-' + id],
           ['bars', '三条状态条', '#hb-bars-' + id],
           ['bar-xp', '经验条', '#hb-bars-' + id + ' .hb-bar.xp'],
           ['bar-hp', '生命条', '#hb-bars-' + id + ' .hb-bar.hp'],
           ['bar-res', '资源条', '#hb-bars-' + id + ' .hb-bar.res']
         ];
-        // 只有降级到「自绘」时才画的那几块单独成组：原生 HUD 在场时它们永远是空的，
-        // 混在主组里会让人以为面板漏了东西。
+        // 自绘模式的行内元素单独成组：挖孔模式（?hbNativeItems=1）下装备/视野不渲染，
+        // 分成一组让人不会以为面板漏了东西。
         for (var k = 0; k < kids.length; k += 1) {
           var selfDrawn = ['extras', 'runes', 'spells', 'ult', 'vision', 'items'].indexOf(kids[k][0]) >= 0;
           list.push({ key: id + '-' + kids[k][0], label: who + ' · ' + kids[k][1], group: sideName + ' · ' + (selfDrawn ? '行内元素（自绘模式）' : '行内元素'), sel: kids[k][2] });
@@ -597,8 +600,8 @@ var ICONS = {
     ['blue', 'red'].forEach(function (side) {
       var sideName = side === 'blue' ? '蓝方' : '红方';
       for (var r = 0; r < 5; r += 1) {
-        list.push({ key: 'hole-' + side + '-' + r + '-items', label: sideName + '第 ' + (r + 1) + ' 行 · 装备栏挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + side + '-' + r + '-items', hole: true });
-        list.push({ key: 'hole-' + side + '-' + r + '-trinket', label: sideName + '第 ' + (r + 1) + ' 行 · 饰品位挖孔', group: '挖孔（透出原生装备栏）', sel: '#hb-hole-' + side + '-' + r + '-trinket', hole: true });
+        list.push({ key: 'hole-' + side + '-' + r + '-items', label: sideName + '第 ' + (r + 1) + ' 行 · 装备栏挖孔', group: '挖孔（透出原生装备栏，?hbNativeItems=1）', sel: '#hb-hole-' + side + '-' + r + '-items', hole: true });
+        list.push({ key: 'hole-' + side + '-' + r + '-trinket', label: sideName + '第 ' + (r + 1) + ' 行 · 饰品位挖孔', group: '挖孔（透出原生装备栏，?hbNativeItems=1）', sel: '#hb-hole-' + side + '-' + r + '-trinket', hole: true });
       }
     });
     return list;
@@ -750,7 +753,7 @@ var ICONS = {
       width: screenBox.width / scale,
       height: screenBox.height / scale
     };
-    // 自绘装备模式（?hbNativeItems=0）不挖孔，但行内落位仍要用这个 box 计算 CSS 变量，
+    // 自绘装备模式（默认；挖孔 ?hbNativeItems=1）不挖孔，但行内落位仍要用这个 box 计算 CSS 变量，
     // 否则 .hb-info / .hb-champ 全退回 left:0，整行会被挤到半区左边缘。
     if (!nativeItemsEnabled()) return { rects: [], box: box };
     var geo = nativeGeometry();
@@ -1386,7 +1389,7 @@ var ICONS = {
     if (!champion) return '<span class="icon hb-champ-ico"><i class="icon-fb">?</i></span>';
     return icon('champion', champion, champion, 'hb-champ-ico');
   }
-  // 降级模式（?hbNativeItems=0）的自绘装备：6 格 + 饰品，消耗型/叠层型角标只在 count>1 时显示。
+  // 自绘装备（默认模式；挖孔 ?hbNativeItems=1）：6 格 + 饰品，消耗型/叠层型角标只在 count>1 时显示。
   // 默认模式一格都不画 —— 那块交给原生 HUD（挖孔）。
   function itemCells(player, globalIndex) {
     var slots = playerItemSlots(player, globalIndex);

@@ -55,7 +55,7 @@ test('visual baseline: degraded state renders em dashes and no bar fill', () => 
   assert.ok(shot, 'degraded shot missing');
   assert.equal(shot.cells.length, 10);
   for (const cell of shot.cells) {
-    // 默认原生挖孔模式下行内无 hb-vision 元素（cell.vision 为 null），KDA 是行内
+    // 挖孔/自绘模式切换不影响本断言：baseline 对比只读 manifest 里固化的快照。
     // 无条件渲染的数据格，用它断言「数据不可用必须显示 —」。
     assert.equal(cell.kda, '—', cell.id + ' KDA should be unavailable');
     assert.deepEqual(cell.fillPx, [0, 0, 0], cell.id + ' should have unknown bar placeholders');

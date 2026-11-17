@@ -809,8 +809,8 @@ body.hb-body {
   outline-offset: -1px;
 }
 
-/* 降级模式 ?hbNativeItems=0：不挖孔，自己画 6 格装备 + 饰品（原生 HUD 不在时的兜底）。
-   默认是挖孔，让原生装备栏透出来（原生自带叠层角标 / 冷却转圈 / 可主动高亮）。 */
+/* 自绘装备（默认模式）：不挖孔，自己画 6 格装备 + 饰品，图标走 RBAssets CDN，
+   数量角标（count>1）画在格子右下角。挖孔透原生装备栏退居 ?hbNativeItems=1 显式开启。 */
 .hb-items {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -838,10 +838,16 @@ body.hb-body {
   position: absolute;
   right: 1px;
   bottom: 0;
-  font-size: 8px;
+  min-width: 9px;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 11px;
   font-weight: 800;
-  color: #fff;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  color: #ffd76a;
+  background: rgba(4, 8, 12, 0.78);
+  border-radius: 3px 0 0 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  text-align: center;
 }
 
 /* 可选装饰列（?hbExtras=1）：符文基石 / 分路任务 / 召唤师技能 / 大招圆徽。

@@ -214,7 +214,7 @@ test('t9：HUD 装备槽消费对象化 items，消耗品显示数量角标，�
     }]
   });
   const player = hud.playerList('blue')[0];
-  // 装备改成「原生 HUD 挖孔」后不再自己画 span 槽，断言落在数据层：7 个槽位 + 件数 + 饰品位。
+  // 装备渲染（自绘/挖孔）与数据层无关，断言落在数据层：7 个槽位 + 件数 + 饰品位。
   const items = hud.playerItemSlots(player, 0);
   assert.equal(items.length, 7, '装备槽位固定 7 个（6 件 + 饰品）');
   // 逐字段断言，不整体 deepEqual：vm 里创建的对象属于另一个 realm，且 RBAssets 是否存在会决定 id 字段，
