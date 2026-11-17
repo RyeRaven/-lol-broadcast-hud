@@ -708,30 +708,29 @@ html,body{
 .c2-set-panel > .panel{max-width:1080px}
 .c2-set-panel[data-set-panel="sources"] > .panel{max-width:1240px}
 
-/* ---- BP 选人板 / 本局目标 ------------------------------------------------ */
+/* ---- BP 选人板 / 赛中布局 ------------------------------------------------ */
 .c2-live-grid{align-items:stretch}
 .c2-live-left{display:flex;flex-direction:column;gap:13px;min-width:0}
 .c2-live-grid .event-feed{max-height:calc(100vh - 300px)}
-.c2-draft-panel{margin-top:16px}
+.c2-view[data-view="bp"].active{height:100%;justify-content:center}
+.c2-view .c2-draft-panel{margin-top:16px}
+.c2-draft-row{align-items:center}
+.c2-bp-scenes{margin-top:13px;flex:0 0 auto}
+.c2-match-live{margin-bottom:13px}
 .c2-draft{display:flex;flex-direction:column;gap:10px}
-.c2-draft-row{display:grid;grid-template-columns:72px 1fr;gap:8px 14px;padding:11px 14px;background:rgba(255,255,255,.02);border-left:2px solid var(--line)}
+.c2-draft-row{display:grid;grid-template-columns:104px 1fr;gap:8px 14px;padding:11px 14px;background:rgba(255,255,255,.02);border-left:2px solid var(--line)}
 .c2-draft-row.blue{border-left-color:var(--blue)}
 .c2-draft-row.red{border-left-color:var(--red)}
-.c2-draft-side{grid-row:span 2;align-self:center;font-size:12px;letter-spacing:.14em;color:var(--muted)}
+.c2-draft-side{grid-row:span 2;align-self:center;display:flex;flex-direction:column;gap:3px;min-width:0}
+.c2-draft-side>small{font-size:9.5px;letter-spacing:.22em;color:var(--muted-2)}
+.c2-draft-side>b{font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c2-draft-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .c2-draft-line>small{width:34px;font-size:10px;letter-spacing:.2em;color:var(--muted-2);text-transform:uppercase}
 .c2-draft-line>i{font-style:normal;font-size:11px;padding:4px 9px;border-radius:2px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text)}
 .c2-draft-line>i.ban{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.35)}
 .c2-draft-line>i.slot{color:var(--muted-2);background:transparent;border-style:dashed}
-.c2-obj{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.c2-obj-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:2px}
-.c2-obj-row>span{font-size:10.5px;letter-spacing:.16em;color:var(--muted);white-space:nowrap}
-.c2-obj-row>b{font-size:17px;font-variant-numeric:tabular-nums;font-weight:600}
-.c2-obj-row>b.blue{color:var(--blue)}
-.c2-obj-row>b.red{color:var(--red)}
 @media (max-width:1180px){
-.c2-obj{grid-template-columns:repeat(2,minmax(0,1fr))}
-.c2-draft-row{grid-template-columns:58px 1fr}
+.c2-draft-row{grid-template-columns:88px 1fr}
 }
 
 /* ---- 演示控制条（仅 mock 模式显示） ---------------------------------------- */

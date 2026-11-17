@@ -1792,37 +1792,17 @@ function renderDraftBoard(state) {
     if (!arr.length) out = '<i class="slot">未开始</i>';
     return out;
   };
-  var row = function (side, label, picks, bans) {
+  var row = function (side, picks, bans) {
+    var team = (state && state[side]) || {};
+    var tag = side === 'blue' ? '蓝方' : '红方';
+    var name = team.name || tag;
     return '<div class="c2-draft-row ' + side + '">' +
-      '<span class="c2-draft-side">' + label + '</span>' +
+      '<span class="c2-draft-side">' + (name === tag ? '' : '<small>' + tag + '</small>') + '<b>' + esc(name) + '</b></span>' +
       '<span class="c2-draft-line"><small>禁用</small>' + chips(bans, 'ban') + '</span>' +
       '<span class="c2-draft-line"><small>已选</small>' + chips(picks, 'pick') + '</span>' +
       '</div>';
   };
-  box.innerHTML = row('blue', '蓝方', draft.bluePicks, draft.blueBans) + row('red', '红方', draft.redPicks, draft.redBans);
-}
-
-function renderObjectives(state) {
-  var box = byId('objectiveBoard');
-  if (!box || !state) return;
-  var blue = state.blue || {}, red = state.red || {};
-  var dif = (Number(blue.gold) || 0) - (Number(red.gold) || 0);
-  var signed = function (n) { return (n > 0 ? '+' : '') + Math.round(n / 100) / 10 + 'K'; };
-  var metric = function (label, b, r, fmt) {
-    var f = fmt || function (v) { return fmtNumber(v); };
-    return '<div class="c2-obj-row">' +
-      '<b class="blue">' + f(b) + '</b>' +
-      '<span>' + label + '</span>' +
-      '<b class="red">' + f(r) + '</b>' +
-      '</div>';
-  };
-  box.innerHTML =
-    metric('经济差', dif, -dif, signed) +
-    metric('击杀', blue.score, red.score) +
-    metric('防御塔', blue.towers, red.towers) +
-    metric('小龙', blue.dragons, red.dragons) +
-    metric('大龙', blue.barons, red.barons) +
-    metric('峡谷先锋', blue.heralds, red.heralds);
+  box.innerHTML = row('blue', draft.bluePicks, draft.blueBans) + row('red', draft.redPicks, draft.redBans);
 }
 
 function renderSettle(state) {
@@ -2092,7 +2072,6 @@ applyState = function (state) {
   renderShellExtras(state);
   renderDemo(state);
   renderDraftBoard(state);
-  renderObjectives(state);
   if (state) {
     if (state.series) applySeries(state.series);
     else if (latestSeries) renderSeries();
@@ -2260,37 +2239,31 @@ function consolePage(port) {
     </section>
 
     <section class="c2-view" data-view="bp">
-      <div class="c2-viewhead"><h1>BP 阶段</h1><p>选人在游戏画面里；这里看比分、切场景，CUE 在底部。</p></div>
-      <div class="c2-grid-2">
-      <section class="match-card" id="match-card">
+      <div class="c2-viewhead"><h1>BP 阶段</h1><p>选人在游戏画面里；这里跟进本局 BP 进度，CUE 在底部。</p></div>
+      <article class="panel c2-draft-panel">
+      <div class="panel-head"><h2>本局选人</h2><span class="kicker" id="draftRound">等待 BP</span></div>
+      <div class="c2-draft" id="draftBoard"><span class="empty">等待 BP 数据…</span></div>
+      </article>
+      <section class="panel c2-bp-scenes">
+      <div class="panel-head"><h2>OBS 场景快捷</h2><span class="kicker">SCENES</span></div>
+      <div class="scene-quick" id="scene-shortcuts"><span class="empty">连接 OBS 后显示场景</span></div>
+      </section>
+    </section>
+
+    <section class="c2-view" data-view="live">
+      <div class="c2-viewhead"><h1>赛中</h1><p>本局比分与经济目标、十人实时数据与事件流；底部 CUE 切局内 / 转场，「设置 · 自动导播」可开规则引擎。</p></div>
+      <section class="match-card c2-match-live" id="match-card">
       <div class="match-top">
       <div><span class="eyebrow">CURRENT MATCH</span><h2 id="matchTitle">当前比赛</h2></div>
       <span class="phase-badge" id="phaseBadge">--</span>
       </div>
       <div class="match-body" id="matchBody"><div class="match-placeholder">正在连接本地数据链路…</div></div>
       </section>
-      <section class="panel">
-      <div class="panel-head"><h2>OBS 场景快捷</h2><span class="kicker">SCENES</span></div>
-      <div class="scene-quick" id="scene-shortcuts"><span class="empty">连接 OBS 后显示场景</span></div>
-      </section>
-      </div>
-      <article class="panel c2-draft-panel">
-      <div class="panel-head"><h2>本局选人</h2><span class="kicker" id="draftRound">等待 BP</span></div>
-      <div class="c2-draft" id="draftBoard"><span class="empty">等待 BP 数据…</span></div>
-      </article>
-    </section>
-
-    <section class="c2-view" data-view="live">
-      <div class="c2-viewhead"><h1>赛中</h1><p>十人实时数据与事件流；底部 CUE 切局内 / 转场，「设置 · 自动导播」可开规则引擎。</p></div>
       <div class="c2-live-grid">
       <div class="c2-live-left">
       <section class="panel roster-panel" id="roster-panel">
       <div class="panel-head"><h2>实时选手 · KDA / 装备</h2><span class="kicker" id="rosterCount">0 / 10</span></div>
       <div class="roster-body" id="rosterBody"><div class="roster-empty">等待选手数据…</div></div>
-      </section>
-      <section class="panel">
-      <div class="panel-head"><h2>本局目标 · 经济</h2><span class="kicker">OBJECTIVES</span></div>
-      <div class="c2-obj" id="objectiveBoard"><span class="empty">等待对局数据…</span></div>
       </section>
       </div>
       <section class="panel feed-panel">
