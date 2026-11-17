@@ -2289,8 +2289,8 @@ function consolePage(port) {
       <section class="panel" id="quick-start">
       <div class="panel-head"><h2>快速开始</h2><span class="kicker">GUIDE</span></div>
       <ol class="quick-steps">
-      <li><b>配置赛事</b><small>「设置 · 赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
-      <li><b>选运行模式</b><small>首页两个入口：模拟模式跑一遍完整流程，真实模式接 LCU / Live Client 打正式比赛</small></li>
+      <li><b>选入口并配置</b><small>首页两选一：「真实模式」接 LCU / Live Client，「模拟模式」跑演示剧本；两条流程都要先填队标、队名、选手、教练、BO</small></li>
+      <li><b>开始一场比赛</b><small>配置页点「保存并开始」，进入「等待开始」；一局打完进赛后页，MVP 发送后点「下一局」继续</small></li>
       <li><b>OBS 添加广播页</b><small>「设置 · 广播源与诊断」复制聚合舞台页 URL，添加为 OBS 浏览器源（单 URL 全流程自动切换）</small></li>
       <li><b>开赛导播</b><small>「广播控制」按钮或快捷键 1/2/3/4 切换 BP / 局内 / 赛后</small></li>
       </ol>
