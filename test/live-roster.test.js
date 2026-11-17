@@ -33,7 +33,6 @@ function loadHudForTest() {
     '    kdaOf: kdaOf,',
     '    capUsable: capUsable,',
     '    capPrecision: capPrecision,',
-    '    goldEstimate: playerGoldEstimate',
     '  };',
     '})();'
   ].join('\n');
@@ -239,9 +238,6 @@ test('t9：HUD 装备槽消费对象化 items，消耗品显示数量角标，�
   // 缺数据时必须显式 unknown，而不是拿别的东西顶上。
   const missing = hud.spellCells({ summoners: [] });
   assert.equal((missing.match(/unknown/g) || []).length, 2, '技能缺失应两个都渲染 unknown 占位');
-  // 对位经济差估算必须吃到对象装备的 price（多兰之盾 450 × 3 + 狂热 1200 + 120 补刀 × 20）。
-  assert.equal(hud.goldEstimate(player), 450 * 3 + 1200 + 120 * 20);
-  assert.equal(hud.goldEstimate({ cs: null, items: [] }), null, '没有任何信号时不给估算值');
 });
 
 test('t9：局内底部 overlay 用对象装备的 itemID 出图标，旧字符串装备仍然兼容', () => {

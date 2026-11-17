@@ -70,7 +70,7 @@ test('econ-ocr：非法 side / rowIndex / totalGold / confidence 整包拒绝，
   assert.match(duplicate.reason, /重复/);
 });
 
-test('econ-ocr：读数超过 2000ms 未更新即失效，绝不留旧值', () => {
+test('econ-ocr：单行丢帧沿用上次读数（保持窗口内不清值），超 TTL 才逐行失效', () => {
   let clock = 1000;
   const store = createEconOcrStore({ now: () => clock });
   store.commit([{ side: 'blue', rowIndex: 0, totalGold: 1457, confidence: null }]);
@@ -85,16 +85,33 @@ test('econ-ocr：读数超过 2000ms 未更新即失效，绝不留旧值', () =
   assert.equal(snapshot.active, false, '超过 TTL 必须失效');
   assert.equal(snapshot.stale, true);
   assert.equal(snapshot.rows.length, 0, '失效的读数不得出现在 rows 里');
-  // 整包替换：这一轮没报的行直接消失，不会残留上一轮的值。
-  clock = 5000;
+  // 合并提交：这一轮没报的行沿用上一次读数（丢一帧不清），各行按自己最后被解析到的时间过 TTL。
+  clock = 20000;
   store.commit([
     { side: 'blue', rowIndex: 0, totalGold: 1457 },
     { side: 'red', rowIndex: 0, totalGold: 1987 }
   ]);
-  clock = 5001;
+  clock = 20001;
   store.commit([{ side: 'blue', rowIndex: 0, totalGold: 1500 }]);
-  const after = store.snapshot();
-  assert.equal(after.rows.length, 1, '上一轮的红方读数不得残留');
+  const held = store.snapshot();
+  assert.equal(held.rows.length, 2, '红方这一轮没报也要沿用上一次读数');
+  assert.equal(held.rows.find(r => r.side === 'red').totalGold, 1987, '沿用值必须原样保留');
+  assert.equal(held.rows.find(r => r.side === 'blue').totalGold, 1500, '新读数覆盖旧读数');
+  // 空包（整帧没解析到面板）也不清：读数按各自的最后更新时间过期。
+  clock = 20002;
+  store.commit([]);
+  assert.equal(store.snapshot().rows.length, 2, '空包保持全部读数');
+  clock = 20001 + ECON_OCR_TTL_MS;
+  const half = store.snapshot();
+  assert.equal(half.rows.length, 1, '红方（最后更新 20000）先过期');
+  assert.equal(half.rows[0].side, 'blue');
+  clock = 20002 + ECON_OCR_TTL_MS;
+  const gone = store.snapshot();
+  assert.equal(gone.active, false);
+  assert.equal(gone.rows.length, 0);
+  // 失效后重新提交要复活。
+  store.commit([{ side: 'blue', rowIndex: 0, totalGold: 1600 }]);
+  assert.equal(store.snapshot().rows.length, 1);
 });
 
 test('econ-ocr：rows 按 (team, 行序) 映射到玩家，稀疏行不覆盖未命中玩家', () => {

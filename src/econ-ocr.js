@@ -10,12 +10,13 @@
 //
 // 契约只有总金币（用户定案：当前金币不采，软件要通用不钉分辨率/坐标）：
 //   rows:[{side, rowIndex, totalGold, confidence}]
-//   某行没上报 = 这轮没解析到（HUD 对该玩家回退估算并标「估算」），绝不伪造数值。
-// 整帧没有可信面板 = 不上报 rows，store 过 TTL 后整体失效，契约降回 unavailable。
+//   某行没上报 = 这轮没解析到：store 沿用上一次读数保持一段时间（丢一帧不清值），绝不伪造数值。
+// 整帧没有可信面板 = 不上报 rows；各读数按自己最后一次被解析到的时间过 TTL，过期契约降回 unavailable。
 
 const MAX_BODY_BYTES = 1024 * 1024;
-// 超过这个时间没收到新解析结果一律视为失效：宁可回退估算，也不能拿上一帧的金币冒充当前值。
-const ECON_OCR_TTL_MS = 2000;
+// 单行读数的保持窗口（User 2026-11-18）：OCR 偶尔一帧解析失败时沿用上一次读数，
+// 避免 HUD 在真值与空态之间闪烁；超过窗口仍没有新读数才失效，绝不拿过期值冒充当前值。
+const ECON_OCR_TTL_MS = 6000;
 
 const SIDES = Object.freeze(['blue', 'red']);
 const ROW_MIN = 0;
@@ -87,11 +88,12 @@ function createEconOcrStore(options = {}) {
 
   function commit(rows) {
     const at = now();
-    const next = new Map();
+    // 合并而不是整包替换：这一轮没报的行沿用上一次读数（丢一帧保持，数值不闪烁），
+    // 每行按自己最后一次被解析到的时间独立过 TTL——超时仍无新读数才真正失效。
+    const next = new Map(entries);
     for (const row of Array.isArray(rows) ? rows : []) {
       next.set(row.side + ':' + row.rowIndex, { ...row, at });
     }
-    // 整包替换而不是合并：某一行这一轮没报，就说明这轮没解析到，不能留上一帧的值。
     entries = next;
     lastCommitAt = at;
     commits += 1;

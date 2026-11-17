@@ -108,9 +108,6 @@ var ICONS = {
   heralds: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 4.5c3.3 0 6 2.9 6 6.5 0 3.8-2.8 6.9-6.4 6.9-.5 0-1-.1-1.5-.2l.7 2.3-2.2-1.1-.6.2-1.9.9.6-2.2C6 16.7 7.5 14.6 7.5 12c0-.5 0-1 .1-1.4L5.3 8.2l2.9.5C9.3 6.2 11.2 4.5 13.5 4.5z"/></svg>'
 };
   function SIGIL(key) { return '<img src="/assets/objectives/score-' + key + '.png" alt="" draggable="false">'; }
-  // 对位经济差：官方不给逐人金币（只有 activePlayer.currentGold），只能按可见信息估算，
-  // 权重与 src/live-data.js 的 GOLD_WEIGHTS 保持一致；数字永远标「估算」，拿不到就显示 —，不伪造。
-  var GOLD_WEIGHTS = { cs: 20, kill: 300, assist: 150 };
   var DEMO_NAME = 'DEMO · 待选手数据';
   // 资源条规格（由 data/resource-bar-spec.json 在 Node 侧压缩后注入）：
   //   { champId: { cls: 'A'|'B'|'C'|'D', color: '#rrggbb'|null, gating: 'always'|'r-active'|..., states: [[min,max,color]]|null } }
@@ -1377,31 +1374,18 @@ var ICONS = {
       }
     }
   }
-  // ---- 对位经济差（估算）：中线两侧同一行是同分路对位 ----
-  // 对位经济差：优先用协议流解码出的 totalGold（精确）；拿不到才退回可见信息估算（标「估算」）。
+  // ---- 对位经济差：中线两侧同一行是同分路对位 ----
+  // 只显示解码出的 totalGold 真值（OCR / 协议流）；拿不到就显示 —，不做估算口径（已删）。
   // currentGold 仍未解出，任何地方都不显示它。
-  function playerGoldEstimate(player) {
-    if (!player || player.placeholder) return null;
-    var hasSignal = hasNumber(player.cs) || hasNumber(player.csExact) || (Array.isArray(player.items) && player.items.length > 0);
-    if (!hasSignal) return null;
-    var total = num(hasNumber(player.csExact) ? player.csExact : player.cs) * GOLD_WEIGHTS.cs + num(player.kills) * GOLD_WEIGHTS.kill + num(player.assists) * GOLD_WEIGHTS.assist;
-    var slots = playerItems(player);
-    for (var i = 0; i < slots.length; i += 1) {
-      if (!slots[i] || !slots[i].price) continue;
-      total += slots[i].price * Math.max(1, slots[i].count || 1);
-    }
-    return Math.round(total);
-  }
   function playerGoldOf(player) {
-    // 协议流解码出的 totalGold 永远优先于估算：估算是「装备 + 补刀 + KDA」，缺被动金币，差数千。
+    // 经济差只认解码出的 totalGold 真值（OCR / 协议流）；拿不到就返回 null，页面显示 —。
     // 解码值可能只有 quantized 精度（残差字节解出的关键帧浮点值，±1 以内），要按精度标注，
     // 不能一律写成「精确值」。
     if (player && hasNumber(player.totalGold) && capUsable('totalGold')) {
       var tier = player.totalGoldPrecision || capPrecision('totalGold');
       return { value: num(player.totalGold), decoded: true, exact: tier === 'exact' };
     }
-    var estimate = playerGoldEstimate(player);
-    return estimate === null ? null : { value: estimate, decoded: false, exact: false };
+    return null;
   }
   function diffMarkup(bluePlayer, redPlayer) {
     var blue = playerGoldOf(bluePlayer);
@@ -1411,10 +1395,8 @@ var ICONS = {
     }
     var diff = blue.value - red.value;
     var cls = diff > 0 ? 'blue' : diff < 0 ? 'red' : 'even';
-    var note = blue.decoded && red.decoded
-      ? (blue.exact && red.exact ? '对位经济差（totalGold 真值：经济面板 OCR / 协议流精确值）'
-        : '对位经济差（协议流解码值：关键帧金币，±1 以内）')
-      : '对位经济差（估算：装备 + 补刀 + KDA，缺被动金币）';
+    var note = blue.exact && red.exact ? '对位经济差（totalGold 真值：经济面板 OCR / 协议流精确值）'
+      : '对位经济差（协议流解码值：关键帧金币，±1 以内）';
     return '<span class="hb-diff ' + cls + '" title="' + esc(note) + '"><i class="hb-diff-bar"></i><b>' + esc(fmtDiffAbs(diff)) + '</b></span>';
   }
   function championMarkup(player) {

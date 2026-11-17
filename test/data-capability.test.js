@@ -343,9 +343,9 @@ test('t40：协议流 quantized 的 totalGold/xp 保持 quantized，失效后回
   assert.equal(fieldOf(off, 'totalGold').precision, 'unavailable');
 });
 
-// HUD 消费侧：中栏对位经济差必须用协议流解码出的 totalGold，标注按精度档区分；
-// 只有完全拿不到解码值时才退回「装备 + 补刀 + KDA」的估算（缺被动金币，会差数千）。
-test('t41：对位经济差优先用解码 totalGold，quantized 标 ±1，无解码值才退回估算', () => {
+// HUD 消费侧：中栏对位经济差必须用解码出的 totalGold 真值，标注按精度档区分；
+// 拿不到解码值就显示 — 占位；估算口径已删（2026-11-18，OCR 1Hz 丢帧闪烁难看）。
+test('t41：对位经济差优先用解码 totalGold，quantized 标 ±1，无解码值显示 —', () => {
   const hud = loadHud();
   hud.setConfig({ players: [] });
   const mk = (team, gold) => ({
@@ -379,12 +379,13 @@ test('t41：对位经济差优先用解码 totalGold，quantized 标 ±1，无�
   hud.setState({ mode: 'live', players: [blueExact, redExact], blue: {}, red: {}, capability: exactMatrix });
   assert.ok(hud.diffMarkup(blueExact, redExact).includes('精确值'));
 
-  // 契约里 totalGold 不可用（老快照）：退回估算，并明确标「估算」。
+  // 拿不到解码值（老快照 / 契约失效）：直接显示 — 占位，绝不退回估算口径（估算已删）。
   const stale = { team: 'blue', name: 'BlueTop', cs: 200, kills: 2, deaths: 1, assists: 3, items: [], totalGold: 12000 };
   const staleRed = { team: 'red', name: 'RedTop', cs: 180, kills: 1, deaths: 1, assists: 2, items: [], totalGold: 9000 };
   hud.setState({ mode: 'live', players: [stale, staleRed], blue: {}, red: {}, capability: buildCapabilityMatrix('offline', {}) });
   const estimated = hud.playerGoldOf(stale);
-  assert.equal(estimated.decoded, false);
-  assert.equal(estimated.value, 200 * 20 + 2 * 300 + 3 * 150);
-  assert.ok(hud.diffMarkup(stale, staleRed).includes('估算'));
+  assert.equal(estimated, null, '估算口径已删：拿不到解码值必须返回 null');
+  const staleMarkup = hud.diffMarkup(stale, staleRed);
+  assert.ok(staleMarkup.includes('hb-diff unknown'), '无真值时渲染 — 占位：' + staleMarkup);
+  assert.equal(staleMarkup.includes('估算'), false, '估算文案必须彻底消失：' + staleMarkup);
 });
