@@ -823,7 +823,8 @@ var ICONS = {
       var roleS = row.querySelector('.hb-name-line small');
       var stat = row.querySelector('.hb-stat-line');
       var w = 0;
-      if (nameB) w += nameB.scrollWidth;
+      // 名字位置固定预算 100px：不随内容伸缩（用户拍板），超过 100px 的 ID 在文本层截断。
+      if (nameB) w += 100;
       if (roleS) w += roleS.getBoundingClientRect().width;
       if (nameB && roleS) w += 4;
       if (stat) { var statW = stat.getBoundingClientRect().width; if (statW > w) w = statW; }
