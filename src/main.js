@@ -610,8 +610,10 @@ function demoSeriesAdvance() {
   // 演示里每次循环 = 一局：比分够就收尾开新一轮，否则进下一局。
   try {
     const series = seriesStore.read();
-    if (series.status === 'running' && !seriesStore.snapshot(series).decided) {
-      state.series = seriesStore.snapshot(seriesStore.nextGame());
+    const snap = seriesStore.snapshot(series);
+    // 局数在记录那一局时已经推进过；这里只在比分打满（或已收尾）时换一场新的演示比赛。
+    if (series.status === 'running' && !snap.decided) {
+      state.series = snap;
       return;
     }
     if (series.status === 'running' || series.status === 'finished') seriesStore.end();
@@ -625,13 +627,18 @@ function demoRecordGame(scene) {
   if (!scene || !scene.result) return;
   try {
     const mvp = state.mvp && state.mvp.name ? { name: state.mvp.name, team: state.mvp.team } : null;
-    state.series = seriesStore.snapshot(seriesStore.recordGame({
+    let series = seriesStore.recordGame({
       winner: scene.result.winner,
       blueKills: scene.result.blueKills,
       redKills: scene.result.redKills,
       duration: scene.result.duration,
       mvp
-    }));
+    });
+    // 记完立刻进下一局：赛后页显示的「第 N 局」必须是下一局，别让 1:0 挂在本局头上。
+    if (seriesStore.snapshot(series).status === 'running' && !seriesStore.snapshot(series).decided) {
+      series = seriesStore.nextGame();
+    }
+    state.series = seriesStore.snapshot(series);
   } catch (error) {
     state.series = seriesStore.snapshot();
   }
@@ -893,7 +900,12 @@ const server = http.createServer((req,res)=>{
       const action = String((body && body.action) || '');
       if (action === 'play') state.demo.playing = true;
       else if (action === 'pause') state.demo.playing = false;
-      else if (action === 'restart') { state.demo.elapsed = 0; state.demo.stage = 'lobby'; state.demo.playing = true; }
+      else if (action === 'restart') {
+        // 重播 = 从头演一场新比赛，系列赛大分/局数也要归零，不能带着上一轮的 1:0 继续演。
+        state.demo.elapsed = 0; state.demo.stage = 'lobby'; state.demo.playing = true;
+        try { seriesStore.reset(); } catch (error) { /* 忽略：重置失败不影响剧本重播 */ }
+        demoSeriesStart();
+      }
       else if (action === 'seek') {
         const at = Number(body && body.at);
         if (!Number.isFinite(at) || at < 0 || at >= mockDemo.LOOP_MS) throw badRequest('invalid_seek');

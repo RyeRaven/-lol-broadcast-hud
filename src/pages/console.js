@@ -2146,8 +2146,8 @@ function consolePage(port) {
       <button type="button" data-nav="post"><i></i>赛后</button>
     </nav>
     <div class="c2-topmeta">
-      <span class="c2-score" id="scoreChip" title="系列赛比分"><b class="blue" id="scoreBlue">0</b><i>:</i><b class="red" id="scoreRed">0</b></span>
-      <span class="c2-stat c2-stat-game"><small>系列</small><b id="gameChip">BO3</b></span>
+      <span class="c2-stat c2-stat-series"><small>系列赛</small><span class="c2-score" id="scoreChip" title="系列赛大分：双方已赢下的局数"><b class="blue" id="scoreBlue">0</b><i>:</i><b class="red" id="scoreRed">0</b></span></span>
+      <span class="c2-stat c2-stat-game"><small>局数</small><b id="gameChip">BO3</b></span>
       <span class="c2-stat c2-stat-clock"><small>时间</small><b id="gameClock">--:--</b></span>
       <span class="c2-stat c2-stat-phase"><small>阶段</small><b id="phaseLabel">--</b></span>
       <span class="topbar-mode mock" id="topbarMode">MOCK</span>
