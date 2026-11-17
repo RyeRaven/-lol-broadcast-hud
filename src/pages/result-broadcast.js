@@ -239,30 +239,6 @@ const RESULT_SCRIPT = String.raw`(function () {
       return { t: i, blue: 96000 + Math.round(diff / 2), red: 96000 - Math.round(diff / 2) };
     });
   }
-  // 演示逐人金币曲线：从 DEMO_LINES 的赛末经济反推（0.55r + 0.45r² 轻微加速），
-  // 保证曲线终点与结算表经济列一致，两张图讲同一个故事。
-  function demoPlayerGold() {
-    var totalMinutes = DEMO_DIFF.length - 1;
-    var out = [];
-    for (var pid = 1; pid <= 10; pid += 1) {
-      var line = DEMO_LINES[pid - 1] || DEMO_LINES[0];
-      var finalGold = line[4];
-      var points = [];
-      for (var t = 0; t <= totalMinutes; t += 1) {
-        var r = totalMinutes ? t / totalMinutes : 1;
-        points.push({ t: t, gold: Math.round(500 + (finalGold - 500) * (0.55 * r + 0.45 * r * r)) });
-      }
-      out.push({
-        pid: pid,
-        side: pid <= 5 ? 'blue' : 'red',
-        champion: DEMO_CHAMPS[pid - 1] || null,
-        name: null,
-        points: points
-      });
-    }
-    return out;
-  }
-
   function currentPostGame() {
     var actual = state && state.postGame;
     if (actual && typeof actual === 'object') return actual;
@@ -484,81 +460,6 @@ const RESULT_SCRIPT = String.raw`(function () {
     '</svg>';
     setIfChanged('rs-goldchart', svg);
   }
-  // 逐人金币真值曲线：state.goldPlayers（LCU timeline 逐帧逐人 totalGold，误差 0）。
-  // 蓝红各 5 条同族色线；有英雄标签（eog participantId 映射成功）就标注，没有就只画线，绝不按顺序猜。
-  var PG_COLORS = {
-    blue: ['#8ec4ff', '#5fa8ff', '#3d8ce0', '#2f6fb8', '#25629f'],
-    red: ['#ff9284', '#ff6a58', '#e0503f', '#c43a2e', '#a52f24']
-  };
-  function playerGoldSeries() {
-    var list = state && Array.isArray(state.goldPlayers) ? state.goldPlayers : null;
-    if (list && list.length) {
-      var ok = [];
-      for (var i = 0; i < list.length; i += 1) {
-        var s = list[i];
-        if (s && Array.isArray(s.points) && s.points.length > 1) ok.push(s);
-      }
-      if (ok.length) return ok;
-    }
-    return demoPlayerGold();
-  }
-  function renderPlayerGold() {
-    var series = playerGoldSeries();
-    var maxT = 1;
-    var maxGold = 1;
-    series.forEach(function (s) {
-      s.points.forEach(function (pt) {
-        maxT = Math.max(maxT, num(pt.t));
-        maxGold = Math.max(maxGold, num(pt.gold));
-      });
-    });
-    var W = 640;
-    var H = 210;
-    var padL = 58;
-    var padR = 12;
-    var padT = 16;
-    var padB = 30;
-    var plotW = W - padL - padR;
-    var plotH = H - padT - padB;
-    function x(t) { return padL + (num(t) / maxT) * plotW; }
-    function y(g) { return padT + plotH - (num(g) / maxGold) * plotH; }
-    var grid = '';
-    var step = maxT > 32 ? 10 : 5;
-    for (var gt = 0; gt <= maxT; gt += step) {
-      grid += '<line x1="' + x(gt).toFixed(1) + '" y1="' + padT + '" x2="' + x(gt).toFixed(1) + '" y2="' + (H - padB) + '" class="rs-gline"/>' +
-        '<text x="' + x(gt).toFixed(1) + '" y="' + (H - padB + 16) + '" class="rs-gtick">' + gt + '</text>';
-    }
-    var lines = '';
-    var labelSlots = [];
-    series.forEach(function (s, i) {
-      var colors = PG_COLORS[s.side === 'red' ? 'red' : 'blue'];
-      var color = colors[i % colors.length];
-      var d = s.points.map(function (pt, j) {
-        return (j ? 'L' : 'M') + x(pt.t).toFixed(1) + ' ' + y(pt.gold).toFixed(1) + ' ';
-      }).join('');
-      lines += '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2"/>';
-      var lp = s.points[s.points.length - 1];
-      if (s.champion) labelSlots.push({ y: y(lp.gold) + 3, color: color, text: s.champion });
-    });
-    // 末端英雄标签防重叠：按 y 排序后强制 ≥13px 间距，挤不下就丢弃，绝不互相盖字。
-    labelSlots.sort(function (a, b) { return a.y - b.y; });
-    var labels = '';
-    var lastY = -100;
-    for (var li = 0; li < labelSlots.length; li += 1) {
-      var slot = labelSlots[li];
-      var ly = Math.max(slot.y, lastY + 13);
-      if (ly > H - padB - 2) continue;
-      lastY = ly;
-      labels += '<text x="' + (x(maxT) - 5).toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="end" fill="' + slot.color + '" font-size="11">' + esc(slot.text) + '</text>';
-    }
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      '<rect x="' + padL + '" y="' + padT + '" width="' + plotW + '" height="' + plotH + '" class="rs-gframe"/>' +
-      grid + lines + labels +
-      '<text x="4" y="' + (padT + 8) + '" class="rs-gylab">' + formatGoldK(maxGold) + '</text>' +
-      '<text x="4" y="' + (H - padB - 4) + '" class="rs-gylab">0</text>' +
-    '</svg>';
-    setIfChanged('rs-pgold', svg);
-  }
 
   function renderFooter() {
     var s = seriesInfo();
@@ -578,7 +479,6 @@ const RESULT_SCRIPT = String.raw`(function () {
     renderDamage(players);
     var tl = state && Array.isArray(state.goldTimeline) && state.goldTimeline.length ? state.goldTimeline : demoGoldTimeline();
     renderGoldChart(tl, info);
-    renderPlayerGold();
     renderFooter();
   }
   function update(next) {
@@ -650,7 +550,6 @@ const RESULT_BODY = [
     '<section class="rs-charts">',
       '<div class="rs-panel"><h2>DAMAGE DEALT TO CHAMPIONS</h2><div class="rs-damage" id="rs-damage"></div></div>',
       '<div class="rs-panel"><h2>GOLD DIFFERENCE OVER TIME</h2><div class="rs-goldchart" id="rs-goldchart"></div></div>',
-      '<div class="rs-panel"><h2>PLAYER GOLD OVER TIME</h2><div class="rs-pgold" id="rs-pgold"></div></div>',
     '</section>',
   '</div>',
   '<footer class="rs-footer"><span class="rs-crest"><b>R</b><small>26</small></span><span class="rs-patch" id="rs-patch">PATCH —</span></footer>',
