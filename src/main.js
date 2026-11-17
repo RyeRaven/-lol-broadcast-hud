@@ -625,7 +625,11 @@ function applyMockScript() {
     players: Array.isArray(cfg.players) ? cfg.players : []
   });
 }
+// 演示里手动点过「结束这轮比赛」后不要再自动开新一场，否则几秒后又会冒出「第 1 局 0:0」，
+// 用户看起来像「结束按钮没用」。重播 / 进模拟 / 开新一轮都会把它放开。
+let demoSeriesHeld = false;
 function demoSeriesStart() {
+  demoSeriesHeld = false;
   const store = mockSeriesStore;
   try {
     const cfg = readMockConfig() || {};
@@ -638,6 +642,7 @@ function demoSeriesStart() {
 function demoSeriesAdvance() {
   // 演示里每次循环 = 一局：比分够就收尾开新一轮，否则进下一局。
   const store = mockSeriesStore;
+  if (demoSeriesHeld) { state.series = store.snapshot(); return; }
   try {
     const series = store.read();
     const snap = store.snapshot(series);
@@ -710,6 +715,7 @@ function startMockSession() {
 function exitMockSession() {
   state.mode = 'live';
   try { mockSeriesStore.reset(); } catch (error) { /* 忽略：退出时清不掉也不该挡住回真实 */ }
+  demoSeriesHeld = false;
   mockDemo.setInput(null);
   state.demo = { playing: false, speed: 1, elapsed: 0, stage: 'lobby', progress: 0 };
   state.series = seriesStore.snapshot();
@@ -1029,6 +1035,9 @@ const server = http.createServer((req,res)=>{
       else if (action === 'end') series = store.end();
       else if (action === 'reset') series = store.reset();
       else throw badRequest('invalid_action');
+      // 手动收尾 = 演示循环到此为止；手动开局/重置 = 继续跟着剧本走。
+      if (action === 'end') demoSeriesHeld = state.mode === 'mock';
+      else if (action === 'start' || action === 'reset') demoSeriesHeld = false;
       state.series = store.snapshot(series);
       broadcast();
       json(res, 200, { ok: true, series: state.series });

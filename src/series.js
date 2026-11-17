@@ -226,6 +226,10 @@ function createStore(options = {}) {
   function end() {
     const current = read();
     if (current.status === 'idle') throw fail('series_not_running');
+    // 一局都没记过 = 建了比赛又不想打了：直接丢掉当前轮，别往「已完成场次」里塞一条 0:0。
+    if (!current.games.length) {
+      return write({ ...blank(), tournament: current.tournament, bestOf: current.bestOf, teams: current.teams, history: current.history });
+    }
     const need = needed(current.bestOf);
     const winner = current.scores.blue >= need ? 'blue' : (current.scores.red >= need ? 'red' : null);
     const entry = {

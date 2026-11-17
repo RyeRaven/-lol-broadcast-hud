@@ -1655,9 +1655,12 @@ function toggleHidden(id, hidden) {
 // 首页入口按「当前模式 + 系列赛状态」显隐：模拟与真实只能从首页切，不提供一键互切。
 function renderModeEntries(state) {
   var mock = !!(state && state.mode === 'mock');
-  var running = !!(latestSeries && latestSeries.status === 'running');
+  // 「打完但还没归档」（finished）同样要能收尾，否则首页按钮会在决出胜负那一刻消失。
+  var running = !!(latestSeries && (latestSeries.status === 'running' || latestSeries.status === 'finished'));
   toggleHidden('homeResume', !(mock || running));
   toggleHidden('homeEndSeries', !(running && !mock));
+  var homeEndLabel = byId('homeEndSeries');
+  if (homeEndLabel && homeEndLabel.getAttribute('data-armed') !== '1') homeEndLabel.textContent = '结束这轮比赛';
   toggleHidden('homeMockExit', !mock);
   toggleHidden('homeMockNote', !mock);
   toggleHidden('mockExit', !mock);
@@ -1687,6 +1690,31 @@ function postSeries(action, body) {
     if (data && data.ok && data.series) applySeries(data.series);
     return data;
   });
+}
+
+// 两段式确认：Electron 里 window.confirm() 没有主进程接管对话框时直接返回 false，
+// 表现就是「点了完全没反应」。改成按钮自己承载确认状态，4 秒不再点自动还原。
+var armConfirmTimers = {};
+function armConfirm(btn, label, action) {
+  if (!btn) { action(); return; }
+  if (armConfirmTimers[label]) { clearTimeout(armConfirmTimers[label]); delete armConfirmTimers[label]; }
+  if (btn.getAttribute('data-armed') === '1') {
+    btn.removeAttribute('data-armed');
+    btn.classList.remove('armed');
+    btn.textContent = label;
+    action();
+    return;
+  }
+  btn.setAttribute('data-armed', '1');
+  btn.classList.add('armed');
+  btn.textContent = '再点一次确认';
+  armConfirmTimers[label] = setTimeout(function () {
+    delete armConfirmTimers[label];
+    if (btn.getAttribute('data-armed') !== '1') return;
+    btn.removeAttribute('data-armed');
+    btn.classList.remove('armed');
+    btn.textContent = label;
+  }, 4000);
 }
 
 var lastSeriesKey = '';
@@ -1806,11 +1834,15 @@ function currentGameResult() {
 function recordAndAdvance(mode) {
   var s = latestSeries;
   if (!s || s.status === 'idle') { toast('还没有进行中的系列赛', true); return Promise.resolve(); }
+  var decided = !!(s.decided || s.status === 'finished');
   var already = (Array.isArray(s.games) ? s.games : []).some(function (g) { return g && Number(g.index) === Number(s.gameIndex); });
-  var chain = already ? Promise.resolve({ ok: true }) : postSeries('game', currentGameResult());
+  // 「结束这轮」要有赛后数据才补记本局，避免拿空 postGame 把已记的一局覆盖成 0:0。
+  var wantRecord = !already && (mode !== 'end' || !!(latestState && latestState.postGame));
+  var chain = wantRecord ? postSeries('game', currentGameResult()) : Promise.resolve({ ok: true });
   return chain.then(function (data) {
     if (data && data.ok === false) throw new Error(data.error || '记录本局失败');
-    if (!latestSeries || latestSeries.decided || latestSeries.status === 'finished') return { decided: true };
+    // 收尾不受「已决出胜负 / 已收尾」限制：那正是要结束的时候（原来这里把 end 也拦了，形成死循环）。
+    if (mode !== 'end' && decided) return { decided: true };
     return postSeries(mode === 'end' ? 'end' : 'next');
   }).then(function (data) {
     if (data && data.decided) {
@@ -1818,7 +1850,7 @@ function recordAndAdvance(mode) {
       return;
     }
     if (data && data.ok === false) throw new Error(data.error || '推进系列赛失败');
-    if (mode === 'end') { toast('这轮比赛已结束'); showView('home'); }
+    if (mode === 'end') { toast('这轮比赛已结束'); showView('home'); }  // 这条只在真有局落盘时才走到（见 wantRecord）
     else { toast('已切到下一局'); showView('wait'); }
   }).catch(function (error) {
     toast('操作失败：' + ((error && error.message) || error), true);
@@ -2133,12 +2165,23 @@ function bindSeriesControls() {
   });
   var homeEnd = byId('homeEndSeries');
   if (homeEnd) homeEnd.addEventListener('click', function () {
-    if (!latestSeries || latestSeries.status === 'idle') return;
-    if (typeof window !== 'undefined' && window.confirm && !window.confirm('结束这轮比赛并回到首页？')) return;
-    postSeries('end').then(function (data) {
-      if (data && data.ok === false) throw new Error(data.error || '结束失败');
-      toast('这轮比赛已结束');
-    }).catch(function (error) { toast('结束失败：' + ((error && error.message) || error), true); });
+    armConfirm(homeEnd, '结束这轮比赛', function () {
+      if (!latestSeries || latestSeries.status === 'idle') { toast('这轮比赛已经结束了'); showView('home'); return; }
+      var hadGames = !!((latestSeries && latestSeries.games) || []).length;
+      homeEnd.disabled = true;
+      postSeries('end').then(function (data) {
+        homeEnd.disabled = false;
+        if (data && data.ok === false) throw new Error(data.error || '结束失败');
+        toast(hadGames ? '这轮比赛已结束' : '已取消这轮比赛（还没有打完的局）');
+        showView('home');
+      }).catch(function (error) {
+        homeEnd.disabled = false;
+        homeEnd.removeAttribute('data-armed');
+        homeEnd.classList.remove('armed');
+        homeEnd.textContent = '结束这轮比赛';
+        toast('结束失败：' + ((error && error.message) || error), true);
+      });
+    });
   });
   var next = byId('postNext');
   if (next) next.addEventListener('click', function () { recordAndAdvance('next'); });

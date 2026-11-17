@@ -98,6 +98,10 @@ html,body{
 .btn.primary{color:#041014;background:linear-gradient(135deg,var(--cyan),#76ece9);border-color:transparent;font-weight:900}
 .btn.primary:hover{color:#02090c;filter:brightness(1.07)}
 .btn.ghost{background:rgba(255,255,255,.015);border-color:var(--line);color:#a9bdcd}
+/* 两段式确认：第一次点击后按钮自己进「待确认」态。Electron 里原生 confirm 会静默返回 false，
+   用它做确认等于把点击吞掉，所以这类破坏性动作一律用按钮状态承载确认。 */
+.btn.armed{border-color:var(--amber);color:#f2c887;background:rgba(232,179,86,.1);box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.btn.armed:hover{color:#ffd79a;border-color:#f0c579}
 .btn.wide{width:100%;margin-top:8px}
 .footnote{margin-top:10px;font-size:10px;line-height:1.5;color:var(--muted-2)}
 
