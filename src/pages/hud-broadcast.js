@@ -1429,7 +1429,7 @@ var ICONS = {
     var html = '';
     // 视野得分常驻饰品槽（第 7 格）左上角；饰品为空时整格居中显示数字。
     var ward = capUsable('wardScore') && hasNumber(player.wardScore)
-      ? '<i class="hb-item-ward" title="' + esc(capTitle('wardScore', '视野得分')) + '">' + num(player.wardScore) + '</i>'
+      ? '<i class="hb-item-ward" title="' + esc(capTitle('wardScore', '视野得分')) + '">' + Math.round(num(player.wardScore)) + '</i>'
       : '';
     for (var i = 0; i < 7; i += 1) {
       var slot = slots[i];
@@ -1517,7 +1517,7 @@ var ICONS = {
         var dead = player && player.alive === false;
         row.classList.toggle('dead', !!dead);
         if (player) row.setAttribute('title', playerDisplayName(player) + ' · ' + text(player.champion, ''));
-        setText('hb-vision-' + id, player && capUsable('wardScore') && hasNumber(player.wardScore) ? num(player.wardScore) : '—');
+        setText('hb-vision-' + id, player && capUsable('wardScore') && hasNumber(player.wardScore) ? Math.round(num(player.wardScore)) : '—');
         setText('hb-level-' + id, player && capUsable('level') && hasNumber(player.level) ? num(player.level) : '—');
         var champ = byId('hb-champ-' + id);
         setHtml(champ, championMarkup(player || {}) + '<span class="hb-level" id="hb-level-' + id + '">' + (player && capUsable('level') && hasNumber(player.level) ? num(player.level) : '—') + '</span>');
