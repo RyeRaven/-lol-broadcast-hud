@@ -10,7 +10,7 @@ const { requestJson, probeLcu, probeLiveClient, fetchLcuJson, discoverLcuConnect
 const { normalizeDraftSession } = require('./draft');
 const { loadChampionIndex } = require('./champions');
 const { DEFAULT_VERSION, CHAMPION_TABLE } = require('./assets');
-const { normalizeLiveState, estimateTeamGold, loadItemIndex, createLcuConnectionManager, createLiveClientWatchdog, createObjectiveLedger } = require('./live-data');
+const { normalizeLiveState, loadItemIndex, createLcuConnectionManager, createLiveClientWatchdog, createObjectiveLedger } = require('./live-data');
 const { applyPixelBarsAvailability, applyProtocolAvailability, applyEconOcrAvailability } = require('./data-capability');
 const { buildTimeline, latestTimeline } = require('./timeline');
 const { buildHighlights, latestHighlights, handleHighlightsApi, MAX_HIGHLIGHTS } = require('./highlights');
@@ -369,19 +369,23 @@ async function pollLiveClient() {
         seen[side] += 1;
         return role ? { ...player, position: role } : player;
       });
-      const estimatedGold = estimateTeamGold(state.players, live.gameTime);
       for (const side of ['blue', 'red']) {
         for (const key of ['score', 'towers', 'dragons', 'barons', 'heralds', 'grubs', 'dragonTypes']) state[side][key] = live[side][key];
-        // Live Client Data 没有金币字段：用装备/补刀/KDA/被动金币估算，并在 state 标记来源。
-        state[side].gold = estimatedGold[side];
+        // 队伍金币 = 逐人 totalGold 相加（econ-ocr OCR 真值 / 协议流解码值）；
+        // 任一人缺读数就整队报 null（HUD 画 —），绝不回退到估算口径。
+        const roster = state.players.filter(player => player && player.team === side);
+        state[side].gold = roster.length && roster.every(player => player.totalGold !== null && player.totalGold !== undefined)
+          ? roster.reduce((total, player) => total + Number(player.totalGold), 0)
+          : null;
       }
       // 转播注记（非 LCU 标准，假 LCDA/转播台注入）：下一只元素龙类型与大龙 buff 状态；真实数据缺省 null。
       state.nextDragonType = live.nextDragonType || null;
   state.nextDragonSpawnAt = live.nextDragonSpawnAt != null ? live.nextDragonSpawnAt : null;
       state.baronBuff = live.baronBuff || null;
 state.elderBuff = live.elderBuff || null;
-      state.goldEstimated = true;
-      state.goldSource = 'estimated';
+      // 队伍金币已是逐人真值相加（不再有估算口径）；任一人缺读数时上面已置 null。
+      state.goldEstimated = false;
+      state.goldSource = 'sum-of-players';
       // 协议流解码器未接入时是 false：此时玩家只有 LCDA 的估算字段，不能当成精确值展示。
       state.protocolDecode = live.protocolDecode === true;
       // 数据可用性矩阵随每帧下发：HUD 按它决定画不画、按什么精度标（t20）。
