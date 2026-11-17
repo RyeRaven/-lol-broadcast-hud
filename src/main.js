@@ -11,7 +11,7 @@ const { normalizeDraftSession } = require('./draft');
 const { loadChampionIndex } = require('./champions');
 const { DEFAULT_VERSION, CHAMPION_TABLE } = require('./assets');
 const { normalizeLiveState, estimateTeamGold, loadItemIndex, createLcuConnectionManager, createLiveClientWatchdog, createObjectiveLedger } = require('./live-data');
-const { applyPixelBarsAvailability, applyProtocolAvailability } = require('./data-capability');
+const { applyPixelBarsAvailability, applyProtocolAvailability, applyEconOcrAvailability } = require('./data-capability');
 const { buildTimeline, latestTimeline } = require('./timeline');
 const { buildHighlights, latestHighlights, handleHighlightsApi, MAX_HIGHLIGHTS } = require('./highlights');
 const { createDirectorEngine, handleDirectorApi } = require('./director');
@@ -20,6 +20,7 @@ const { buildPostGame } = require('./post-game');
 const { parseTimelineGold, parseTimelineGoldPlayers } = require('./gold-timeline');
 const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
+const { createEconOcrStore, handleEconOcrApi, applyEconOcrToPlayers } = require('./econ-ocr');
 const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
 const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
 const { readBroadcastConfig, saveBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
@@ -81,8 +82,11 @@ const pixelBars = createPixelBarStore();
 // 协议流（t30）：同机解码器（0xdd 关键帧）经 POST /api/protocol-feed 喂进来的逐玩家精确读数。
 // 与像素读条同样的时效规则：超过 2000ms 没更新就整体失效，绝不让上一包冒充当前值。
 const protocolFeed = createProtocolFeedStore();
+// 屏幕经济面板 OCR：同机解析进程经 POST /api/econ-ocr 喂进来的逐玩家总金币真值。
+const econOcrStore = createEconOcrStore();
 // 初始态与像素读条对齐：没有有效包时页面必须显式降级，不能靠「字段不存在」蒙混。
 state.protocolFeed = { active: false, updatedAt: null, stale: false };
+state.econOcr = { active: false, updatedAt: null, stale: false };
 let championIndex = null;
 state.obs = obs.snapshot();
 state.timeline = [];
@@ -313,6 +317,7 @@ async function pollLiveClient() {
     // 由它按 (team, 行序) 回填 hpPercent/resourcePercent；过期读数在 store 里就已经被过滤掉。
     const live = normalizeLiveState(payload, {
       pixelBars: pixelBars.snapshot(),
+      econOcr: econOcrStore.snapshot(),
       protocol: protocolResolver(),
       objectiveLedger,
       // 本轮 LCDA 请求已经成功：这是实测到的 liveClient 可达信号，不是为了对齐 capability.mode 而伪造。
@@ -517,6 +522,36 @@ function onPixelBarsUpdate(snapshot) {
   const now = Date.now();
   if (now - lastPixelBroadcastAt < 250) return;
   lastPixelBroadcastAt = now;
+  broadcast();
+}
+
+// 屏幕经济面板 OCR 失效保护：解析超过 2000ms 没更新就必须把 totalGold 降回 unavailable，
+// 并清掉 econ 标记与（econ 来源的）玩家金币，绝不让上一帧的金币冒充当前值。
+function refreshEconOcr() {
+  const snapshot = econOcrStore.snapshot();
+  const active = snapshot.active === true;
+  state.econOcr = { active, updatedAt: snapshot.updatedAt, stale: snapshot.stale === true };
+  if (active) return;
+  state.capability = applyEconOcrAvailability(state.capability, false);
+  for (const player of Array.isArray(state.players) ? state.players : []) {
+    if (!player || typeof player !== 'object') continue;
+    if (player.econGold === null || player.econGold === undefined) continue;
+    player.econGold = null;
+    player.totalGold = null;
+    player.totalGoldPrecision = null;
+  }
+}
+
+// OCR 解析约 1Hz 上报，HUD 按 1Hz 重绘就够；限流避免每包都跑导播与全量序列化。
+let lastEconBroadcastAt = 0;
+function onEconOcrUpdate(snapshot) {
+  state.econOcr = { active: snapshot.active === true, updatedAt: snapshot.updatedAt, stale: snapshot.stale === true };
+  state.capability = applyEconOcrAvailability(state.capability, snapshot.active === true);
+  // 只在实盘把真值写进玩家；mock 演示模式不许把真实读数混进演示数据。
+  if (state.mode === 'live') applyEconOcrToPlayers(state.players, snapshot.rows);
+  const now = Date.now();
+  if (now - lastEconBroadcastAt < 250) return;
+  lastEconBroadcastAt = now;
   broadcast();
 }
 
@@ -759,6 +794,7 @@ function exitMockSession() {
 function tick() {
   refreshPixelBars();
   refreshProtocolFeed();
+  refreshEconOcr();
   if (state.mode === 'mock') {
     state.goldEstimated = false;
     state.goldSource = 'mock';
@@ -1120,6 +1156,8 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/pixel-bars' || url.pathname === '/api/pixel-bars/status') { handlePixelBarsApi(req, res, url, { store: pixelBars, onUpdate: onPixelBarsUpdate }); return; }
   // 协议流（t30）：同样是内部写接口，只收本机来源、不设 CORS 头，由同机解码器进程喂数据。
   if (url.pathname === '/api/protocol-feed' || url.pathname === '/api/protocol-feed/status') { handleProtocolFeedApi(req, res, url, { store: protocolFeed, onUpdate: onProtocolFeedUpdate }); return; }
+  // 屏幕经济面板 OCR：内部写接口，只收本机来源、不设 CORS 头，由 tools/pixel-bars/econ_ocr.py 喂数据。
+  if (url.pathname === '/api/econ-ocr' || url.pathname === '/api/econ-ocr/status') { handleEconOcrApi(req, res, url, { store: econOcrStore, onUpdate: onEconOcrUpdate }); return; }
   if (url.pathname.startsWith('/api/obs/')) { handleObsApi(req, res, url, { obs, json, readBody, broadcast, state, port: PORT, getObsConfig, setObsConfig, saveConfig, onObsConnected: () => { lastAutoPhase = null; } }); return; }
   if (url.pathname === '/api/datadragon-url') { try { return json(res, 200, { url: dataDragonUrl(url.searchParams.get('version') || DEFAULT_VERSION, url.searchParams.get('kind') || 'champion', url.searchParams.get('id') || 'Ahri') }); } catch (error) { return json(res, 400, { error: error.message }); } }
   if (url.pathname === '/events') {

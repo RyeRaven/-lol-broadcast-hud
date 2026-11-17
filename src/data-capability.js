@@ -199,6 +199,8 @@ function buildCapabilityMatrix(mode, sources = {}) {
   let detail = '';
   if (normalized === 'live-spectate') {
     fields = liveSpectateFields(source.protocolDecode === true, source.pixelBars === true, source.protocolKda === true, source.protocolFields);
+    // econ-ocr 截屏真值：模板匹配解出的「当前(总)」括号值，优先于协议流/LCDA 判定。
+    if (source.econOcr === true) fields = { ...fields, totalGold: exact('econ-ocr', ECON_OCR_REASON) };
     detail = source.protocolDecode === true
       ? '实时观战 + 协议流解码可用'
       : '实时观战：只有 Live Client Data 字段，金币/经验/精确补刀不可用';
@@ -266,6 +268,28 @@ function applyPixelBarsAvailability(matrix, active) {
   return next;
 }
 
+// 屏幕经济面板 OCR（econ-ocr）：同机截屏解析经济面板「当前(总)」白字的逐玩家总金币，
+// 与 LCU timeline 真值逐格一致 → 这是 exact。失效时只降 econ-ocr 来源，不动协议流/LCDA 的金币契约。
+const ECON_OCR_REASON = '屏幕经济面板 OCR（同机截屏模板匹配）：白字 当前(总) 金币，与 timeline 真值逐格一致';
+
+function applyEconOcrAvailability(matrix, active) {
+  if (!matrix || !matrix.fields) return matrix;
+  const on = active === true;
+  const entry = matrix.fields.totalGold || unavailable('字段未定义');
+  if (on) {
+    if (entry.precision === 'exact' && entry.source === 'econ-ocr') return matrix;
+    const fields = { ...matrix.fields, totalGold: exact('econ-ocr', ECON_OCR_REASON) };
+    const next = { ...matrix, fields, exact: [], quantized: [], estimated: [], unavailable: [] };
+    for (const key of FIELD_KEYS) next[fields[key] ? fields[key].precision : 'unavailable'].push(key);
+    return next;
+  }
+  if (entry.source !== 'econ-ocr') return matrix;
+  const fields = { ...matrix.fields, totalGold: unavailable('Live Client Data 没有逐玩家金币字段；estimateTeamGold 是队伍级估算，不得冒充 totalGold') };
+  const next = { ...matrix, fields, exact: [], quantized: [], estimated: [], unavailable: [] };
+  for (const key of FIELD_KEYS) next[fields[key] ? fields[key].precision : 'unavailable'].push(key);
+  return next;
+}
+
 // 协议流失效时（超过 2000ms 没有新包）同样必须立刻把精确字段降回 unavailable：
 // 关键帧值是真的，但过了时效就变成「上一局的数字」，继续展示就是伪造当前值。
 // 与 applyPixelBarsAvailability 一样返回新对象，不改动传入的矩阵。
@@ -304,6 +328,8 @@ function applyProtocolAvailability(matrix, active, options = {}) {
     const entry = fields[key] || unavailable('字段未定义');
     const tier = fieldPresence(key);
     if (on && protocolDecode && tier) {
+      // econ-ocr 截屏真值优先于解码值：协议流包不许把 OCR 的 exact 金币降级成 quantized。
+      if (key === 'totalGold' && entry.source === 'econ-ocr') continue;
       if (entry.precision === tier && entry.source === 'spectator-protocol') continue;
       const label = key === 'csExact' ? '精确补刀（关键帧时刻的精确值，必须配合 csAsOf 标「N 秒前」）'
         : key === 'totalGold' ? '逐玩家金币（关键帧时刻的解码值）'
@@ -432,6 +458,7 @@ module.exports = {
   buildCapabilityMatrix,
   applyPixelBarsAvailability,
   applyProtocolAvailability,
+  applyEconOcrAvailability,
   PROTOCOL_KEYS,
   PROTOCOL_KDA_KEYS,
   interpolateAt,

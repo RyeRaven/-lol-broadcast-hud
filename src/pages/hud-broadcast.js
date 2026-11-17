@@ -1412,7 +1412,7 @@ var ICONS = {
     var diff = blue.value - red.value;
     var cls = diff > 0 ? 'blue' : diff < 0 ? 'red' : 'even';
     var note = blue.decoded && red.decoded
-      ? (blue.exact && red.exact ? '对位经济差（协议流 totalGold 精确值）'
+      ? (blue.exact && red.exact ? '对位经济差（totalGold 真值：经济面板 OCR / 协议流精确值）'
         : '对位经济差（协议流解码值：关键帧金币，±1 以内）')
       : '对位经济差（估算：装备 + 补刀 + KDA，缺被动金币）';
     return '<span class="hb-diff ' + cls + '" title="' + esc(note) + '"><i class="hb-diff-bar"></i><b>' + esc(fmtDiffAbs(diff)) + '</b></span>';

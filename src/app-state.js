@@ -49,6 +49,8 @@ const state = {
   // 像素读条（t23）：{active, updatedAt, stale}。active=false 表示本轮没有有效读数，
   // 页面必须画 unknown 占位，不得把上一条读数当成当前血量。
   pixelBars: { active: false, updatedAt: null, stale: false },
+  // 屏幕经济面板 OCR：{active, updatedAt, stale}。语义同 pixelBars：失效即回退估算。
+  econOcr: { active: false, updatedAt: null, stale: false },
   // BP 演示数据只在 mock 模式预置；实盘模式在真实 session 到达前必须是空 BP（和比分/选手同一条原则）。
   draft: initialMode === 'live' ? emptyDraft() : createMockDraft(),
   players: [],

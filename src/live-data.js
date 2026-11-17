@@ -6,6 +6,7 @@ const path = require('path');
 const { DEFAULT_VERSION, itemId, spellKey } = require('./assets');
 const { buildCapabilityMatrix, MODES } = require('./data-capability');
 const { applyBarsToPlayers } = require('./pixel-bars');
+const { applyEconOcrToPlayers } = require('./econ-ocr');
 const { sideOf, sideFromTurretName } = require('./side');
 
 // 把 /liveclientdata/allgamedata 的原始结构压成渲染层直接可用的形状。
@@ -476,6 +477,17 @@ function normalizeLiveState(payload, options = {}) {
   const pixelBarList = Array.isArray(options.pixelBars && options.pixelBars.bars) ? options.pixelBars.bars : [];
   // 没有有效读数时不调用（保持 normalizePlayer 给出的全 null），避免把旧值带进来。
   if (pixelBars.active && pixelBarList.length) applyBarsToPlayers(players, pixelBarList);
+  // 屏幕经济面板 OCR（econ-ocr）：截屏解析出的逐玩家总金币按 (team, 行序) 回填，
+  // 稀疏行只覆盖命中的玩家；econOcr 只描述「这一轮解析是否还有效」，绝不参与数值推算。
+  const econOcr = options.econOcr && typeof options.econOcr === 'object'
+    ? {
+      active: options.econOcr.active === true,
+      updatedAt: Number.isFinite(Number(options.econOcr.updatedAt)) ? Number(options.econOcr.updatedAt) : null,
+      stale: options.econOcr.stale === true
+    }
+    : { active: false, updatedAt: null, stale: false };
+  const econOcrRows = Array.isArray(options.econOcr && options.econOcr.rows) ? options.econOcr.rows : [];
+  if (econOcr.active && econOcrRows.length) applyEconOcrToPlayers(players, econOcrRows);
   const capabilityMode = MODES.includes(options.mode) ? options.mode : 'live-spectate';
   // pixelBars 可用时把 hpPercent/resourcePercent 从 unavailable 升为 estimated(source='pixel-bars')；
   // 不可用时保持 unavailable，HUD 会画显式占位（见 src/data-capability.js）。
@@ -486,7 +498,8 @@ function normalizeLiveState(payload, options = {}) {
     protocolDecode,
     protocolFields,
     protocolKda,
-    pixelBars: pixelBars.active === true
+    pixelBars: pixelBars.active === true,
+    econOcr: econOcr.active === true
   });
   return {
     gameTime: Number(gameData.gameTime) || 0,
@@ -511,7 +524,8 @@ function normalizeLiveState(payload, options = {}) {
       : null,
     protocolDecode,
     capability,
-    pixelBars
+    pixelBars,
+    econOcr
   };
 }
 
