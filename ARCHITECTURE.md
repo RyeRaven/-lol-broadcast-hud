@@ -18,7 +18,7 @@
 | 测试 | `node --test` + `node:assert/strict` | 内置运行器，无测试框架依赖 |
 | 视觉验收 | `tools/shot-overlays.cjs`（Electron offscreen capturePage） | 与 OBS Browser Source 同一 Chromium，能截到透明底真实效果 |
 
-**版本**：`package.json` version = `0.2.0`，Data Dragon `DEFAULT_VERSION = '16.22.1'`（`src/assets.js`）。
+**版本**：`package.json` version = `0.2.3`，Data Dragon `DEFAULT_VERSION = '16.22.1'`（`src/assets.js`）。
 
 ## 2. 模块关系
 
@@ -104,7 +104,7 @@
 | 元素 | Live Client Data（本项目） | lolesports livestats feed | 赛事服 GRID / 内存读取 |
 | --- | --- | --- | --- |
 | 视野得分 / 等级 / CS / KDA / 英雄 / 装备图标 / 召唤师技能 | 有（`scores.wardScore` 等） | 有 | 内存读取反而拿不到聚合统计 |
-| 逐人金币 / 对位经济差 | 无（只有 `activePlayer.currentGold`）→ 只能估算 | 有 `totalGold/totalGoldEarned`，可真算 | 有，但商业授权 |
+| 逐人金币 / 对位经济差 | 无（只有 `activePlayer.currentGold`）→ 默认估算；0.2.3 起可经经济面板 OCR（`tools/pixel-bars/econ_ocr.py`）或 0xdd 协议流拿到逐人真值 | 有 `totalGold/totalGoldEarned`，可真算 | 有，但商业授权 |
 | 绿色生命条 | 仅 activePlayer | 有 `currentHealth/maxHealth` 十人 | 内存读取 Health/Max Health（已封） |
 | 资源条（蓝/特殊机制/无蓝条英雄） | 仅 activePlayer | 无 | Mana/Max Mana（已封） |
 | 紫色经验条 / 分路任务 / 大招就绪圆徽 | 无 | 无（`abilities` 只是加点顺序） | prod-toolkit 曾做出 XP leaderboards（已封） |

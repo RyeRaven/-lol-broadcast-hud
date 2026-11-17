@@ -90,3 +90,13 @@
 - **GitHub 开源（2026-11-16）**：git init + GitHub 公开库 https://github.com/RyeRaven/-lol-broadcast-hud.git（仓库名带前导连字符），main=ef6ee23，GPL-3.0，338 文件；.gitignore 剔除 release/.tmp/shot-profile/缓存；fixture 10 个真实 Riot ID → Player1..Player10（128 处，含 events 名字段）；敏感扫描 0 命中；本机 niugit 无 GCM/gh，push 用一次性凭证 URL。
 - **验证**：node --test 195/195。
 - **待办**：见 TASKS.md §3（live_feed 实机验证、潮虫事件名验证、CS 口径、A 键、0.2.3 打包、控台 UI）。
+
+## 2026-11-16 ~ 11-18 · Khada Jhin 0.2.3：控台分阶段重构、HUD 精修、经济面板 OCR
+
+- **控台分阶段视图**：首页/等待/BP/局内/赛后/设置独立成页（`.c2-*` 信息架构），系列赛大分与局内比分分开（`src/series.js` + `/api/series/*`），模拟数据改一整场剧本（暂停/重播/调速，`src/mock-demo.js`），模拟与真实模式彻底分离、控台图标化；「结束这轮比赛」改两段式确认（Electron 内嵌浏览器吞 `window.confirm`），未开打的比赛按取消处理。
+- **模拟 BP 修复**：模拟模式下 BP 不再被 LCU 轮询清空（仅 `mode==='live'` 才轮询 draft），OBS pick 只认选人顺序。
+- **MVP 时刻页**改「数据牌」方向 B 并落地生产（1920×1080 整页缩放）；MVP 发送自动切 RB-MVP OBS 场景。
+- **HUD**：装备栏默认自绘（原生 X 面板会顶掉原生装备栏）、装备格/数量角标/视野分多轮精修、名字与 KDA 贴头像侧、名字固定 100px 预算；HUD 布局编辑器（可视化拖拽 + 保存即推送给已连接 HUD）。
+- **经济面板 OCR（新数据链路，0.2.3 主打）**：`tools/pixel-bars/econ_ocr.py` 同机 OBS 截屏解析游戏内经济面板白色「当前(总)」金币——白掩膜 → 连通域/XY-cut 切字 → 89 模板 IoU 匹配（字形高度归一化，不钉分辨率与坐标）→ `N(M)` 结构校验，1Hz POST `/api/econ-ocr`（仅 127.0.0.1 + TTL 2s，同 pixel-bars 模式）→ capability `totalGold` 升 `exact('econ-ocr')` → HUD 对位经济差优先真值、失败回退估算并如实标注；模板库 `digit_templates.npz` 89 字形 LOOCV 89/89，用户真图十格全对（与 LCU timeline 真值一致）。
+- **赛后金币真值曲线**：LCU match-history timeline 逐帧逐人 `totalGold` 画进赛后页（误差 0）。
+- **验证**：`node --test` 250/250（0.2.2 时 195）；打包冒烟（RIFTBRIDGE_SMOKE，win-unpacked 实机启动，PORT=3315）全过——url/title/port/tray/tray-menu/dom（98 个按钮）/close-to-tray 七项断言通过，冒烟后自退。

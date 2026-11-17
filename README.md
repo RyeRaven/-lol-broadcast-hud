@@ -1,6 +1,6 @@
 # Khada Jhin
 
-![version](https://img.shields.io/badge/version-0.2.2-blue) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey) ![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![tests](https://img.shields.io/badge/tests-195%20passing-success)
+![version](https://img.shields.io/badge/version-0.2.3-blue) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey) ![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![tests](https://img.shields.io/badge/tests-250%20passing-success)
 
 Windows 本地《英雄联盟》赛事导播辅助工具。Khada Jhin 将 LCU、Live Client Data API 和 Data Dragon 数据转换为 OBS Browser Source 可采集的 BP、局内 HUD、赛后庆典和转场画面，并提供本地三栏控台。
 
@@ -14,7 +14,7 @@ Windows 本地《英雄联盟》赛事导播辅助工具。Khada Jhin 将 LCU、
 
 ## 下载
 
-最新版安装包（Windows x64，无需自行构建）：[Khada Jhin Setup 0.2.2.exe](https://github.com/RyeRaven/-lol-broadcast-hud/releases/latest)
+最新版安装包（Windows x64，无需自行构建）：[Khada Jhin Setup 0.2.3.exe](https://github.com/RyeRaven/-lol-broadcast-hud/releases/latest)
 
 所有历史版本见 [Releases](https://github.com/RyeRaven/-lol-broadcast-hud/releases)。安装包未做代码签名，Windows SmartScreen 首次运行提示未知发布者时，选择「更多信息 → 仍要运行」。
 
@@ -143,7 +143,7 @@ Khada Jhin 按以下顺序寻找 LCU 连接：启动参数 / RIOT_CLIENT_COMMAND
 
 ### Live Client Data
 
-局内数据来自 https://127.0.0.1:2999/liveclientdata/allgamedata，仅在真实对局中可用；可用 LIVE_CLIENT_URL 覆盖地址。Live Client Data 不提供全队金币，HUD 的经济数字是基于装备、补刀、击杀和被动金币的估算值；页面会按可用数据展示。:2999 在游戏结束瞬间可能关闭，程序会使用局内最后一帧快照生成赛后数据作为兜底。
+局内数据来自 https://127.0.0.1:2999/liveclientdata/allgamedata，仅在真实对局中可用；可用 LIVE_CLIENT_URL 覆盖地址。Live Client Data 不提供全队金币：HUD 默认用装备、补刀、击杀和被动金币估算，并按可用数据如实标注；启用经济面板 OCR 或协议流解码（见下文）后，HUD 会优先展示逐人金币真值。:2999 在游戏结束瞬间可能关闭，程序会使用局内最后一帧快照生成赛后数据作为兜底。
 
 ### 配置文件
 
@@ -178,6 +178,17 @@ Khada Jhin 按以下顺序寻找 LCU 连接：启动参数 / RIOT_CLIENT_COMMAND
 - 实时观战场景需要从游戏进程命令行获取观战密钥，该步骤需管理员权限由用户自行完成，程序不会自动提权。
 - 协议的 S-box 每局随机，实时局依靠 Live Client Data 真值增量求解；解不出的字段一律返回 null 并如实标注精度，绝不伪造数值。
 - 该模块为社区逆向成果，遵循 Riot 的第三方工具政策用于非商业场景；使用风险自负。
+
+## 经济面板 OCR（tools/pixel-bars/econ_ocr.py，进阶）
+
+0.2.3 新增同机逐人金币真值链路：通过 OBS WebSocket 截取游戏采集源画面，自动定位底部经济面板，用模板匹配读出每位玩家的白色「当前(总)金币」数字（不钉分辨率与坐标，游戏内面板保持常开即可），以 1Hz POST 到本机 `/api/econ-ocr`。HUD 的对位经济差优先采用该真值并标注精确，读不到时回退估算值。
+
+```
+python tools/pixel-bars/econ_ocr.py --port-obs 4455 --port-api 3314
+```
+
+- 只处理 OBS 截图帧，不读取游戏内存、不注入进程、不修改游戏文件；校验失败的行直接丢弃，绝不伪造数值。
+- `--image <截图路径>` 可离线验证单帧，`--selftest` 跑模板库自检，`--dump` 保存标注图便于排查。
 
 ## 开源协议
 
