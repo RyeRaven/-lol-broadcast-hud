@@ -394,16 +394,20 @@ function accumulateObjectives(ledger, events, sideByChampion) {
     if (!event || typeof event !== 'object') continue;
     const bucket = OBJECTIVE_EVENTS[event.EventName];
     if (!bucket) continue;
-    // 身份键：LCDA 事件不带时间戳，用全部区分字段组合去重；同类同 victim 且
-    // 助攻名单完全一致的双杀在真实对局里可忽略。
-    const key = JSON.stringify([
-      event.EventName,
-      event.KillerName || null,
-      event.VictimName || null,
-      event.TurretKilled || null,
-      event.DragonType || null,
-      Array.isArray(event.AssistingUnitNames) ? event.AssistingUnitNames : null
-    ]);
+    // 身份键：真机实测（训练模式 2026-11-18）LCDA 每条事件带全局递增 EventID（每局从 0 重来，
+    // 账本随新局重置所以不会跨局撞键）——同局同玩家杀 3 只潮虫的 3 条 HordeKill 字段完全一样，
+    // 只有 EventID 能区分，必须优先按它去重；个别来源没有 EventID 时回退字段组合键
+    // （同类同 victim 且助攻名单完全一致的重复在真实对局里可忽略）。
+    const key = event.EventID != null
+      ? 'id:' + String(event.EventID)
+      : JSON.stringify([
+        event.EventName,
+        event.KillerName || null,
+        event.VictimName || null,
+        event.TurretKilled || null,
+        event.DragonType || null,
+        Array.isArray(event.AssistingUnitNames) ? event.AssistingUnitNames : null
+      ]);
     if (ledger.seen.has(key)) continue;
     ledger.seen.add(key);
     let side = sideOfKiller(event.KillerName);

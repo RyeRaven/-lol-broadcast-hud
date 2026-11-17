@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeLiveState, buildItemIndex } = require('../src/live-data');
+const { normalizeLiveState, buildItemIndex, createObjectiveLedger } = require('../src/live-data');
 
 // 价格断言不能依赖磁盘上的 Data Dragon 缓存（可能过期/缺失），统一注入小型索引。
 const itemIndex = buildItemIndex({
@@ -47,6 +47,24 @@ test('aggregates score and objectives by side', () => {
   assert.equal(live.blue.barons, 0);
   assert.equal(live.eventCount, 3);
   assert.equal(live.lastEvent.EventName, 'ChampionKill');
+});
+
+// t?: 真机实测（训练模式 2026-11-18）：同局同玩家连杀 3 只潮虫的 3 条 HordeKill 除 EventID 外字段完全一样，
+// ledger 去重键必须优先用 EventID，否则只计 1；窗口重放不得重复计数；无 EventID 回退字段组合键。
+test('objective ledger dedups by EventID (repeated grubs) and tolerates window replay', () => {
+  const led = createObjectiveLedger();
+  const events = [11, 13, 15].map(id => ({ EventID: id, EventName: 'HordeKill', KillerName: 'Player8', Stolen: 'False' }));
+  const base = { gameData: { gameTime: 500, gameMode: 'CLASSIC' }, allPlayers: [{ summonerName: 'Player8', team: 'CHAOS', championName: 'Jinx' }] };
+  const first = normalizeLiveState({ ...base, events: { Events: events } }, { objectiveLedger: led });
+  assert.equal(first.red.grubs, 3);
+  // LCDA 事件窗口是滚动的：下一轮轮询可能原样重放同一批事件，不得重复计数。
+  const second = normalizeLiveState({ ...base, events: { Events: events } }, { objectiveLedger: led });
+  assert.equal(second.red.grubs, 3);
+  // 没有 EventID 的来源回退到字段组合键：字段完全一样的同类事件只计 1。
+  const led2 = createObjectiveLedger();
+  const noId = [{ EventName: 'HordeKill', KillerName: 'Player8' }, { EventName: 'HordeKill', KillerName: 'Player8' }];
+  const third = normalizeLiveState({ ...base, events: { Events: noId } }, { objectiveLedger: led2 });
+  assert.equal(third.red.grubs, 1);
 });
 
 test('real game fixture attributes objectives by side (tagged summoner names, minion turret kills)', () => {

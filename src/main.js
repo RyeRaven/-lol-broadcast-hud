@@ -300,7 +300,8 @@ function logLcdaEvents(payload) {
     if (!events.length) return;
     const gt = Math.floor(Number(payload.gameData && payload.gameData.gameTime) || -1);
     for (const ev of events) {
-      const key = JSON.stringify([ev.EventName, ev.KillerName, ev.VictimName, ev.TurretKilled, ev.DragonType, ev.AssistingUnitNames, ev.MultiKillLength]);
+      // EventID 必须进键：同局同玩家连杀 3 只潮虫的 3 条 HordeKill 其余字段完全一样（真机实测 2026-11-18）。
+      const key = JSON.stringify([ev.EventID, ev.EventName, ev.KillerName, ev.VictimName, ev.TurretKilled, ev.DragonType, ev.AssistingUnitNames, ev.MultiKillLength]);
       if (lcdaEventSeen.has(key)) continue;
       lcdaEventSeen.add(key);
       const logPath = path.join(__dirname, '..', '.tmp', 'lcda-events.jsonl');
