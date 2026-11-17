@@ -1229,12 +1229,8 @@ body.hb-body {
 .hb-row.red .hb-info { align-items: flex-end; }
 .hb-row.red .hb-name-line { flex-direction: row-reverse; }
 
-/* 自绘模式：名字文本贴向装备带，短名不留大空白。31px = 装备带溢出 21px + 安全间隙 10px；
-   原生挖孔模式（.hb-native-items）文本位由标定几何决定，不加这份对齐。 */
-.hud-broadcast:not(.hb-native-items) .hb-row.blue .hb-info { align-items: flex-end; padding-right: 31px; }
-.hud-broadcast:not(.hb-native-items) .hb-row.blue .hb-name-line { justify-content: flex-end; }
-.hud-broadcast:not(.hb-native-items) .hb-row.red .hb-info { align-items: flex-start; padding-left: 31px; }
-.hud-broadcast:not(.hb-native-items) .hb-row.red .hb-name-line { justify-content: flex-end; }
+/* 自绘模式：名字与 KDA 贴头像一侧（蓝左/红右由基础规则决定），名字位置固定 100px 预算；
+   原生挖孔模式文本位由标定几何决定。 */
 
 /* 自绘模式：蓝方外侧空列改 1fr 吞掉剩余宽度，把头像/等级/名字整组推向装备带（固定轨道锚在
    中线一侧的红方天然如此）。名字列宽 = syncLayout 按 5 行最长内容实测写入 --hb-grid-info-w，
