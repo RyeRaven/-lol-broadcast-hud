@@ -6,14 +6,19 @@ const fs = require('fs');
 const path = require('path');
 const { htmlShell } = require('./html');
 
+// 样式按 mtime 失效：dev 直跑时改 public/console.css 立刻生效（与 hud-broadcast 同策略）。
 let consoleCssCache = null;
+let consoleCssMtime = 0;
 function consoleCss() {
-  if (consoleCssCache === null) {
-    try {
-      consoleCssCache = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'console.css'), 'utf8');
-    } catch {
-      consoleCssCache = '';
+  const file = path.join(__dirname, '..', '..', 'public', 'console.css');
+  try {
+    const stat = fs.statSync(file);
+    if (consoleCssCache === null || stat.mtimeMs !== consoleCssMtime) {
+      consoleCssCache = fs.readFileSync(file, 'utf8');
+      consoleCssMtime = stat.mtimeMs;
     }
+  } catch {
+    if (consoleCssCache === null) consoleCssCache = '';
   }
   return consoleCssCache;
 }
@@ -1454,337 +1459,499 @@ function init() {
   setInterval(function () { if (document.visibilityState !== 'hidden') loadReplay(); }, 10000);
   setInterval(function () { if (document.visibilityState !== 'hidden') loadObs(); }, 30000);
 }
+/* ---------- 视图路由：一个阶段一屏 ---------- */
+var VIEW_LIST = ['home', 'wait', 'bp', 'live', 'post', 'settings'];
+var PHASE_VIEW = { draft: 'bp', in_game: 'live', post_game: 'post' };
+var DOCK_VIEWS = { wait: 1, bp: 1, live: 1, post: 1 };
+var currentView = 'home';
+var lastPhaseForView = null;
+
+function setTextById(id, text) {
+  var el = byId(id);
+  if (el) el.textContent = text;
+}
+
+function showView(name, options) {
+  options = options || {};
+  if (VIEW_LIST.indexOf(name) < 0) name = 'home';
+  currentView = name;
+  var shell = byId('console-shell');
+  if (shell && shell.setAttribute) shell.setAttribute('data-view', name);
+  var views = (document.querySelectorAll ? document.querySelectorAll('.c2-view') : []) || [];
+  for (var i = 0; i < views.length; i++) {
+    if (!views[i] || !views[i].classList) continue;
+    views[i].classList.toggle('active', views[i].getAttribute('data-view') === name);
+  }
+  var steps = (document.querySelectorAll ? document.querySelectorAll('#view-switch [data-nav]') : []) || [];
+  for (var j = 0; j < steps.length; j++) {
+    if (!steps[j] || !steps[j].classList) continue;
+    steps[j].classList.toggle('active', steps[j].getAttribute('data-nav') === name);
+  }
+  var dock = byId('cue-dock');
+  if (dock) dock.hidden = !DOCK_VIEWS[name];
+  if (!options.keepScroll && typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+}
+
+function showSettingsTab(name) {
+  showView('settings', { keepScroll: true });
+  var tabs = (document.querySelectorAll ? document.querySelectorAll('#settings-tabs [data-set-tab]') : []) || [];
+  for (var i = 0; i < tabs.length; i++) {
+    if (!tabs[i] || !tabs[i].classList) continue;
+    tabs[i].classList.toggle('active', tabs[i].getAttribute('data-set-tab') === name);
+  }
+  var panels = (document.querySelectorAll ? document.querySelectorAll('[data-set-panel]') : []) || [];
+  for (var j = 0; j < panels.length; j++) {
+    if (!panels[j] || !panels[j].classList) continue;
+    panels[j].classList.toggle('active', panels[j].getAttribute('data-set-panel') === name);
+  }
+}
+
+function renderShellExtras(state) {
+  if (!state) return;
+  var blue = state.blue || {};
+  var red = state.red || {};
+  var scoreText = fmtNumber(blue.score) + ' : ' + fmtNumber(red.score);
+  setTextById('scoreBlue', fmtNumber(blue.score));
+  setTextById('scoreRed', fmtNumber(red.score));
+  setTextById('homeScore', scoreText);
+  setTextById('homePhase', phaseText(state.phase));
+  setTextById('homeSeries', state.tournamentName || 'Khada Jhin');
+  setTextById('homeMatchTitle', (blue.name || '蓝方') + ' vs ' + (red.name || '红方'));
+  setTextById('homeMatchSub', (state.tournamentName || 'Khada Jhin') + ' · ' + phaseText(state.phase) + ' · ' + (state.mode === 'live' ? '实战数据' : '模拟数据'));
+}
+
+// 阶段一变就跟着换屏（用户在首页/设置里时不打断）。
+var applyStateCore = applyState;
+applyState = function (state) {
+  applyStateCore(state);
+  renderShellExtras(state);
+  var phase = state && state.phase;
+  if (phase && phase !== lastPhaseForView) {
+    lastPhaseForView = phase;
+    var target = PHASE_VIEW[phase];
+    if (target && target !== currentView && currentView !== 'home' && currentView !== 'settings') showView(target);
+  }
+};
+
+document.addEventListener('click', function (event) {
+  var node = event.target;
+  if (!node || !node.closest) return;
+  var tab = node.closest('[data-set-tab]');
+  if (tab) {
+    showSettingsTab(tab.getAttribute('data-set-tab'));
+    return;
+  }
+  var nav = node.closest('[data-nav]');
+  if (!nav) return;
+  event.preventDefault();
+  var tabName = nav.getAttribute('data-settings-tab');
+  if (tabName) showSettingsTab(tabName);
+  else showView(nav.getAttribute('data-nav'));
+});
+
+showView('home');
+
 init();
 `;
 
 function consolePage(port) {
   return htmlShell('Khada Jhin 控台', `<style data-console-theme>${consoleCss()}</style>
-<main class="console-shell" id="console-shell" data-port="${port}">
-  <header class="console-topbar">
-    <div class="brand-block">
-      <span class="brand-mark">RB</span>
-      <div class="brand-copy">
-        <span class="eyebrow">KHADA JHIN / LOCAL CONTROL</span>
-        <h1>赛事导播控台</h1>
+<main class="console-shell c2-shell" id="console-shell" data-port="${port}" data-view="home">
+  <header class="c2-topbar">
+    <div class="c2-brand">
+      <span class="c2-mark">KJ</span>
+      <div class="c2-brand-copy">
+        <small>KHADA JHIN / LOCAL CONTROL</small>
+        <b id="tournamentLabel">连接中…</b>
       </div>
     </div>
-    <div class="topbar-stats">
-      <div class="top-stat"><small>赛事</small><b id="tournamentLabel">连接中…</b></div>
-      <div class="top-stat"><small>比赛时间</small><b id="gameClock">--:--</b></div>
-      <div class="top-stat"><small>阶段</small><b id="phaseLabel">--</b></div>
-      <div class="topbar-mode mock" id="topbarMode">MOCK</div>
+    <nav class="c2-steps" id="view-switch" aria-label="阶段导航">
+      <button type="button" data-nav="home"><i></i>首页</button>
+      <button type="button" data-nav="wait"><i></i>等待开始</button>
+      <button type="button" data-nav="bp"><i></i>BP</button>
+      <button type="button" data-nav="live"><i></i>赛中</button>
+      <button type="button" data-nav="post"><i></i>赛后</button>
+    </nav>
+    <div class="c2-topmeta">
+      <span class="c2-score" id="scoreChip" title="当前比分"><b class="blue" id="scoreBlue">0</b><i>:</i><b class="red" id="scoreRed">0</b></span>
+      <span class="c2-stat c2-stat-clock"><small>时间</small><b id="gameClock">--:--</b></span>
+      <span class="c2-stat c2-stat-phase"><small>阶段</small><b id="phaseLabel">--</b></span>
+      <span class="topbar-mode mock" id="topbarMode">MOCK</span>
       <div class="topbar-health" id="topbarHealth" aria-label="数据源健康灯">
         <span class="topbar-health-item idle" id="hlLcu" title="LCU 客户端：等待探测"><i></i>LCU</span>
-        <span class="topbar-health-item idle" id="hlLive" title="Live Client Data：等待探测"><i></i>LIVE CLIENT</span>
+        <span class="topbar-health-item idle" id="hlLive" title="Live Client Data：等待探测"><i></i>LIVE</span>
         <span class="topbar-health-item idle" id="hlObs" title="OBS WebSocket：未配置"><i></i>OBS</span>
       </div>
       <span class="conn-pill" id="connectionState"><i></i>连接中</span>
-      <a class="gallery-link" id="screenshotGallery" href="#" target="_blank" rel="noopener noreferrer">截图相册</a>
+      <button type="button" class="c2-ghost-btn" data-nav="settings">设置</button>
+      <a class="c2-ghost-btn" id="screenshotGallery" href="#" target="_blank" rel="noopener noreferrer">截图</a>
     </div>
   </header>
 
-  <div class="console-columns">
-    <aside class="console-col left-col">
+  <div class="c2-views">
+    <section class="c2-view" data-view="home">
+      <div class="c2-viewhead"><h1>准备一场比赛</h1><p>配置双方队伍与选手，然后按阶段往下走：等待开始 → BP → 赛中 → 赛后。每个阶段独立成屏，只在该阶段出现。</p></div>
+      <article class="c2-hero">
+        <div class="c2-hero-copy">
+          <small>CURRENT MATCH</small>
+          <h2 id="homeMatchTitle">还没有进行中的比赛</h2>
+          <p id="homeMatchSub">先在「设置 · 赛事配置」里填好队伍、选手与赛制，再进入等待开始阶段。</p>
+          <div class="c2-hero-actions">
+            <button type="button" class="btn primary" data-nav="wait">进入比赛流程</button>
+            <button type="button" class="btn ghost" data-nav="settings" data-settings-tab="config">编辑赛事配置</button>
+          </div>
+        </div>
+        <div class="c2-hero-side">
+          <div><small>系列赛</small><b id="homeSeries">--</b></div>
+          <div><small>比分</small><b id="homeScore">0 : 0</b></div>
+          <div><small>阶段</small><b id="homePhase">--</b></div>
+        </div>
+      </article>
+      <div class="c2-grid-2">
       <section class="panel" id="quick-start">
-        <div class="panel-head"><h2>快速开始</h2><span class="kicker">GUIDE</span></div>
-        <ol class="quick-steps">
-          <li><b>配置赛事</b><small>右侧「赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
-          <li><b>选数据模式</b><small>调试用「模拟数据」，正式比赛用「实战数据」</small></li>
-          <li><b>OBS 添加广播页</b><small>把下方「广播页」URL 添加为 OBS 浏览器源；推荐聚合舞台页（单 URL 全流程自动切换）</small></li>
-          <li><b>开赛导播</b><small>「广播控制」按钮或快捷键 1/2/3/4 切换 BP / 局内 / 赛后</small></li>
-        </ol>
+      <div class="panel-head"><h2>快速开始</h2><span class="kicker">GUIDE</span></div>
+      <ol class="quick-steps">
+      <li><b>配置赛事</b><small>右侧「赛事配置」：队伍、选手、赛制（BO1/3/5）</small></li>
+      <li><b>选数据模式</b><small>调试用「模拟数据」，正式比赛用「实战数据」</small></li>
+      <li><b>OBS 添加广播页</b><small>把下方「广播页」URL 添加为 OBS 浏览器源；推荐聚合舞台页（单 URL 全流程自动切换）</small></li>
+      <li><b>开赛导播</b><small>「广播控制」按钮或快捷键 1/2/3/4 切换 BP / 局内 / 赛后</small></li>
+      </ol>
       </section>
-
-      <section class="panel control-panel" id="control-panel">
-        <div class="panel-head"><h2>阶段与模式</h2><span class="kicker">CONTROL</span></div>
-        <div class="field-label">比赛阶段</div>
-        <div class="segmented" id="phase-switch">
-          <button type="button" data-phase="draft">赛前 BP</button>
-          <button type="button" data-phase="in_game">局内</button>
-          <button type="button" data-phase="post_game">赛后</button>
-        </div>
-        <div class="field-label">数据模式</div>
-        <div class="segmented compact" id="mode-switch">
-          <button type="button" data-mode="mock">模拟数据</button>
-          <button type="button" data-mode="live">实战数据</button>
-        </div>
-        <label class="field">赛事名称<input id="tournament" value="Khada Jhin 校园赛 · 半决赛" autocomplete="off"></label>
-        <button type="button" id="save" class="btn primary wide">保存赛事名称</button>
-        <div class="footnote" id="phaseNote">模拟数据 · 每秒刷新，可直接用于 OBS 测试</div>
-      </section>
-
-      <section class="panel" id="broadcast-pages">
-        <div class="panel-head"><h2>广播页</h2><span class="kicker">BROADCAST</span></div>
-        <div class="url-list broadcast-url-list" id="broadcast-urls"></div>
-      </section>
-
-      <section class="panel" id="broadcast-control">
-        <div class="panel-head"><h2>广播控制</h2><span class="kicker">MANUAL CUE</span></div>
-        <div class="cue-status"><span>当前 Cue</span><b id="cueType">待机</b><em id="cueSeq">SEQ --</em></div>
-        <div class="cue-grid">
-          <button type="button" data-cue="bp-in" class="btn primary">BP 入场</button>
-          <button type="button" data-cue="hud-in">局内入场</button>
-          <button type="button" data-cue="result-in">赛后庆祝</button>
-          <button type="button" data-cue="wipe">转场</button>
-          <button type="button" data-cue="reset">重置</button>
-        </div>
-        <div class="footnote">手动触发广播页动画；POST /api/broadcast/cue · 快捷键 1/2/3/4 · Esc 重置</div>
-      </section>
-
-      <section class="panel" id="mvp-panel">
-        <div class="panel-head"><h2>MVP 评选</h2><span class="kicker">MVP</span></div>
-        <div class="mvp-candidates" id="mvp-candidates"><span class="empty">等待局内/赛后选手数据</span></div>
-        <div class="mvp-actions">
-          <button type="button" id="mvp-send" class="btn primary" disabled>发送 MVP</button>
-          <button type="button" id="mvp-clear" class="btn ghost">清除</button>
-        </div>
-        <div class="footnote" id="mvp-note">未评选</div>
-      </section>
-
-      <section class="panel" id="source-health">
-        <div class="panel-head"><h2>数据源健康</h2><span class="kicker" id="healthUpdated">--</span></div>
-        <div class="health-list">
-          <div class="health-row idle" data-health="lcu"><span class="health-dot"></span><div class="health-copy"><b>LCU 客户端</b><small>等待探测</small></div><em>--</em></div>
-          <div class="health-row idle" data-health="live"><span class="health-dot"></span><div class="health-copy"><b>Live Client</b><small>等待探测</small></div><em>--</em></div>
-          <div class="health-row idle" data-health="obs"><span class="health-dot"></span><div class="health-copy"><b>OBS WebSocket</b><small>未配置</small></div><em>--</em></div>
-          <div class="health-row idle" data-health="replay"><span class="health-dot"></span><div class="health-copy"><b>Replay API</b><small>未检测到回放</small></div><em>--</em></div>
-        </div>
-        <button type="button" id="refreshSources" class="btn ghost wide">重新探测数据源</button>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>OBS 场景快捷</h2><span class="kicker">SCENES</span></div>
-        <div class="scene-quick" id="scene-shortcuts"><span class="empty">连接 OBS 后显示场景</span></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Overlay 浏览器源</h2><span class="kicker">SOURCES</span></div>
-        <div class="url-list" id="urls"></div>
-      </section>
-    </aside>
-
-    <section class="console-col center-col">
-      <section class="match-card" id="match-card">
-        <div class="match-top">
-          <div><span class="eyebrow">CURRENT MATCH</span><h2 id="matchTitle">当前比赛</h2></div>
-          <span class="phase-badge" id="phaseBadge">--</span>
-        </div>
-        <div class="match-body" id="matchBody"><div class="match-placeholder">正在连接本地数据链路…</div></div>
-      </section>
-
-      <section class="panel roster-panel" id="roster-panel">
-        <div class="panel-head"><h2>实时选手 · KDA / 装备</h2><span class="kicker" id="rosterCount">0 / 10</span></div>
-        <div class="roster-body" id="rosterBody"><div class="roster-empty">等待选手数据…</div></div>
-      </section>
-
-      <section class="panel feed-panel">
-        <div class="panel-head"><h2>实时事件流</h2><span class="kicker" id="feedCount">0 / 30</span></div>
-        <div class="event-feed" id="event-feed"><div class="feed-empty">等待比赛事件…</div></div>
-      </section>
+        <section class="panel"><div class="panel-head"><h2>已完成场次</h2><span class="kicker">HISTORY</span></div>
+          <div class="c2-note">还没有完成的对局。赛后阶段点「结束这轮比赛」后会在这里留下记录。</div>
+        </section>
+      </div>
     </section>
 
-    <aside class="console-col right-col">
-      <section class="panel" id="obs-panel">
-        <div class="panel-head"><h2>OBS 控制</h2><span class="status-badge offline" id="obsBadge">未连接</span></div>
-        <label class="field">WebSocket 地址<input id="obsUrl" value="ws://127.0.0.1:4455" autocomplete="off"></label>
-        <label class="field">密码<input id="obsPass" type="password" placeholder="OBS → 工具 → WebSocket 服务器设置" autocomplete="off"></label>
-        <button type="button" id="obsConnect" class="btn primary wide">连接 OBS</button>
-        <button type="button" id="obsRebrand" class="btn wide">一键换源（改名 + 重指 URL）</button>
-        <div class="status-line" id="obsStatus">未连接</div>
-        <div class="stat-grid">
-          <div><small>当前场景</small><b id="obsCurrent">--</b></div>
-          <div><small>录制状态</small><b id="obsRecording">未接入</b></div>
-          <div><small>推流状态</small><b id="obsStream">--</b></div>
-          <div><small>回放缓冲</small><b id="obsReplay">--</b></div>
-        </div>
-        <div class="button-grid">
-          <button type="button" data-obs-record="start">开始录制</button>
-          <button type="button" data-obs-record="stop">停止录制</button>
-          <button type="button" data-obs-stream="start">开始推流</button>
-          <button type="button" data-obs-stream="stop">停止推流</button>
-          <button type="button" data-obs-replay="save">保存回放</button>
-        </div>
-        <div class="field-label">场景列表</div>
-        <div class="scene-grid" id="obsScenes"><span class="empty">暂无场景</span></div>
-        <div class="field-label">阶段自动切换</div>
-        <div class="obs-auto"><span class="empty">连接 OBS 后可配置自动切换</span></div>
+    <section class="c2-view" data-view="wait">
+      <div class="c2-viewhead"><h1>等待开始</h1><p>开赛前把链路和名单过一遍；用底部 CUE 把 OBS 切到待机画面。</p></div>
+      <div class="c2-grid-2">
+      <section class="panel control-panel" id="control-panel">
+      <div class="panel-head"><h2>阶段与模式</h2><span class="kicker">CONTROL</span></div>
+      <div class="field-label">比赛阶段</div>
+      <div class="segmented" id="phase-switch">
+      <button type="button" data-phase="draft">赛前 BP</button>
+      <button type="button" data-phase="in_game">局内</button>
+      <button type="button" data-phase="post_game">赛后</button>
+      </div>
+      <div class="field-label">数据模式</div>
+      <div class="segmented compact" id="mode-switch">
+      <button type="button" data-mode="mock">模拟数据</button>
+      <button type="button" data-mode="live">实战数据</button>
+      </div>
+      <label class="field">赛事名称<input id="tournament" value="Khada Jhin 校园赛 · 半决赛" autocomplete="off"></label>
+      <button type="button" id="save" class="btn primary wide">保存赛事名称</button>
+      <div class="footnote" id="phaseNote">模拟数据 · 每秒刷新，可直接用于 OBS 测试</div>
       </section>
-
-      <section class="panel" id="replay-panel">
-        <div class="panel-head"><h2>回放镜头</h2><span class="status-badge offline" id="replayBadge">未连接</span></div>
-        <div class="status-line" id="replayStatus">未检测到回放</div>
-        <div class="button-grid">
-          <button type="button" data-replay="pause">暂停</button>
-          <button type="button" data-replay="play">播放</button>
-          <button type="button" data-speed="0.5">0.5×</button>
-          <button type="button" data-speed="1">1×</button>
-          <button type="button" data-speed="2">2×</button>
-          <button type="button" data-speed="4">4×</button>
-          <button type="button" data-fov="30">近景 30°</button>
-          <button type="button" data-fov="45">标准 45°</button>
-          <button type="button" data-fov="60">广角 60°</button>
-        </div>
-        <div class="replay-details" id="replayDetails"><div class="detail-row"><span>播放位置</span><b>--</b></div><div class="detail-row"><span>镜头 FOV</span><b>--</b></div></div>
+      <section class="panel" id="source-health">
+      <div class="panel-head"><h2>数据源健康</h2><span class="kicker" id="healthUpdated">--</span></div>
+      <div class="health-list">
+      <div class="health-row idle" data-health="lcu"><span class="health-dot"></span><div class="health-copy"><b>LCU 客户端</b><small>等待探测</small></div><em>--</em></div>
+      <div class="health-row idle" data-health="live"><span class="health-dot"></span><div class="health-copy"><b>Live Client</b><small>等待探测</small></div><em>--</em></div>
+      <div class="health-row idle" data-health="obs"><span class="health-dot"></span><div class="health-copy"><b>OBS WebSocket</b><small>未配置</small></div><em>--</em></div>
+      <div class="health-row idle" data-health="replay"><span class="health-dot"></span><div class="health-copy"><b>Replay API</b><small>未检测到回放</small></div><em>--</em></div>
+      </div>
+      <button type="button" id="refreshSources" class="btn ghost wide">重新探测数据源</button>
       </section>
+        <section class="panel"><div class="panel-head"><h2>首发阵容</h2><span class="kicker">STARTING LINEUP</span></div>
+          <div class="c2-note">名单来自「设置 · 赛事配置 · 选手」，配置完成后按分路显示在这里。</div>
+        </section>
+        <section class="panel"><div class="panel-head"><h2>开赛前检查</h2><span class="kicker">CHECKLIST</span></div>
+          <ol class="c2-checklist">
+            <li>OBS 已连上，场景里含 BP / 局内 / 赛后三个源</li>
+            <li>广播页源指向聚合舞台页（单 URL 全流程自动切换）</li>
+            <li>数据模式 = 实战数据（正式比赛）</li>
+            <li>血条 / 金币喂入进程在跑</li>
+          </ol>
+        </section>
+      </div>
+    </section>
 
-      <section class="panel director-panel" id="director-panel">
-        <div class="panel-head"><h2>自动导播</h2><span class="status-badge offline" id="directorBadge">读取中</span></div>
-        <div class="director-hint"><i></i><span>规则引擎仅在 live 模式生效</span></div>
-        <label class="director-toggle">
-          <span class="director-toggle-copy"><b>启用规则引擎</b><small>高光分数达到阈值时自动触发广播 CUE</small></span>
-          <input id="directorEnabled" type="checkbox" checked>
-        </label>
-        <div class="director-threshold">
-          <label class="director-field"><span>高光阈值</span><input id="directorThreshold" type="number" min="0" max="100000" step="1" value="50"></label>
-          <input id="directorThresholdRange" type="range" min="0" max="100" step="1" value="50" aria-label="高光阈值滑杆">
-        </div>
-        <div class="director-grid">
-          <label class="director-field"><span>高光触发 CUE</span><select id="directorCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
-          <label class="director-field"><span>冷却（秒）</span><input id="directorCooldown" type="number" min="0" max="86400" step="0.1" value="15"></label>
-        </div>
-        <div class="director-grid director-phase-grid">
-          <label class="director-field"><span>BP 阶段 CUE</span><select id="directorDraftCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
-          <label class="director-field"><span>赛后阶段 CUE</span><select id="directorPostCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
-        </div>
-        <div class="director-runtime">
-          <div class="director-runtime-row wide"><span>上次触发</span><b id="directorLastTrigger">暂无触发</b></div>
-          <div class="director-runtime-row"><span>冷却剩余</span><b id="directorCooldownRemaining" class="director-cooldown ready">就绪</b></div>
-        </div>
-        <div class="config-actions director-actions">
-          <button type="button" id="directorReload" class="btn ghost">重新读取</button>
-          <button type="button" id="directorSave" class="btn primary">保存规则</button>
-        </div>
-        <div class="status-line" id="directorStatus">从 /api/director/rules 读取</div>
+    <section class="c2-view" data-view="bp">
+      <div class="c2-viewhead"><h1>BP 阶段</h1><p>选人在游戏画面里；这里看比分、切场景，CUE 在底部。</p></div>
+      <div class="c2-grid-2">
+      <section class="match-card" id="match-card">
+      <div class="match-top">
+      <div><span class="eyebrow">CURRENT MATCH</span><h2 id="matchTitle">当前比赛</h2></div>
+      <span class="phase-badge" id="phaseBadge">--</span>
+      </div>
+      <div class="match-body" id="matchBody"><div class="match-placeholder">正在连接本地数据链路…</div></div>
       </section>
+      <section class="panel">
+      <div class="panel-head"><h2>OBS 场景快捷</h2><span class="kicker">SCENES</span></div>
+      <div class="scene-quick" id="scene-shortcuts"><span class="empty">连接 OBS 后显示场景</span></div>
+      </section>
+      </div>
+    </section>
 
+    <section class="c2-view" data-view="live">
+      <div class="c2-viewhead"><h1>赛中</h1><p>十人实时数据与事件流；底部 CUE 切局内 / 转场，「设置 · 自动导播」可开规则引擎。</p></div>
+      <div class="c2-live-grid">
+      <section class="panel roster-panel" id="roster-panel">
+      <div class="panel-head"><h2>实时选手 · KDA / 装备</h2><span class="kicker" id="rosterCount">0 / 10</span></div>
+      <div class="roster-body" id="rosterBody"><div class="roster-empty">等待选手数据…</div></div>
+      </section>
+      <section class="panel feed-panel">
+      <div class="panel-head"><h2>实时事件流</h2><span class="kicker" id="feedCount">0 / 30</span></div>
+      <div class="event-feed" id="event-feed"><div class="feed-empty">等待比赛事件…</div></div>
+      </section>
+      </div>
+    </section>
+
+    <section class="c2-view" data-view="post">
+      <div class="c2-viewhead"><h1>赛后</h1><p>结算数据与 MVP 评选；发送后 MVP 页切到直播画面，再决定下一局或结束这轮。</p></div>
+      <div class="c2-grid-2">
+      <section class="panel" id="mvp-panel">
+      <div class="panel-head"><h2>MVP 评选</h2><span class="kicker">MVP</span></div>
+      <div class="mvp-candidates" id="mvp-candidates"><span class="empty">等待局内/赛后选手数据</span></div>
+      <div class="mvp-actions">
+      <button type="button" id="mvp-send" class="btn primary" disabled>发送 MVP</button>
+      <button type="button" id="mvp-clear" class="btn ghost">清除</button>
+      </div>
+      <div class="footnote" id="mvp-note">未评选</div>
+      </section>
+        <section class="panel"><div class="panel-head"><h2>结算数据</h2><span class="kicker">POST GAME</span></div>
+          <div class="c2-note">本局结算（伤害占比 / 参团 / 经济差）在赛后阶段汇总，随后进入 MVP 评选。</div>
+        </section>
+      </div>
+    </section>
+
+    <section class="c2-view" data-view="settings">
+      <div class="c2-viewhead"><h1>设置</h1><p>连接、赛事配置、自动导播与广播源。保存即生效，回到对应阶段就能用。</p></div>
+      <div class="c2-set-tabs" id="settings-tabs">
+        <button type="button" class="active" data-set-tab="config">赛事配置</button>
+        <button type="button" data-set-tab="connect">连接与设备</button>
+        <button type="button" data-set-tab="director">自动导播</button>
+        <button type="button" data-set-tab="sources">广播源与诊断</button>
+      </div>
+      <div class="c2-set-panel active" data-set-panel="config">
       <section class="panel config-panel" id="broadcast-config">
-        <div class="panel-head"><h2>赛事配置</h2><span class="kicker">TEAMS / SERIES / PLAYERS</span></div>
-        <div class="config-form" id="broadcastConfigForm">
-          <div class="config-tabs">
-            <button type="button" class="active" data-config-tab="overview">赛事</button>
-            <button type="button" data-config-tab="teams">队伍</button>
-            <button type="button" data-config-tab="players">选手</button>
-          </div>
-          <div class="config-tab-panel active" data-config-panel="overview">
-            <div class="config-section">
-              <h3>系列赛</h3>
-              <div class="config-grid">
-                <label class="config-field wide"><span>赛事名称</span><input id="seriesName" autocomplete="off"></label>
-                <label class="config-field"><span>阶段</span><input id="seriesStage" autocomplete="off"></label>
-                <label class="config-field"><span>游戏版本</span><input id="seriesPatch" autocomplete="off"></label>
-                <label class="config-field"><span>Best of（几局几胜）</span><input id="seriesBestOf" type="number" min="1" step="1" value="3"></label>
-                <div class="config-field"><span>赛制快捷</span>
-                  <div class="segmented compact" id="bo-quick">
-                    <button type="button" data-bo="1">BO1</button>
-                    <button type="button" data-bo="3" class="active">BO3</button>
-                    <button type="button" data-bo="5">BO5</button>
-                  </div>
-                </div>
-                <label class="config-field"><span>蓝方战绩</span><input id="recordBlue" type="number" step="1" value="0"></label>
-                <label class="config-field"><span>红方战绩</span><input id="recordRed" type="number" step="1" value="0"></label>
-              </div>
-            </div>
-            <div class="config-section">
-              <h3>左下角遮挡卡</h3>
-              <div class="config-grid">
-                <label class="config-field wide"><span>标题（留空 = 赛事名称）</span><input id="coverTitle" autocomplete="off"></label>
-                <label class="config-field wide"><span>内容行（每行一条，留空 = 版本 / 阶段）</span><textarea id="coverLines" rows="3" spellcheck="false"></textarea></label>
-                <label class="config-field wide"><span>自定义 HTML（可选，优先级最高）</span><textarea id="coverHtml" rows="3" spellcheck="false" placeholder="&lt;div&gt;…&lt;/div&gt;"></textarea></label>
-              </div>
-              <div class="footnote">全部留空 = 使用默认内容（赛事名称 + 游戏版本 + 阶段）。保存后广播页实时刷新。</div>
-            </div>
-            <div class="config-section">
-              <h3>局内快捷键</h3>
-              <div class="config-grid">
-                <label class="config-field wide config-check"><input type="checkbox" id="hudKeyHook"><span>局内 A 键隐藏 HUD（全局键盘钩子）</span></label>
-              </div>
-              <div class="footnote">勾选状态点击即保存生效：局内（in_game 阶段）按 A 同时触发 LoL 走砍与 HUD 显隐；关掉后按 A 只走砍、不再隐藏 HUD。</div>
-            </div>
-            <div class="config-section">
-              <h3>待机屏（聚合舞台页）</h3>
-              <div class="config-grid">
-                <label class="config-field wide"><span>标题（留空 = 赛事名称）</span><input id="standbyTitle" autocomplete="off"></label>
-                <label class="config-field wide"><span>内容行（每行一条，留空 = 对局即将开始 / 版本）</span><textarea id="standbyLines" rows="2" spellcheck="false"></textarea></label>
-              </div>
-              <div class="footnote">BP 结束后、对局数据就绪前的等待期显示；仅 /broadcast/stage 聚合舞台页使用。</div>
-            </div>
-            <div class="config-section">
-              <h3>Fearless / BP</h3>
-              <div class="config-grid four">
-                <label class="config-field"><span>PB %</span><input id="fearlessPbPct" type="number" step="0.1" value="0"></label>
-                <label class="config-field"><span>PICK %</span><input id="fearlessPickPct" type="number" step="0.1" value="0"></label>
-                <label class="config-field"><span>胜场</span><input id="fearlessWins" type="number" step="1" value="0"></label>
-                <label class="config-field"><span>负场</span><input id="fearlessLosses" type="number" step="1" value="0"></label>
-              </div>
-            </div>
-            <div class="config-section">
-              <div class="config-section-head"><h3>赞助商</h3><button type="button" id="broadcastSponsorAdd" class="mini-btn">+ 添加</button></div>
-              <div id="sponsorEditors" class="sponsor-editors"></div>
-            </div>
-          </div>
-          <div class="config-tab-panel" data-config-panel="teams">
-            <div class="config-section">
-              <h3>队伍信息</h3>
-              <div class="team-config blue">
-                <div class="team-config-head"><span class="team-dot"></span><b>蓝方 BLUE</b></div>
-                <div class="config-grid">
-                  <label class="config-field wide"><span>队伍名称</span><input id="teamBlueName" autocomplete="off"></label>
-                  <label class="config-field"><span>简称</span><input id="teamBlueShort" autocomplete="off"></label>
-                  <label class="config-field"><span>赛区</span><input id="teamBlueRegion" autocomplete="off"></label>
-                  <label class="config-field"><span>排名</span><input id="teamBlueRank" autocomplete="off"></label>
-                  <label class="config-field"><span>主色</span><input id="teamBlueColor" type="color" value="#3B82F6"></label>
-                  <label class="config-field wide"><span>队标 URL / 路径（留空 = 简称首字母徽章）</span><input id="teamBlueLogo" autocomplete="off" placeholder="https://… 或 /logo-blue.png"></label>
-                  <label class="config-field wide logo-upload"><span>本地上传队标（png / jpg / webp / gif / svg）</span><input id="teamBlueLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
-                  <img id="teamBlueLogoPreview" class="team-logo-preview" alt="队标预览">
-                </div>
-              </div>
-              <div class="team-config red">
-                <div class="team-config-head"><span class="team-dot"></span><b>红方 RED</b></div>
-                <div class="config-grid">
-                  <label class="config-field wide"><span>队伍名称</span><input id="teamRedName" autocomplete="off"></label>
-                  <label class="config-field"><span>简称</span><input id="teamRedShort" autocomplete="off"></label>
-                  <label class="config-field"><span>赛区</span><input id="teamRedRegion" autocomplete="off"></label>
-                  <label class="config-field"><span>排名</span><input id="teamRedRank" autocomplete="off"></label>
-                  <label class="config-field"><span>主色</span><input id="teamRedColor" type="color" value="#EF4444"></label>
-                  <label class="config-field wide"><span>队标 URL / 路径（留空 = 简称首字母徽章）</span><input id="teamRedLogo" autocomplete="off" placeholder="https://… 或 /logo-red.png"></label>
-                  <label class="config-field wide logo-upload"><span>本地上传队标（png / jpg / webp / gif / svg）</span><input id="teamRedLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
-                  <img id="teamRedLogoPreview" class="team-logo-preview" alt="队标预览">
-                </div>
-              </div>
-            </div>
-            <div class="config-section">
-              <h3>教练</h3>
-              <div class="config-grid">
-                <label class="config-field"><span>蓝方教练</span><input id="coachBlueName" autocomplete="off"></label>
-                <label class="config-field"><span>蓝方角色</span><input id="coachBlueRole" autocomplete="off"></label>
-                <label class="config-field"><span>红方教练</span><input id="coachRedName" autocomplete="off"></label>
-                <label class="config-field"><span>红方角色</span><input id="coachRedRole" autocomplete="off"></label>
-              </div>
-            </div>
-          </div>
-          <div class="config-tab-panel" data-config-panel="players">
-            <div class="player-editor-head"><span>#</span><span>选手 ID</span><span>队伍</span><span>分路</span></div>
-            <div id="playerEditors" class="player-editors"></div>
-            <div class="footnote">共 10 名选手；队伍与分路会直接写入广播页数据。</div>
-          </div>
-        </div>
-        <div class="config-actions">
-          <button type="button" id="broadcastConfigLoad" class="btn ghost">重新读取</button>
-          <button type="button" id="broadcastConfigSave" class="btn primary">保存配置</button>
-        </div>
-        <div class="status-line" id="broadcastConfigStatus">从 /api/broadcast-config 读取</div>
-        <details class="config-json-details">
-          <summary>高级 JSON（可选）</summary>
-          <textarea id="broadcastConfigJson" spellcheck="false" rows="7" placeholder="队伍 / 选手 / 教练 / 赞助商配置 JSON"></textarea>
-          <button type="button" id="broadcastConfigJsonApply" class="btn ghost wide">导入 JSON 到表单</button>
-        </details>
-      </section>
-
-      <details class="panel diag-panel">
-        <summary>运行诊断</summary>
-        <pre id="state">连接中…</pre>
+      <div class="panel-head"><h2>赛事配置</h2><span class="kicker">TEAMS / SERIES / PLAYERS</span></div>
+      <div class="config-form" id="broadcastConfigForm">
+      <div class="config-tabs">
+      <button type="button" class="active" data-config-tab="overview">赛事</button>
+      <button type="button" data-config-tab="teams">队伍</button>
+      <button type="button" data-config-tab="players">选手</button>
+      </div>
+      <div class="config-tab-panel active" data-config-panel="overview">
+      <div class="config-section">
+      <h3>系列赛</h3>
+      <div class="config-grid">
+      <label class="config-field wide"><span>赛事名称</span><input id="seriesName" autocomplete="off"></label>
+      <label class="config-field"><span>阶段</span><input id="seriesStage" autocomplete="off"></label>
+      <label class="config-field"><span>游戏版本</span><input id="seriesPatch" autocomplete="off"></label>
+      <label class="config-field"><span>Best of（几局几胜）</span><input id="seriesBestOf" type="number" min="1" step="1" value="3"></label>
+      <div class="config-field"><span>赛制快捷</span>
+      <div class="segmented compact" id="bo-quick">
+      <button type="button" data-bo="1">BO1</button>
+      <button type="button" data-bo="3" class="active">BO3</button>
+      <button type="button" data-bo="5">BO5</button>
+      </div>
+      </div>
+      <label class="config-field"><span>蓝方战绩</span><input id="recordBlue" type="number" step="1" value="0"></label>
+      <label class="config-field"><span>红方战绩</span><input id="recordRed" type="number" step="1" value="0"></label>
+      </div>
+      </div>
+      <div class="config-section">
+      <h3>左下角遮挡卡</h3>
+      <div class="config-grid">
+      <label class="config-field wide"><span>标题（留空 = 赛事名称）</span><input id="coverTitle" autocomplete="off"></label>
+      <label class="config-field wide"><span>内容行（每行一条，留空 = 版本 / 阶段）</span><textarea id="coverLines" rows="3" spellcheck="false"></textarea></label>
+      <label class="config-field wide"><span>自定义 HTML（可选，优先级最高）</span><textarea id="coverHtml" rows="3" spellcheck="false" placeholder="&lt;div&gt;…&lt;/div&gt;"></textarea></label>
+      </div>
+      <div class="footnote">全部留空 = 使用默认内容（赛事名称 + 游戏版本 + 阶段）。保存后广播页实时刷新。</div>
+      </div>
+      <div class="config-section">
+      <h3>局内快捷键</h3>
+      <div class="config-grid">
+      <label class="config-field wide config-check"><input type="checkbox" id="hudKeyHook"><span>局内 A 键隐藏 HUD（全局键盘钩子）</span></label>
+      </div>
+      <div class="footnote">勾选状态点击即保存生效：局内（in_game 阶段）按 A 同时触发 LoL 走砍与 HUD 显隐；关掉后按 A 只走砍、不再隐藏 HUD。</div>
+      </div>
+      <div class="config-section">
+      <h3>待机屏（聚合舞台页）</h3>
+      <div class="config-grid">
+      <label class="config-field wide"><span>标题（留空 = 赛事名称）</span><input id="standbyTitle" autocomplete="off"></label>
+      <label class="config-field wide"><span>内容行（每行一条，留空 = 对局即将开始 / 版本）</span><textarea id="standbyLines" rows="2" spellcheck="false"></textarea></label>
+      </div>
+      <div class="footnote">BP 结束后、对局数据就绪前的等待期显示；仅 /broadcast/stage 聚合舞台页使用。</div>
+      </div>
+      <div class="config-section">
+      <h3>Fearless / BP</h3>
+      <div class="config-grid four">
+      <label class="config-field"><span>PB %</span><input id="fearlessPbPct" type="number" step="0.1" value="0"></label>
+      <label class="config-field"><span>PICK %</span><input id="fearlessPickPct" type="number" step="0.1" value="0"></label>
+      <label class="config-field"><span>胜场</span><input id="fearlessWins" type="number" step="1" value="0"></label>
+      <label class="config-field"><span>负场</span><input id="fearlessLosses" type="number" step="1" value="0"></label>
+      </div>
+      </div>
+      <div class="config-section">
+      <div class="config-section-head"><h3>赞助商</h3><button type="button" id="broadcastSponsorAdd" class="mini-btn">+ 添加</button></div>
+      <div id="sponsorEditors" class="sponsor-editors"></div>
+      </div>
+      </div>
+      <div class="config-tab-panel" data-config-panel="teams">
+      <div class="config-section">
+      <h3>队伍信息</h3>
+      <div class="team-config blue">
+      <div class="team-config-head"><span class="team-dot"></span><b>蓝方 BLUE</b></div>
+      <div class="config-grid">
+      <label class="config-field wide"><span>队伍名称</span><input id="teamBlueName" autocomplete="off"></label>
+      <label class="config-field"><span>简称</span><input id="teamBlueShort" autocomplete="off"></label>
+      <label class="config-field"><span>赛区</span><input id="teamBlueRegion" autocomplete="off"></label>
+      <label class="config-field"><span>排名</span><input id="teamBlueRank" autocomplete="off"></label>
+      <label class="config-field"><span>主色</span><input id="teamBlueColor" type="color" value="#3B82F6"></label>
+      <label class="config-field wide"><span>队标 URL / 路径（留空 = 简称首字母徽章）</span><input id="teamBlueLogo" autocomplete="off" placeholder="https://… 或 /logo-blue.png"></label>
+      <label class="config-field wide logo-upload"><span>本地上传队标（png / jpg / webp / gif / svg）</span><input id="teamBlueLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+      <img id="teamBlueLogoPreview" class="team-logo-preview" alt="队标预览">
+      </div>
+      </div>
+      <div class="team-config red">
+      <div class="team-config-head"><span class="team-dot"></span><b>红方 RED</b></div>
+      <div class="config-grid">
+      <label class="config-field wide"><span>队伍名称</span><input id="teamRedName" autocomplete="off"></label>
+      <label class="config-field"><span>简称</span><input id="teamRedShort" autocomplete="off"></label>
+      <label class="config-field"><span>赛区</span><input id="teamRedRegion" autocomplete="off"></label>
+      <label class="config-field"><span>排名</span><input id="teamRedRank" autocomplete="off"></label>
+      <label class="config-field"><span>主色</span><input id="teamRedColor" type="color" value="#EF4444"></label>
+      <label class="config-field wide"><span>队标 URL / 路径（留空 = 简称首字母徽章）</span><input id="teamRedLogo" autocomplete="off" placeholder="https://… 或 /logo-red.png"></label>
+      <label class="config-field wide logo-upload"><span>本地上传队标（png / jpg / webp / gif / svg）</span><input id="teamRedLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+      <img id="teamRedLogoPreview" class="team-logo-preview" alt="队标预览">
+      </div>
+      </div>
+      </div>
+      <div class="config-section">
+      <h3>教练</h3>
+      <div class="config-grid">
+      <label class="config-field"><span>蓝方教练</span><input id="coachBlueName" autocomplete="off"></label>
+      <label class="config-field"><span>蓝方角色</span><input id="coachBlueRole" autocomplete="off"></label>
+      <label class="config-field"><span>红方教练</span><input id="coachRedName" autocomplete="off"></label>
+      <label class="config-field"><span>红方角色</span><input id="coachRedRole" autocomplete="off"></label>
+      </div>
+      </div>
+      </div>
+      <div class="config-tab-panel" data-config-panel="players">
+      <div class="player-editor-head"><span>#</span><span>选手 ID</span><span>队伍</span><span>分路</span></div>
+      <div id="playerEditors" class="player-editors"></div>
+      <div class="footnote">共 10 名选手；队伍与分路会直接写入广播页数据。</div>
+      </div>
+      </div>
+      <div class="config-actions">
+      <button type="button" id="broadcastConfigLoad" class="btn ghost">重新读取</button>
+      <button type="button" id="broadcastConfigSave" class="btn primary">保存配置</button>
+      </div>
+      <div class="status-line" id="broadcastConfigStatus">从 /api/broadcast-config 读取</div>
+      <details class="config-json-details">
+      <summary>高级 JSON（可选）</summary>
+      <textarea id="broadcastConfigJson" spellcheck="false" rows="7" placeholder="队伍 / 选手 / 教练 / 赞助商配置 JSON"></textarea>
+      <button type="button" id="broadcastConfigJsonApply" class="btn ghost wide">导入 JSON 到表单</button>
       </details>
-    </aside>
+      </section>
+      </div>
+      <div class="c2-set-panel" data-set-panel="connect">
+      <section class="panel" id="obs-panel">
+      <div class="panel-head"><h2>OBS 控制</h2><span class="status-badge offline" id="obsBadge">未连接</span></div>
+      <label class="field">WebSocket 地址<input id="obsUrl" value="ws://127.0.0.1:4455" autocomplete="off"></label>
+      <label class="field">密码<input id="obsPass" type="password" placeholder="OBS → 工具 → WebSocket 服务器设置" autocomplete="off"></label>
+      <button type="button" id="obsConnect" class="btn primary wide">连接 OBS</button>
+      <button type="button" id="obsRebrand" class="btn wide">一键换源（改名 + 重指 URL）</button>
+      <div class="status-line" id="obsStatus">未连接</div>
+      <div class="stat-grid">
+      <div><small>当前场景</small><b id="obsCurrent">--</b></div>
+      <div><small>录制状态</small><b id="obsRecording">未接入</b></div>
+      <div><small>推流状态</small><b id="obsStream">--</b></div>
+      <div><small>回放缓冲</small><b id="obsReplay">--</b></div>
+      </div>
+      <div class="button-grid">
+      <button type="button" data-obs-record="start">开始录制</button>
+      <button type="button" data-obs-record="stop">停止录制</button>
+      <button type="button" data-obs-stream="start">开始推流</button>
+      <button type="button" data-obs-stream="stop">停止推流</button>
+      <button type="button" data-obs-replay="save">保存回放</button>
+      </div>
+      <div class="field-label">场景列表</div>
+      <div class="scene-grid" id="obsScenes"><span class="empty">暂无场景</span></div>
+      <div class="field-label">阶段自动切换</div>
+      <div class="obs-auto"><span class="empty">连接 OBS 后可配置自动切换</span></div>
+      </section>
+      <section class="panel" id="replay-panel">
+      <div class="panel-head"><h2>回放镜头</h2><span class="status-badge offline" id="replayBadge">未连接</span></div>
+      <div class="status-line" id="replayStatus">未检测到回放</div>
+      <div class="button-grid">
+      <button type="button" data-replay="pause">暂停</button>
+      <button type="button" data-replay="play">播放</button>
+      <button type="button" data-speed="0.5">0.5×</button>
+      <button type="button" data-speed="1">1×</button>
+      <button type="button" data-speed="2">2×</button>
+      <button type="button" data-speed="4">4×</button>
+      <button type="button" data-fov="30">近景 30°</button>
+      <button type="button" data-fov="45">标准 45°</button>
+      <button type="button" data-fov="60">广角 60°</button>
+      </div>
+      <div class="replay-details" id="replayDetails"><div class="detail-row"><span>播放位置</span><b>--</b></div><div class="detail-row"><span>镜头 FOV</span><b>--</b></div></div>
+      </section>
+      </div>
+      <div class="c2-set-panel" data-set-panel="director">
+      <section class="panel director-panel" id="director-panel">
+      <div class="panel-head"><h2>自动导播</h2><span class="status-badge offline" id="directorBadge">读取中</span></div>
+      <div class="director-hint"><i></i><span>规则引擎仅在 live 模式生效</span></div>
+      <label class="director-toggle">
+      <span class="director-toggle-copy"><b>启用规则引擎</b><small>高光分数达到阈值时自动触发广播 CUE</small></span>
+      <input id="directorEnabled" type="checkbox" checked>
+      </label>
+      <div class="director-threshold">
+      <label class="director-field"><span>高光阈值</span><input id="directorThreshold" type="number" min="0" max="100000" step="1" value="50"></label>
+      <input id="directorThresholdRange" type="range" min="0" max="100" step="1" value="50" aria-label="高光阈值滑杆">
+      </div>
+      <div class="director-grid">
+      <label class="director-field"><span>高光触发 CUE</span><select id="directorCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
+      <label class="director-field"><span>冷却（秒）</span><input id="directorCooldown" type="number" min="0" max="86400" step="0.1" value="15"></label>
+      </div>
+      <div class="director-grid director-phase-grid">
+      <label class="director-field"><span>BP 阶段 CUE</span><select id="directorDraftCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
+      <label class="director-field"><span>赛后阶段 CUE</span><select id="directorPostCue"><option value="bp-in">BP 入场</option><option value="hud-in">局内入场</option><option value="result-in">赛后庆祝</option><option value="wipe">转场</option><option value="reset">重置</option></select></label>
+      </div>
+      <div class="director-runtime">
+      <div class="director-runtime-row wide"><span>上次触发</span><b id="directorLastTrigger">暂无触发</b></div>
+      <div class="director-runtime-row"><span>冷却剩余</span><b id="directorCooldownRemaining" class="director-cooldown ready">就绪</b></div>
+      </div>
+      <div class="config-actions director-actions">
+      <button type="button" id="directorReload" class="btn ghost">重新读取</button>
+      <button type="button" id="directorSave" class="btn primary">保存规则</button>
+      </div>
+      <div class="status-line" id="directorStatus">从 /api/director/rules 读取</div>
+      </section>
+      </div>
+      <div class="c2-set-panel" data-set-panel="sources">
+      <section class="panel" id="broadcast-pages">
+      <div class="panel-head"><h2>广播页</h2><span class="kicker">BROADCAST</span></div>
+      <div class="url-list broadcast-url-list" id="broadcast-urls"></div>
+      </section>
+      <section class="panel">
+      <div class="panel-head"><h2>Overlay 浏览器源</h2><span class="kicker">SOURCES</span></div>
+      <div class="url-list" id="urls"></div>
+      </section>
+      <details class="panel diag-panel">
+      <summary>运行诊断</summary>
+      <pre id="state">连接中…</pre>
+      </details>
+      </div>
+    </section>
+  </div>
+
+  <div class="c2-dock" id="cue-dock" hidden>
+      <section class="panel" id="broadcast-control">
+      <div class="panel-head"><h2>广播控制</h2><span class="kicker">MANUAL CUE</span></div>
+      <div class="cue-status"><span>当前 Cue</span><b id="cueType">待机</b><em id="cueSeq">SEQ --</em></div>
+      <div class="cue-grid">
+      <button type="button" data-cue="bp-in" class="btn primary">BP 入场</button>
+      <button type="button" data-cue="hud-in">局内入场</button>
+      <button type="button" data-cue="result-in">赛后庆祝</button>
+      <button type="button" data-cue="wipe">转场</button>
+      <button type="button" data-cue="reset">重置</button>
+      </div>
+      <div class="footnote">手动触发广播页动画；POST /api/broadcast/cue · 快捷键 1/2/3/4 · Esc 重置</div>
+      </section>
   </div>
 
   <div class="console-toast" id="console-toast" role="status"></div>
