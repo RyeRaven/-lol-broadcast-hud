@@ -810,6 +810,30 @@ var ICONS = {
   // 状态条与原生装备孔带之间的统一间隙（设计 px）：蓝侧条左缘 = 孔带右缘 + GAP，
   // 红侧条右缘 = 孔带左缘 - GAP，两侧到孔带的距离相等且不贴死原生装备图标。
   var BAR_GAP = 10;
+  // 自绘模式：名字块宽度按当前 5 行最长内容实测收窄（fit-content 的 JS 版——grid track 无法直接表达）。
+  // 行内容宽 = 名字 b.scrollWidth（被截断时仍是完整文本宽）+ 4px 间隙 + 分路标签实宽，与 stat-line 实宽取大者；
+  // +31 = 名字块右缘距装备带的固定安全距离（装备带溢出 21px + 10px 间隙）；64..202 封顶截断。
+  function measureInfoW(half) {
+    if (!half.querySelectorAll) return 202;
+    var maxW = 0;
+    var rows = half.querySelectorAll('.hb-row');
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      var nameB = row.querySelector('.hb-name-line b');
+      var roleS = row.querySelector('.hb-name-line small');
+      var stat = row.querySelector('.hb-stat-line');
+      var w = 0;
+      if (nameB) w += nameB.scrollWidth;
+      if (roleS) w += roleS.getBoundingClientRect().width;
+      if (nameB && roleS) w += 4;
+      if (stat) { var statW = stat.getBoundingClientRect().width; if (statW > w) w = statW; }
+      if (w > maxW) maxW = w;
+    }
+    var infoW = Math.ceil(maxW) + 31;
+    if (infoW > 202) infoW = 202;
+    if (infoW < 64) infoW = 64;
+    return infoW;
+  }
   function syncLayout(side, box) {
     var half = byId('hb-rows-' + side);
     if (!half || !box || !half.style || !half.style.setProperty) return;
@@ -866,10 +890,13 @@ var ICONS = {
         champLeft = geo.blueX - 6 - 24 - 2 - 36 - halfLeft;
         var boardEl = half.closest('.hb-board');
         if (boardEl) boardEl.style.removeProperty('--hb-clip-x');
-        half.style.removeProperty('--hb-grid-info-w');
         half.style.removeProperty('--hb-grid-blue-vision-w');
         half.style.removeProperty('--hb-grid-blue-band-w');
         half.style.removeProperty('--hb-grid-blue-tail-w');
+        // 自绘：名字列实测收窄（头像/等级列被 1fr 外侧空列推向装备带），板左缘裁到头像外 8px（252 = 行宽 623 - 363 固定列 - 8）。
+        var selfInfoW = measureInfoW(half);
+        half.style.setProperty('--hb-grid-info-w', round2(selfInfoW) + 'px');
+        if (boardEl) boardEl.style.setProperty('--hb-clip-left', round2(Math.max(252 - selfInfoW, 0)) + 'px');
       }
       extrasLeft = champLeft - 74;
       // 视野分贴在头像外侧（外沿），不要飘到半区最左边。
@@ -923,9 +950,13 @@ var ICONS = {
         champLeft = geo.redX + bandW + 6 + 24 + 2 - halfLeft;
         half.style.removeProperty('--hb-grid-red-lead-w');
         half.style.removeProperty('--hb-grid-red-band-w');
-        half.style.removeProperty('--hb-grid-red-info-w');
         half.style.removeProperty('--hb-grid-red-tail-w');
-        half.style.removeProperty('--hb-grid-info-w');
+        // 自绘：红侧镜像（固定轨道锚在左，剩余空隙自然落在行尾），板右缘裁到头像外 8px（252 = 行宽 623 - 363 固定列 - 8）。
+        var selfInfoWRed = measureInfoW(half);
+        half.style.setProperty('--hb-grid-red-info-w', round2(selfInfoWRed) + 'px');
+        half.style.setProperty('--hb-grid-info-w', round2(selfInfoWRed) + 'px');
+        var boardElRed = half.closest('.hb-board');
+        if (boardElRed) boardElRed.style.setProperty('--hb-clip-right', round2(Math.max(252 - selfInfoWRed, 0)) + 'px');
       }
       extrasLeft = champLeft + 36 + 8;
       visionLeft = champLeft + 36 + 4;

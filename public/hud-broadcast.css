@@ -584,7 +584,8 @@ body.hb-body {
   /* 板体左右边界收窄（native 模式由 syncLayout 写 --hb-clip-x）：内容/孔位几何全部钉死不动，
      只用 clip 把板体左右外缘裁掉——被裁掉的区域是纯游戏画面（原生记分板面板从 ~x590 才开始），
      板边界随缩进视觉收进来；默认 0px 不裁，默认渲染与 visual-baseline 零变化。 */
-  clip-path: inset(0 var(--hb-clip-x, 0px) 0 var(--hb-clip-x, 0px));
+  /* 左右裁宽分开两把变量（自绘模式两侧收窄量按各自名字实测，不必对称）；native 仍写单值 --hb-clip-x。 */
+  clip-path: inset(0 var(--hb-clip-right, var(--hb-clip-x, 0px)) 0 var(--hb-clip-left, var(--hb-clip-x, 0px)));
   overflow: hidden;
 }
 
@@ -1234,6 +1235,12 @@ body.hb-body {
 .hud-broadcast:not(.hb-native-items) .hb-row.blue .hb-name-line { justify-content: flex-end; }
 .hud-broadcast:not(.hb-native-items) .hb-row.red .hb-info { align-items: flex-start; padding-left: 31px; }
 .hud-broadcast:not(.hb-native-items) .hb-row.red .hb-name-line { justify-content: flex-end; }
+
+/* 自绘模式：蓝方外侧空列改 1fr 吞掉剩余宽度，把头像/等级/名字整组推向装备带（固定轨道锚在
+   中线一侧的红方天然如此）。名字列宽 = syncLayout 按 5 行最长内容实测写入 --hb-grid-info-w，
+   长名在 202px 封顶省略号截断；面板外缘由 --hb-clip-left/right 裁到头像外 8px。 */
+.hud-broadcast:not(.hb-native-items) .hb-row.blue { grid-template-columns: minmax(0, 1fr) 38px 0px var(--hb-grid-info-w, 202px) var(--hb-grid-blue-band-w, 207px) 114px var(--hb-grid-blue-tail-w, 4px); }
+.hud-broadcast:not(.hb-native-items) .hb-row.red { grid-template-columns: var(--hb-grid-red-lead-w, 4px) 114px var(--hb-grid-red-band-w, 207px) var(--hb-grid-red-info-w, 202px) 0px 38px var(--hb-grid-red-tail-w, 34px); }
 .hb-row.red .hb-bar { transform: scaleX(-1); }
 .hb-vision { width: 34px; }
 .hb-extras { left: 34%; }
