@@ -813,6 +813,7 @@ var ICONS = {
   function syncLayout(side, box) {
     var half = byId('hb-rows-' + side);
     if (!half || !box || !half.style || !half.style.setProperty) return;
+    if (ROOT.classList) ROOT.classList.toggle('hb-native-items', nativeItemsEnabled());
     var geo = nativeGeometry();
     var bandW = 6 * geo.pitch;
     var halfLeft = box.left;

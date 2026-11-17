@@ -1227,6 +1227,13 @@ body.hb-body {
    渐变、护盾段、经验区间、刻度、分段 pips 全部随之镜像，消耗从左往右收。 */
 .hb-row.red .hb-info { align-items: flex-end; }
 .hb-row.red .hb-name-line { flex-direction: row-reverse; }
+
+/* 自绘模式：名字文本贴向装备带，短名不留大空白。31px = 装备带溢出 21px + 安全间隙 10px；
+   原生挖孔模式（.hb-native-items）文本位由标定几何决定，不加这份对齐。 */
+.hud-broadcast:not(.hb-native-items) .hb-row.blue .hb-info { align-items: flex-end; padding-right: 31px; }
+.hud-broadcast:not(.hb-native-items) .hb-row.blue .hb-name-line { justify-content: flex-end; }
+.hud-broadcast:not(.hb-native-items) .hb-row.red .hb-info { align-items: flex-start; padding-left: 31px; }
+.hud-broadcast:not(.hb-native-items) .hb-row.red .hb-name-line { justify-content: flex-end; }
 .hb-row.red .hb-bar { transform: scaleX(-1); }
 .hb-vision { width: 34px; }
 .hb-extras { left: 34%; }
