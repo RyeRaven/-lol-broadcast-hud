@@ -1411,12 +1411,14 @@ var ICONS = {
     return '<div class="hb-row ' + side + '" id="hb-row-' + id + '">' +
       extras +
       '<span class="hb-champ" id="hb-champ-' + id + '"><span class="hb-champ-art" id="hb-champ-art-' + id + '">' + championMarkup(p) + '</span>' +
-        '<span class="hb-level" id="hb-level-' + id + '">' + level + '</span>' + '</span>' +
+        '<span class="hb-level" id="hb-level-' + id + '">' + level + '</span>' +
+        '<span class="hb-respawn" id="hb-respawn-' + id + '" style="display:none"></span></span>' +
       items +
       '<span class="hb-info" id="hb-info-' + id + '">' +
         '<span class="hb-name-line hb-name"><b id="hb-pname-' + id + '">' + esc(playerDisplayName(p)) + '</b><small id="hb-prole-' + id + '"></small></span>' +
         '<span class="hb-stat-line">' +
           '<b class="hb-kda' + capClass('kills') + '" id="hb-kda-' + id + '" title="' + esc(capTitle('kills', 'KDA')) + '">' + kdaOf(p) + '</b>' +
+          '<span class="hb-cs" id="hb-cswrap-' + id + '" title="' + esc(csTitle(p)) + '"><b id="hb-cs-' + id + '">' + csMarkup(p) + '</b></span>' +
         '</span>' +
       '</span>' +
       '<span class="hb-band" aria-hidden="true"></span>' +
@@ -1466,11 +1468,20 @@ var ICONS = {
         var ult = byId('hb-ult-' + id); setHtml(ult, ultMarkup(player || {}));
         setText('hb-pname-' + id, player ? playerDisplayName(player) : '—');
         var roleNode = byId('hb-prole-' + id);
-        // 分路标注按需求下掉：prole 槽位只在死亡时短暂显示复活倒计时。
-        if (roleNode) roleNode.textContent = dead && num(player.respawnTimer) > 0 ? '复活 ' + Math.round(num(player.respawnTimer)) + 's' : '';
+        // 分路标注按需求下掉，prole 恒空；复活倒计时改为头像正中央数字（hb-respawn）。
+        if (roleNode) roleNode.textContent = '';
+        var respawn = byId('hb-respawn-' + id);
+        if (respawn) {
+          var rspT = dead && player && num(player.respawnTimer) > 0 ? String(Math.round(num(player.respawnTimer))) : '';
+          setText(respawn, rspT);
+          respawn.style.display = rspT === '' ? 'none' : 'grid';
+        }
         // 就地更新（不重建 innerHTML），否则每帧重建会让 transition 与掉血残影失效。
         updateBarsInto(byId('hb-bars-' + id), player || {}, id);
         setText('hb-kda-' + id, player ? kdaOf(player) : '—');
+        var csWrap = byId('hb-cswrap-' + id);
+        if (csWrap) csWrap.title = csTitle(player || null);
+        setText('hb-cs-' + id, player ? csMarkup(player) : '—');
         setHtml(byId('hb-runes-' + id), runeCells(player || {}));
         setHtml(byId('hb-spells-' + id), spellCells(player || {}));
         setHtml(byId('hb-items-' + id), itemCells(player || {}, i + (side === 'red' ? 5 : 0)));

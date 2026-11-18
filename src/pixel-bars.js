@@ -15,8 +15,9 @@
 // 任何情况下都不允许把缺失值补成 0% 或满条。
 
 const MAX_BODY_BYTES = 1024 * 1024;
-// 超过这个时间没收到新读数的 bar 一律视为失效：宁可画占位，也不能拿旧值冒充当前血量。
-const PIXEL_BAR_TTL_MS = 2000;
+// 单条读数保持窗口：丢帧沿用上次读数，连续失败超过窗口才失效画占位（与 econ-ocr 同策略）；
+// 宁可超时画占位，也不能拿无限旧的值冒充当前血量。
+const PIXEL_BAR_TTL_MS = 6000;
 // 原生血条满宽（@1920x1080），与 src/pages/hud-broadcast.js 的 PIXEL_BAR_FULL_PX 保持一致，
 // 用于把盾的像素宽度折算成「占满条的百分比」。
 const PIXEL_BAR_FULL_PX = 38;
@@ -128,11 +129,12 @@ function createPixelBarStore(options = {}) {
 
   function commit(bars) {
     const at = now();
-    const next = new Map();
+    // 合并保持而不是整包替换：OBS 截屏偶发 702 / 某行某帧没读到时，沿用上次读数，
+    // 各条按自己最后一次被解析到的时间过 TTL，避免血条资源条闪没。
+    const next = new Map(entries);
     for (const bar of Array.isArray(bars) ? bars : []) {
       next.set(bar.side + ':' + bar.rowIndex + ':' + bar.kind, { ...bar, at });
     }
-    // 整包替换而不是合并：某一条这一轮没报，就说明它这轮没读到，不能留上一轮的值。
     entries = next;
     lastCommitAt = at;
     commits += 1;

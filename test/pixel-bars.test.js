@@ -318,7 +318,7 @@ test('t23：非法 fillPercent / side / rowIndex / kind 整包拒绝，且不产
   assert.match(duplicate.reason, /重复/);
 });
 
-test('t23：读数超过 2000ms 未更新即失效，绝不留旧值', () => {
+test('t23：单条丢帧沿用上次读数（保持窗口内不清值），超 TTL 才逐条失效', () => {
   let clock = 1000;
   const store = createPixelBarStore({ now: () => clock });
   store.commit([{ side: 'blue', rowIndex: 0, kind: 'hp', fillPercent: 61, status: 'ok', shieldPx: 0, dominantColor: null }]);
@@ -333,7 +333,7 @@ test('t23：读数超过 2000ms 未更新即失效，绝不留旧值', () => {
   assert.equal(snapshot.active, false, '超过 TTL 必须失效');
   assert.equal(snapshot.stale, true);
   assert.equal(snapshot.bars.length, 0, '失效的读数不得出现在 bars 里');
-  // 整包替换：这一轮没报的条直接消失，不会残留上一轮的值。
+  // 合并保持：下一轮只报蓝方，红方沿用上次读数；各条按自己最后一次上报时间过 TTL。
   clock = 5000;
   store.commit([
     { side: 'blue', rowIndex: 0, kind: 'hp', fillPercent: 30, status: 'ok', shieldPx: 0, dominantColor: null },
@@ -342,7 +342,19 @@ test('t23：读数超过 2000ms 未更新即失效，绝不留旧值', () => {
   clock = 5001;
   store.commit([{ side: 'blue', rowIndex: 0, kind: 'hp', fillPercent: 33, status: 'ok', shieldPx: 0, dominantColor: null }]);
   const after = store.snapshot();
-  assert.equal(after.bars.length, 1, '上一轮的红方读数不得残留');
+  assert.equal(after.bars.length, 2, '丢帧的红方沿用上次读数，不闪没');
+  assert.equal(after.bars.find(b => b.side === 'blue').fillPercent, 33, '蓝方被新读数覆盖');
+  assert.equal(after.bars.find(b => b.side === 'red').fillPercent, 70, '红方保持旧值');
+  clock = 11001;
+  const half = store.snapshot();
+  assert.equal(half.bars.length, 1, '红方先过期（最后一次上报更早）');
+  assert.equal(half.bars[0].side, 'blue');
+  clock = 11002;
+  assert.equal(store.snapshot().active, false, '全部过期后整体失效');
+  // 重新上报立即复活。
+  clock = 11003;
+  store.commit([{ side: 'blue', rowIndex: 0, kind: 'hp', fillPercent: 40, status: 'ok', shieldPx: 0, dominantColor: null }]);
+  assert.equal(store.snapshot().active, true, '重新 commit 立即复活');
 });
 
 test('t23：bars 按 (team, 行序) 映射到玩家，不按屏幕位置猜', () => {
@@ -561,12 +573,12 @@ test('t23：真实服务 —— 合法包 200、/events 出现 hpPercent、非�
   assert.ok(Array.isArray(status.body.lastBars));
   assert.equal(status.body.lastBars.length, 4);
 
-  // 陈旧保护：超过 2000ms 没有新读数，字段必须变 null、契约回到 unavailable。
+  // 陈旧保护：超过 6000ms 没有新读数，字段必须变 null、契约回到 unavailable。
   const stale = await waitFor('读数过期后 hpPercent 变 null', async () => {
     const response = await getJson(port, '/api/state');
     const player = response.body.players.filter(entry => entry.team === 'blue')[0];
     return player && player.hpPercent === null && response.body.pixelBars.active === false ? response.body : null;
-  }, 8000);
+  }, 12000);
   assert.equal(stale.capability.fields.hpPercent.precision, 'unavailable', '过期后契约必须降级');
   assert.equal(stale.pixelBars.stale, true);
 });
