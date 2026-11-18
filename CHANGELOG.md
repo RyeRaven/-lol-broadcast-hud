@@ -100,3 +100,14 @@
 - **经济面板 OCR（新数据链路，0.2.3 主打）**：`tools/pixel-bars/econ_ocr.py` 同机 OBS 截屏解析游戏内经济面板白色「当前(总)」金币——白掩膜 → 连通域/XY-cut 切字 → 89 模板 IoU 匹配（字形高度归一化，不钉分辨率与坐标）→ `N(M)` 结构校验，1Hz POST `/api/econ-ocr`（仅 127.0.0.1 + TTL 2s，同 pixel-bars 模式）→ capability `totalGold` 升 `exact('econ-ocr')` → HUD 对位经济差优先真值、失败回退估算并如实标注；模板库 `digit_templates.npz` 89 字形 LOOCV 89/89，用户真图十格全对（与 LCU timeline 真值一致）。
 - **赛后金币真值曲线**：LCU match-history timeline 逐帧逐人 `totalGold` 画进赛后页（误差 0）。
 - **验证**：`node --test` 250/250（0.2.2 时 195）；打包冒烟（RIFTBRIDGE_SMOKE，win-unpacked 实机启动，PORT=3315）全过——url/title/port/tray/tray-menu/dom（98 个按钮）/close-to-tray 七项断言通过，冒烟后自退。
+
+## 2026-11-18 · Khada Jhin 0.2.4：回放真值上传、HUD 防闪全链路、逐人补刀
+
+- **回放上传（赛后真值）**：观战位拿不到 LCU 战报端点（games / game-timelines 对观战局全 404），新增 .rofl 文件解析（`src/rofl-result.js`）——文件尾部 statsJson 携带 10 名玩家全量官方赛后统计（KDA/金币/精确 CS/伤害/视野/胜负/目标数）；控台赛后视图「结算数据」面板选文件上传（`POST /api/replay-result`，仅 127.0.0.1、≤64MB），赛后页与 HUD 顶栏整体换成回放真值，胜负判断（原 frozen 路径恒 false）根治；队伍塔/水晶数取对面 FRIENDLY_TURRET_LOST 队伍级常数（比逐人补刀求和精确），龙/大龙逐人求和；15.10 等老版本无统计时明确报 replay_stats_missing 不伪造。
+- **经济差防闪全链路**：OCR 读数 TTL 2s→6s 合并保持（丢帧沿用上次读数，各行按自己最后上报时间过期）；协议流每秒清值加守卫——econ-ocr 保持期内 totalGold 归 OCR 所有（根治真值每秒闪没）；删除「估算」降级口径（装备+补刀+KDA 估算不再冒充），无真值显示 —；顶栏队伍金币改逐人 totalGold 相加，任一人缺读数整队置 null 不回退估算。
+- **血条/资源条防闪**：pixel-bars 存储同款 6s 合并保持（OBS 截图 702 连发不再让条闪没）。
+- **HUD**：删行入场级联动画（名单重建不再整板闪，头像与等级分节点更新）；复活倒计时改头像正中央白色大字（死亡时显示）；逐人补刀数上板（KDA 侧、金色略大字号，LCDA creepScore 精确实时）；顶部图标定宽防漂移（龙堆 81px 定宽、塔/金币/人头 min-width）。
+- **删经验条**：0xdd 解码链休眠后 xp 无真值源，unknown 占位无意义；协议流 xp 契约与解码器代码保留。
+- **潮虫计数修复**：LCDA 目标事件账本按 EventID 去重——同玩家连杀 N 只潮虫不再被合并成 1（训练模式真机实锤 + 回归测试）。
+- **赛后页**：删十人经济曲线面板（PLAYER GOLD OVER TIME）；视野分显示取整。
+- **验证**：`node --test` 258/258（0.2.3 时 250）。
