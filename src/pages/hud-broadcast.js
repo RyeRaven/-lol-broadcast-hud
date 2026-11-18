@@ -1473,7 +1473,7 @@ var ICONS = {
         var respawn = byId('hb-respawn-' + id);
         if (respawn) {
           var rspT = dead && player && num(player.respawnTimer) > 0 ? String(Math.round(num(player.respawnTimer))) : '';
-          setText(respawn, rspT);
+          respawn.textContent = rspT;
           respawn.style.display = rspT === '' ? 'none' : 'grid';
         }
         // 就地更新（不重建 innerHTML），否则每帧重建会让 transition 与掉血残影失效。
