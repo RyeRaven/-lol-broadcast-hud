@@ -534,29 +534,6 @@ const RESULT_SCRIPT = String.raw`(function () {
   es.onmessage = function (event) {
     try { update(JSON.parse(event.data)); } catch (error) { /* 保留上一帧 */ }
   };
-  // 回放上传（?upload=1 才显示）：局内下载的 .rofl 尾部带完整赛后统计，POST /api/replay-result
-  // 导入后服务端把赛后数据换成回放真值，SSE 推回来本页自动重渲染。
-  if (PARAMS.get('upload') === '1') {
-    var roflBox = document.createElement('div');
-    roflBox.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;background:rgba(10,14,22,0.92);border:1px solid rgba(120,150,190,0.35);border-radius:10px;padding:10px 14px;font:12px/1.6 system-ui,sans-serif;color:#cfe0ff;box-shadow:0 6px 24px rgba(0,0,0,0.4)';
-    roflBox.innerHTML = '<div style="margin-bottom:6px;font-weight:700">回放上传（赛后真值）</div>' +
-      '<input id="rs-rofl-file" type="file" accept=".rofl">' +
-      '<div id="rs-rofl-status" style="margin-top:6px;min-height:16px;color:#8fa8c8"></div>';
-    document.body.appendChild(roflBox);
-    roflBox.querySelector('#rs-rofl-file').addEventListener('change', function () {
-      var file = this.files && this.files[0];
-      var status = roflBox.querySelector('#rs-rofl-status');
-      if (!file) return;
-      status.textContent = '解析上传中…（约 ' + Math.max(1, Math.round(file.size / 1048576)) + ' MB）';
-      fetch('/api/replay-result', { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file })
-        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
-        .then(function (r) {
-          if (r.ok) status.textContent = '已导入：胜方 ' + (r.data.winSide === 'red' ? 'RED' : 'BLUE') + '，赛后页已换成回放真值';
-          else status.textContent = '失败：' + (r.data && r.data.error ? r.data.error : 'unknown');
-        })
-        .catch(function () { status.textContent = '失败：网络错误'; });
-    });
-  }
 })();`;
 
 const RESULT_BODY = [

@@ -587,6 +587,12 @@ function renderReplay() {
     '<div class="detail-row"><span>播放位置</span><b>' + esc(playback.time !== undefined ? playback.time + ' s' : '--') + '</b></div>' +
     '<div class="detail-row"><span>镜头 FOV</span><b>' + esc(render.fieldOfView !== undefined ? render.fieldOfView + '°' : '--') + '</b></div>';
 }
+function renderRoflSource(state) {
+  var el = byId('roflResultSource');
+  if (!el) return;
+  var imported = state && state.replayResult;
+  el.textContent = imported && imported.at ? '回放真值 · ' + (imported.gameVersion || '') : 'LCDA 实时';
+}
 function loadReplay() {
   fetchJson('/api/replay').then(function (data) {
     latestReplay = data;
@@ -642,6 +648,7 @@ function applyState(state) {
   renderCue(state);
   renderDirectorFromState(state);
   renderObs(state);
+  renderRoflSource(state);
   renderMvpPanel(state);
   processTimeline(state);
   deriveEvents(previous, state);
@@ -1408,6 +1415,30 @@ function bindControls() {
       postReplay('/api/replay/camera', { fieldOfView: Number(button.getAttribute('data-fov')) }, '镜头 ' + button.getAttribute('data-fov') + '°');
     });
   });
+  // 回放上传（赛后真值）：观战位拿不到 LCU 战报端点，局内下载的 .rofl 尾部带完整赛后统计。
+  var roflInput = byId('roflFile');
+  if (roflInput) {
+    roflInput.addEventListener('change', function () {
+      var file = this.files && this.files[0];
+      var status = byId('roflUploadStatus');
+      if (!file) return;
+      if (status) status.textContent = '解析上传中…（约 ' + Math.max(1, Math.round(file.size / 1048576)) + ' MB）';
+      fetch('/api/replay-result', { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file })
+        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+        .then(function (r) {
+          if (r.ok) {
+            if (status) status.textContent = '已导入：胜方 ' + (r.data.winSide === 'red' ? 'RED' : 'BLUE') + ' · 回放 ' + (r.data.gameVersion || '');
+            toast('回放上传成功，赛后页已换真值');
+          } else {
+            if (status) status.textContent = '导入失败：' + (r.data && r.data.error ? r.data.error : 'unknown');
+            toast('回放上传失败', true);
+          }
+        })
+        .catch(function () {
+          if (status) status.textContent = '导入失败：网络错误';
+        });
+    });
+  }
   document.querySelectorAll('#bo-quick [data-bo]').forEach(function (button) {
     button.addEventListener('click', function () {
       var n = Number(button.getAttribute('data-bo')) || 3;
@@ -2723,7 +2754,11 @@ function consolePage(port) {
       <button type="button" data-fov="45">标准 45°</button>
       <button type="button" data-fov="60">广角 60°</button>
       </div>
-      <div class="replay-details" id="replayDetails"><div class="detail-row"><span>播放位置</span><b>--</b></div><div class="detail-row"><span>镜头 FOV</span><b>--</b></div></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
+      <div class="detail-row"><span>赛后数据源</span><b id="roflResultSource">--</b></div>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0 4px;cursor:pointer"><input id="roflFile" type="file" accept=".rofl" style="max-width:260px"><span style="font-size:12px;opacity:0.75">选 .rofl 文件导入赛后真值（塔/水晶/龙/大龙/胜负全按官方统计）</span></label>
+      <div class="status-line" id="roflUploadStatus">导入后赛后页 / HUD 全部换成回放官方统计，SSE 自动推送</div>
+      </div>
       </section>
       </div>
       <div class="c2-set-panel" data-set-panel="director">
