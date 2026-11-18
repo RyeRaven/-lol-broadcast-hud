@@ -62,6 +62,8 @@ state.live = initialMode === 'live'
   ? { lcu: { connected: false, discovery: null, phase: null, lastError: null }, draft: { source: null, parsed: null }, game: { source: null, parsed: null } }
   : { lcu: { connected: false, discovery: null, phase: null, lastError: null }, draft: { source: 'mock', parsed: false }, game: { source: 'mock', parsed: false } };
 state.postGame = null;
+// 回放上传导入记录（/api/replay-result）：{at, gameVersion, gameLengthMs, winSide, players}；null=未导入。
+state.replayResult = null;
 // MVP 手选：控台 POST /api/mvp 写入 {name,team,champion,championId,at}；null=待评选。
 state.mvp = null;
 // OBS 快照由 main.js 创建 ObsClient 后写入。

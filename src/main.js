@@ -21,10 +21,79 @@ const { parseTimelineGold, parseTimelineGoldPlayers } = require('./gold-timeline
 const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
 const { createEconOcrStore, handleEconOcrApi, applyEconOcrToPlayers } = require('./econ-ocr');
+const { parseRoflResult, buildRoflPostGame } = require('./rofl-result');
 const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
 const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
 const { readBroadcastConfig, saveBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
 const seriesStore = require('./series');
+
+// 回放上传（rofl）：观战位拿不到 LCU 战报端点（games / game-timelines 对观战局全 404），
+// 局内下载的 .rofl 文件尾部带完整赛后统计。POST /api/replay-result?gameId=<id> 导入真值，
+// GET /api/replay-result/status 查看最近一次导入。
+const REPLAY_RESULT_MAX_BYTES = 64 * 1024 * 1024;
+function readRawBody(req, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        const error = new Error('body_too_large');
+        error.code = 'body_too_large';
+        error.statusCode = 413;
+        req.destroy();
+        reject(error);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', () => {
+      const error = new Error('body_read_failed');
+      error.code = 'body_read_failed';
+      error.statusCode = 400;
+      reject(error);
+    });
+  });
+}
+async function handleReplayResultApi(req, res, url, { json, broadcast }) {
+  if (url.pathname === '/api/replay-result/status') {
+    if (req.method !== 'GET') { json(res, 405, { error: 'method_not_allowed' }); return; }
+    const imported = state.replayResult;
+    json(res, 200, imported
+      ? { active: true, at: imported.at, gameVersion: imported.gameVersion, players: imported.players, winSide: imported.winSide }
+      : { active: false });
+    return;
+  }
+  if (req.method !== 'POST') { json(res, 405, { error: 'method_not_allowed' }); return; }
+  const remote = String(req.socket && req.socket.remoteAddress || '');
+  if (!(remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1')) { json(res, 403, { error: 'forbidden_source' }); return; }
+  let body;
+  try { body = await readRawBody(req, REPLAY_RESULT_MAX_BYTES); }
+  catch (error) { json(res, error.statusCode || 400, { error: error.code || 'bad_request' }); return; }
+  let parsed;
+  try { parsed = parseRoflResult(body); }
+  catch (error) { json(res, 400, { error: error.code || 'invalid_replay' }); return; }
+  let roflPostGame;
+  try { roflPostGame = buildRoflPostGame(parsed); }
+  catch (error) { json(res, 400, { error: error.code || 'invalid_replay' }); return; }
+  const prev = state.postGame;
+  state.postGame = {
+    ...roflPostGame,
+    gameId: url.searchParams.get('gameId') || (prev && prev.gameId) || null,
+    gameMode: (prev && prev.gameMode) || '',
+    capturedAt: (prev && prev.capturedAt) || Date.now()
+  };
+  state.replayResult = { at: Date.now(), gameVersion: parsed.gameVersion, gameLengthMs: parsed.gameLengthMs, winSide: roflPostGame.winSide, players: roflPostGame.players.length };
+  // 与 EOG / 冻结路径同构：赛后页与 HUD 顶栏聚合数一起换成回放真值。
+  state.players = roflPostGame.players;
+  state.gameTime = Math.floor(roflPostGame.gameLength) || state.gameTime;
+  for (const side of ['blue', 'red']) {
+    for (const key of ['score', 'towers', 'dragons', 'barons']) state[side][key] = roflPostGame[side][key];
+  }
+  broadcast();
+  json(res, 200, { ok: true, winSide: roflPostGame.winSide, players: roflPostGame.players.length, gameVersion: parsed.gameVersion });
+}
 const mockDemo = require('./mock-demo');
 state.series = seriesStore.snapshot();
 // 模拟模式是独立的一套数据：系列赛放内存（退出即丢）、赛事配置走 data/mock/broadcast.json、
@@ -1171,6 +1240,8 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/protocol-feed' || url.pathname === '/api/protocol-feed/status') { handleProtocolFeedApi(req, res, url, { store: protocolFeed, onUpdate: onProtocolFeedUpdate }); return; }
   // 屏幕经济面板 OCR：内部写接口，只收本机来源、不设 CORS 头，由 tools/pixel-bars/econ_ocr.py 喂数据。
   if (url.pathname === '/api/econ-ocr' || url.pathname === '/api/econ-ocr/status') { handleEconOcrApi(req, res, url, { store: econOcrStore, onUpdate: onEconOcrUpdate }); return; }
+  // 回放上传：内部接口，只收本机来源，把赛后页数据换成 .rofl 官方统计真值。
+  if (url.pathname === '/api/replay-result' || url.pathname === '/api/replay-result/status') { handleReplayResultApi(req, res, url, { json, broadcast }); return; }
   if (url.pathname.startsWith('/api/obs/')) { handleObsApi(req, res, url, { obs, json, readBody, broadcast, state, port: PORT, getObsConfig, setObsConfig, saveConfig, onObsConnected: () => { lastAutoPhase = null; } }); return; }
   if (url.pathname === '/api/datadragon-url') { try { return json(res, 200, { url: dataDragonUrl(url.searchParams.get('version') || DEFAULT_VERSION, url.searchParams.get('kind') || 'champion', url.searchParams.get('id') || 'Ahri') }); } catch (error) { return json(res, 400, { error: error.message }); } }
   if (url.pathname === '/events') {
