@@ -2473,6 +2473,11 @@ function consolePage(port) {
       </section>
         <section class="panel" id="settle-panel"><div class="panel-head"><h2>结算数据</h2><span class="kicker">POST GAME</span></div>
           <div class="c2-settle" id="settleBody"><div class="c2-note">本局结算（伤害 / 经济 / 目标）在赛后阶段汇总，随后进入 MVP 评选。</div></div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
+          <div class="detail-row"><span>赛后数据源</span><b id="roflResultSource">--</b></div>
+          <label style="display:flex;gap:8px;align-items:center;margin:8px 0 4px;cursor:pointer"><input id="roflFile" type="file" accept=".rofl" style="max-width:260px"><span style="font-size:12px;opacity:0.75">选 .rofl 文件导入赛后真值（塔/水晶/龙/大龙/胜负全按官方统计）</span></label>
+          <div class="status-line" id="roflUploadStatus">导入后赛后页 / HUD 全部换成回放官方统计，SSE 自动推送</div>
+          </div>
           <div class="c2-actions">
             <button type="button" class="btn primary" id="postNext">下一局</button>
             <button type="button" class="btn ghost" id="postEnd">结束这轮比赛</button>
@@ -2753,11 +2758,6 @@ function consolePage(port) {
       <button type="button" data-fov="30">近景 30°</button>
       <button type="button" data-fov="45">标准 45°</button>
       <button type="button" data-fov="60">广角 60°</button>
-      </div>
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
-      <div class="detail-row"><span>赛后数据源</span><b id="roflResultSource">--</b></div>
-      <label style="display:flex;gap:8px;align-items:center;margin:8px 0 4px;cursor:pointer"><input id="roflFile" type="file" accept=".rofl" style="max-width:260px"><span style="font-size:12px;opacity:0.75">选 .rofl 文件导入赛后真值（塔/水晶/龙/大龙/胜负全按官方统计）</span></label>
-      <div class="status-line" id="roflUploadStatus">导入后赛后页 / HUD 全部换成回放官方统计，SSE 自动推送</div>
       </div>
       </section>
       </div>
