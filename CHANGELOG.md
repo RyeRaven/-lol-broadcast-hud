@@ -110,4 +110,4 @@
 - **删经验条**：0xdd 解码链休眠后 xp 无真值源，unknown 占位无意义；协议流 xp 契约与解码器代码保留。
 - **潮虫计数修复**：LCDA 目标事件账本按 EventID 去重——同玩家连杀 N 只潮虫不再被合并成 1（训练模式真机实锤 + 回归测试）。
 - **赛后页**：删十人经济曲线面板（PLAYER GOLD OVER TIME）；视野分显示取整。
-- **验证**：`node --test` 258/258（0.2.3 时 250）。
+- **验证**：`node --test` 258/258（0.2.3 时 250）；打包冒烟（RIFTBRIDGE_SMOKE，win-unpacked 实机启动，PORT=3315）全过——url/title/port/tray/tray-menu/dom（88 个按钮）/close-to-tray 七项断言通过，冒烟后自退。
