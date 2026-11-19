@@ -123,4 +123,42 @@ function parseTimelineGoldPlayers(timeline, rosterByPid) {
   return out.length ? out : null;
 }
 
-module.exports = { parseTimelineGold, parseTimelineGoldPlayers };
+// 观战经济曲线：赛中屏幕经济面板 OCR 的采样序列（[{ t: 秒, g: [十人金币或 null] }]）
+// 组装成与 parseTimelineGold 同构的蓝/红每分钟总经济 [{ t: 分钟, blue, red }]。
+// 背景：观战位赛后 LCU 战报 404，这条 OCR 记录是观赛流程里经济差曲线的唯一真值来源。
+// sides 是与 g 对齐的阵营数组（'blue'/'red'），缺省按惯例 1-5 蓝 / 6-10 红。
+// 金币累计只涨不跌：读到比上一帧小的值视为 OCR 错读，沿用上一帧；缺读也沿用上一帧。
+function buildGoldTimelineFromSamples(samples, sides) {
+  if (!Array.isArray(samples) || !samples.length) return null;
+  const carried = new Array(10).fill(null);
+  const points = [];
+  for (const sample of samples) {
+    if (!sample || typeof sample !== 'object') continue;
+    const t = Math.floor(Number(sample.t) / 60);
+    if (!Number.isFinite(t) || t < 0) continue;
+    const golds = Array.isArray(sample.g) ? sample.g : [];
+    // 注意 Number(null)===0：缺读必须显式排除，否则整帧缺读会被当成「十人都 0 金币」。
+    if (!golds.some(v => v !== null && v !== undefined && Number.isFinite(Number(v)) && Number(v) >= 0)) continue;
+    let blue = 0;
+    let red = 0;
+    let counted = 0;
+    for (let i = 0; i < 10; i += 1) {
+      const raw = golds[i] === null || golds[i] === undefined ? NaN : Number(golds[i]);
+      if (Number.isFinite(raw) && raw >= 0 && (carried[i] === null || raw >= carried[i])) carried[i] = raw;
+      const value = carried[i];
+      if (value === null) continue;
+      const side = Array.isArray(sides) && (sides[i] === 'red' || sides[i] === 'blue')
+        ? sides[i]
+        : (i < 5 ? 'blue' : 'red');
+      if (side === 'red') red += value; else blue += value;
+      counted += 1;
+    }
+    if (!counted) continue;
+    const last = points.length ? points[points.length - 1] : null;
+    if (last && last.t === t) { last.blue = blue; last.red = red; continue; }
+    points.push({ t, blue, red });
+  }
+  return points.length ? points : null;
+}
+
+module.exports = { parseTimelineGold, parseTimelineGoldPlayers, buildGoldTimelineFromSamples };

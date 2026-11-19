@@ -624,6 +624,65 @@ test('e2e：BP 为空时进对局的 ban 快照为空，赛后不残留旧局快
   assert.deepEqual(postState.gameBans, { blue: [], red: [] });
 });
 
+test('e2e：赛中 OCR 经济记录组装赛后经济差曲线（观战位 LCU 战报 404 的兜底）', { timeout: 60000 }, async t => {
+  const [appPort, lcuPort, livePort] = await pickPorts(3);
+  const fake = await createFakeLcu({ port: lcuPort, token: TOKEN, phase: 'ChampSelect' });
+  resetTestConfig();
+  const app = spawnNode('src/main.js', [], {
+    RB_DATA_DIR: TEST_DATA_DIR,
+    PORT: String(appPort),
+    RIOT_LCU_PORT: String(lcuPort),
+    RIOT_REMOTING_AUTH_TOKEN: TOKEN,
+    LIVE_CLIENT_URL: 'http://127.0.0.1:' + livePort,
+    RIOT_CLIENT_COMMAND_LINE: '',
+    RIOT_LOCKFILE: ''
+  });
+  let live = null;
+  t.after(async () => {
+    await stopRun(app);
+    if (live) await stopRun(live);
+    await fake.close();
+  });
+  await waitForOutput(app, /Khada Jhin running at http:\/\/127\.0\.0\.1:\d+/);
+
+  // 进对局：需要假 Live Client 提供十人名单（记录器按十人名册采样）。
+  live = spawnNode('tools/fake-live-server.js', [String(livePort)], {});
+  await waitForOutput(live, /fake live client on \d+/);
+  fake.setPhase('InProgress');
+  const inGame = await waitFor('进入局内阶段', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'in_game' && response.body.players.length === 10 ? response.body : null;
+  });
+  assert.equal(inGame.gameTime, 812);
+
+  // 赛中 OCR 两次上报（金币递增）：gameTime=812 → 曲线第 13 分钟一个点。
+  const postRows = golds => ({ rows: golds.map((totalGold, i) => ({ side: i < 5 ? 'blue' : 'red', rowIndex: i < 5 ? i : i - 5, totalGold })) });
+  const goldsA = [4250, 3980, 5120, 3340, 4470, 4010, 3820, 4990, 3660, 4300];
+  const goldsB = goldsA.map((v, i) => v + (i < 5 ? 320 : 480));
+  for (const golds of [goldsA, goldsB]) {
+    const posted = await httpRequest(appPort, '/api/econ-ocr', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(postRows(golds))
+    });
+    assert.equal(posted.status, 200);
+  }
+
+  // 赛后：fake LCU 没有 timeline 端点（fetchGoldTimeline 静默失败），
+  // 曲线必须来自赛中 OCR 记录，而不是回退演示数据。
+  fake.setPhase('PreEndOfGame');
+  const postState = await waitFor('赛后经济差曲线生成', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'post_game' && response.body.postGame &&
+      Array.isArray(response.body.goldTimeline) && response.body.goldTimeline.length ? response.body : null;
+  });
+  const sum = arr => arr.reduce((a, b) => a + b, 0);
+  assert.equal(postState.goldTimeline.length, 1);
+  assert.equal(postState.goldTimeline[0].t, 13);
+  assert.equal(postState.goldTimeline[0].blue, sum(goldsB.slice(0, 5)));
+  assert.equal(postState.goldTimeline[0].red, sum(goldsB.slice(5)));
+});
+
 test('e2e：fake LCU 脚本模式按顺序切换相位并校验鉴权', { timeout: 30000 }, async t => {
   const [port] = await pickPorts(1);
   const fake = await createFakeLcu({ port, token: TOKEN, script: ['ChampSelect', 'InProgress', 'PreEndOfGame'], advanceDelayMs: 0 });

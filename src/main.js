@@ -17,7 +17,7 @@ const { buildHighlights, latestHighlights, handleHighlightsApi, MAX_HIGHLIGHTS }
 const { createDirectorEngine, handleDirectorApi } = require('./director');
 const replay = require('./replay');
 const { buildPostGame } = require('./post-game');
-const { parseTimelineGold, parseTimelineGoldPlayers } = require('./gold-timeline');
+const { parseTimelineGold, parseTimelineGoldPlayers, buildGoldTimelineFromSamples } = require('./gold-timeline');
 const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
 const { createEconOcrStore, handleEconOcrApi, applyEconOcrToPlayers } = require('./econ-ocr');
@@ -91,8 +91,11 @@ async function handleReplayResultApi(req, res, url, { json, broadcast }) {
   for (const side of ['blue', 'red']) {
     for (const key of ['score', 'towers', 'dragons', 'barons']) state[side][key] = roflPostGame[side][key];
   }
-  // 经济差曲线补真值：与 EOG/冻结路径同构，按 gameId 拉 LCU timeline（局后 ~30 分钟窗口才可读；
-  // 没有 gameId 或 LCU 不可达时 fetchGoldTimeline 内部静默放弃，赛后页保持演示曲线）。
+  // 经济差曲线补真值：先清掉上一局残留，再用赛中 OCR 记录兜底填充（观战位 LCU 战报 404），
+  // 最后按 gameId 拉 LCU timeline（局后 ~30 分钟窗口才可读），成功时覆盖 OCR 兜底版。
+  state.goldTimeline = null;
+  state.goldPlayers = null;
+  attachRecordedGoldTimeline();
   void fetchGoldTimeline(state.postGame.gameId);
   broadcast();
   json(res, 200, { ok: true, winSide: roflPostGame.winSide, players: roflPostGame.players.length, gameVersion: parsed.gameVersion });
@@ -156,6 +159,19 @@ const pixelBars = createPixelBarStore();
 const protocolFeed = createProtocolFeedStore();
 // 屏幕经济面板 OCR：同机解析进程经 POST /api/econ-ocr 喂进来的逐玩家总金币真值。
 const econOcrStore = createEconOcrStore();
+// 赛中经济曲线记录：观战位赛后拿不到 LCU 战报（games/timelines 全 404），观赛流程里
+// 经济差曲线的真值来源只能是赛中 OCR。每次 OCR 新鲜上报采一份十人金币（LCDA gameTime
+// 为时间基准），赛后组装成与 parseTimelineGold 同构的序列（attachRecordedGoldTimeline）。
+// 生命周期与 objectiveLedger 同款：resetLiveGameData 随新局清空；JSONL 只做调试存档，不回读。
+const ECON_CURVE_PATH = path.join(__dirname, '..', '.tmp', 'econ-curve.jsonl');
+let econCurveSamples = [];
+let econCurveRoster = null;
+function appendEconCurveLine(line) {
+  try {
+    fs.mkdirSync(path.dirname(ECON_CURVE_PATH), { recursive: true });
+    fs.appendFileSync(ECON_CURVE_PATH, JSON.stringify(line) + '\n');
+  } catch { /* 存档失败不影响主链路 */ }
+}
 // 初始态与像素读条对齐：没有有效包时页面必须显式降级，不能靠「字段不存在」蒙混。
 state.protocolFeed = { active: false, updatedAt: null, stale: false };
 state.econOcr = { active: false, updatedAt: null, stale: false };
@@ -220,6 +236,21 @@ async function fetchGoldTimeline(gameId) {
   }
 }
 
+// 赛后经济差曲线兜底：LCU timeline 拿不到（观战位战报 404 / 缺 gameId）时，
+// 用赛中 OCR 记录组装真值曲线。LCU 版是官方逐分钟帧、更精确，所以只做兜底填充——
+// fetchGoldTimeline 成功时会覆盖本结果（异步后到，晚写赢）。
+function attachRecordedGoldTimeline() {
+  if (Array.isArray(state.goldTimeline) && state.goldTimeline.length) return;
+  const sides = Array.isArray(econCurveRoster) && econCurveRoster.length === 10
+    ? econCurveRoster.map(r => r.team)
+    : null;
+  const built = buildGoldTimelineFromSamples(econCurveSamples, sides);
+  if (built && built.length) {
+    state.goldTimeline = built;
+    broadcast();
+  }
+}
+
 // :2999 断流时没有 eog 可拉，直接用最后一帧 frozenSnapshot 生成赛后数据。
 function enterPostGameFromFrozen() {
   if (state.postGame) return true;
@@ -231,6 +262,7 @@ function enterPostGameFromFrozen() {
   state.gameTime = Math.floor(postGame.gameLength) || state.gameTime;
   state.goldTimeline = null;
   state.goldPlayers = null;
+  attachRecordedGoldTimeline();
   void fetchGoldTimeline(postGame.gameId);
   for (const side of ['blue', 'red']) for (const key of ['score', 'towers', 'dragons', 'barons']) state[side][key] = postGame[side][key];
   return true;
@@ -246,6 +278,10 @@ function resetDraftState() {
 let objectiveLedger = createObjectiveLedger();
 function resetLiveGameData() {
   objectiveLedger = createObjectiveLedger();
+  // 经济曲线记录跟着新局清空（写一条 reset 标记方便调试日志分段）。
+  econCurveSamples = [];
+  econCurveRoster = null;
+  appendEconCurveLine({ type: 'reset', at: Date.now() });
   // ban 快照跟着旧局清空；InProgress 分支会先把 BP 快照取走再调这里（见下）。
   state.gameBans = { blue: [], red: [] };
   state.players = [];
@@ -335,6 +371,7 @@ async function pollLcuDraft() {
           }
           state.goldTimeline = null;
           state.goldPlayers = null;
+          attachRecordedGoldTimeline();
           void fetchGoldTimeline(postGame.gameId);
         }
       }
@@ -631,11 +668,37 @@ function refreshEconOcr() {
 
 // OCR 解析约 1Hz 上报，HUD 按 1Hz 重绘就够；限流避免每包都跑导播与全量序列化。
 let lastEconBroadcastAt = 0;
+function recordEconCurveSample() {
+  if (state.mode !== 'live' || state.phase !== 'in_game') return;
+  const players = Array.isArray(state.players) ? state.players : [];
+  if (players.length !== 10) return;
+  const t = Math.floor(Number(state.gameTime));
+  if (!Number.isFinite(t) || t < 0) return;
+  if (!econCurveRoster) {
+    econCurveRoster = players.map(p => ({
+      team: p && p.team === 'red' ? 'red' : 'blue',
+      champion: (p && p.champion) || '',
+      name: (p && p.name) || ''
+    }));
+    appendEconCurveLine({ type: 'roster', at: Date.now(), players: econCurveRoster });
+  }
+  const g = players.map(p => {
+    // 注意 Number(null)===0：没读数（null）必须记 null（沿用上一帧），不能记成 0 金币。
+    if (!p || p.totalGold === null || p.totalGold === undefined) return null;
+    const gold = Number(p.totalGold);
+    return Number.isFinite(gold) && gold >= 0 ? Math.round(gold) : null;
+  });
+  if (!g.some(v => v !== null)) return;
+  econCurveSamples.push({ t, g });
+  appendEconCurveLine({ type: 'sample', t, g, at: Date.now() });
+}
+
 function onEconOcrUpdate(snapshot) {
   state.econOcr = { active: snapshot.active === true, updatedAt: snapshot.updatedAt, stale: snapshot.stale === true };
   state.capability = applyEconOcrAvailability(state.capability, snapshot.active === true);
   // 只在实盘把真值写进玩家；mock 演示模式不许把真实读数混进演示数据。
   if (state.mode === 'live') applyEconOcrToPlayers(state.players, snapshot.rows);
+  recordEconCurveSample();
   const now = Date.now();
   if (now - lastEconBroadcastAt < 250) return;
   lastEconBroadcastAt = now;

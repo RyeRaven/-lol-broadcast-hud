@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseTimelineGold, parseTimelineGoldPlayers } = require('../src/gold-timeline');
+const { parseTimelineGold, parseTimelineGoldPlayers, buildGoldTimelineFromSamples } = require('../src/gold-timeline');
 const { buildPostGame } = require('../src/post-game');
 
 function pfEntry(pid, gold) {
@@ -112,4 +112,41 @@ test('eog player 透传 participantId：有就带、没有就 null（绝不按�
   const pg = buildPostGame({ eog });
   assert.equal(pg.players[0].participantId, 4);
   assert.equal(pg.players[1].participantId, null);
+});
+
+test('buildGoldTimelineFromSamples: 按分钟聚合蓝红总经济，同分钟保留最后一条', () => {
+  const samples = [
+    { t: 30, g: [100, 100, 100, 100, 100, 200, 200, 200, 200, 200] },
+    { t: 70, g: [300, 300, 300, 300, 300, 500, 500, 500, 500, 500] },
+    { t: 75, g: [400, 300, 300, 300, 300, 600, 500, 500, 500, 500] }
+  ];
+  const out = buildGoldTimelineFromSamples(samples, null);
+  assert.deepEqual(out, [
+    { t: 0, blue: 500, red: 1000 },
+    { t: 1, blue: 1600, red: 2600 }
+  ]);
+});
+
+test('buildGoldTimelineFromSamples: 金币只涨不跌——变小视为 OCR 错读沿用上一帧，缺读也沿用', () => {
+  const samples = [
+    { t: 60, g: [1000, null, 800, null, null, null, null, null, null, null] },
+    { t: 120, g: [900, 2000, null, null, null, null, null, null, null, null] }
+  ];
+  const out = buildGoldTimelineFromSamples(samples, null);
+  // 60s 与 120s 是第 1、2 分钟两个点；900<1000 错读沿用 1000，null 缺读沿用上一帧。
+  assert.deepEqual(out, [
+    { t: 1, blue: 1800, red: 0 },
+    { t: 2, blue: 3800, red: 0 }
+  ]);
+});
+
+test('buildGoldTimelineFromSamples: sides 数组决定阵营；空样本返回 null', () => {
+  assert.equal(buildGoldTimelineFromSamples(null, null), null);
+  assert.equal(buildGoldTimelineFromSamples([], null), null);
+  assert.equal(buildGoldTimelineFromSamples([{ t: 60, g: [null, null, null, null, null, null, null, null, null, null] }], null), null);
+  const out = buildGoldTimelineFromSamples(
+    [{ t: 0, g: [10, 10, 10, 10, 10, 20, 20, 20, 20, 20] }],
+    ['red', 'red', 'red', 'red', 'red', 'blue', 'blue', 'blue', 'blue', 'blue']
+  );
+  assert.deepEqual(out, [{ t: 0, blue: 100, red: 50 }]);
 });
