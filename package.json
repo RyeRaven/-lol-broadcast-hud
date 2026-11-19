@@ -9,8 +9,9 @@
     "start": "electron .",
     "server": "node src/main.js",
     "dev": "electron .",
-    "dist": "electron-builder --win nsis --x64",
-    "dist:dir": "electron-builder --win dir --x64",
+    "dist": "node tools/build-ocr-runtime.js && electron-builder --win nsis --x64",
+    "dist:dir": "node tools/build-ocr-runtime.js && electron-builder --win dir --x64",
+    "build:ocr": "node tools/build-ocr-runtime.js",
     "test": "node --test",
     "shot": "node tools/shot-overlays.cjs",
     "setup-obs": "node tools/setup-obs-scenes.js"
@@ -24,6 +25,12 @@
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": "build/ocr-runtime",
+        "to": "ocr"
+      }
+    ],
     "files": [
       "electron/**/*",
       "src/**/*",

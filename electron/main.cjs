@@ -161,7 +161,8 @@ function startLocalServer(port) {
     cwd: appRoot,
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PORT: String(port), ...(dataRoot ? { RB_DATA_DIR: dataRoot } : {}) }
+    // RB_OCR_SUPERVISE=1：安装版自动托管采集脚本（hp_bars/econ_ocr），开发直跑 node 不带此变量。
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PORT: String(port), RB_OCR_SUPERVISE: '1', ...(dataRoot ? { RB_DATA_DIR: dataRoot } : {}) }
   });
   if (logStream) {
     child.stdout.on('data', chunk => logStream.write(chunk));

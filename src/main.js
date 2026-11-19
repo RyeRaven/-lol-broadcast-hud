@@ -21,9 +21,10 @@ const { parseTimelineGold, parseTimelineGoldPlayers, buildGoldTimelineFromSample
 const { ObsClient, handleObsApi, startObsAutoConnect } = require('./obs');
 const { createPixelBarStore, handlePixelBarsApi, applyBarsToPlayers } = require('./pixel-bars');
 const { createEconOcrStore, handleEconOcrApi, applyEconOcrToPlayers } = require('./econ-ocr');
+const { createOcrSupervisor } = require('./ocr-supervisor');
 const { parseRoflResult, buildRoflPostGame } = require('./rofl-result');
 const { createProtocolFeedStore, handleProtocolFeedApi, applyProtocolToPlayers, protocolPresence, isExactField, isDecodedField, decodedPrecision } = require('./protocol-feed');
-const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue } = require('./app-state');
+const { state, saveConfig, createMockPlayers, getObsConfig, setObsConfig, handleBroadcastCueApi, applyBroadcastCue, dataDir } = require('./app-state');
 const { readBroadcastConfig, saveBroadcastConfig, handleBroadcastConfigApi } = require('./broadcast-config');
 const seriesStore = require('./series');
 
@@ -175,6 +176,11 @@ function appendEconCurveLine(line) {
 // 初始态与像素读条对齐：没有有效包时页面必须显式降级，不能靠「字段不存在」蒙混。
 state.protocolFeed = { active: false, updatedAt: null, stale: false };
 state.econOcr = { active: false, updatedAt: null, stale: false };
+// 采集脚本托管：安装版（Electron 壳注入 RB_OCR_SUPERVISE=1）自动拉起 hp_bars / econ_ocr
+// 两个 worker 并在崩溃时按指数退避重启；开发/测试直跑 node src/main.js 默认关闭。
+const ocrSupervisor = createOcrSupervisor({ state, port: PORT, getObsConfig, broadcast, dataDir });
+ocrSupervisor.start();
+process.on('exit', () => ocrSupervisor.stopAll());
 let championIndex = null;
 state.obs = obs.snapshot();
 state.timeline = [];

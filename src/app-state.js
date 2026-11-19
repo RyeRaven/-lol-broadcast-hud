@@ -51,6 +51,8 @@ const state = {
   pixelBars: { active: false, updatedAt: null, stale: false },
   // 屏幕经济面板 OCR：{active, updatedAt, stale}。语义同 pixelBars：失效即回退估算。
   econOcr: { active: false, updatedAt: null, stale: false },
+  // 采集脚本托管（src/ocr-supervisor.js）：{enabled, runtime, workers}；null=尚未初始化。
+  ocrSupervisor: null,
   // BP 演示数据只在 mock 模式预置；实盘模式在真实 session 到达前必须是空 BP（和比分/选手同一条原则）。
   draft: initialMode === 'live' ? emptyDraft() : createMockDraft(),
   // BP ban 快照（赛后 ban 位真值源）：BP 期间 applyDraftSession 实时刷新，进对局时固化跟局走。

@@ -38,7 +38,10 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CALIB_PATH = os.path.join(HERE, "calib-state.json")
+# 校准缓存目录可用 RB_PIXEL_CALIB_DIR 重定向：安装版程序目录只读，
+# 托管模式（src/ocr-supervisor.js）会把它指到应用数据目录。
+CALIB_DIR = os.environ.get("RB_PIXEL_CALIB_DIR") or HERE
+CALIB_PATH = os.path.join(CALIB_DIR, "calib-state.json")
 
 # 1920x1080 基准几何（6:09 参考图实测），按帧分辨率等比缩放做先验
 BASE = {"pitch": 103.3, "row0_y": 206.0, "hp_h": 7.0, "bar_w": 42.0, "blue_x0": 31.0, "red_x0": 1847.0,
@@ -487,8 +490,12 @@ def post_bars(port, bars):
 
 
 def save_calib(rows):
-    with open(CALIB_PATH, "w", encoding="utf-8") as f:
-        json.dump({"updatedAt": time.time(), "rows": rows}, f, ensure_ascii=False, indent=1)
+    try:
+        os.makedirs(CALIB_DIR, exist_ok=True)
+        with open(CALIB_PATH, "w", encoding="utf-8") as f:
+            json.dump({"updatedAt": time.time(), "rows": rows}, f, ensure_ascii=False, indent=1)
+    except Exception:
+        pass  # 只读目录写不进就算了，几何检测每帧都会重算
 
 
 def load_calib():
@@ -536,6 +543,7 @@ def selftest():
                           "res": fr * 100 if rw > 0 else None, "hp": [x0, x0 + w - 1, y0, y1],
                           "res_rect": [x0, x0 + w - 1, ry0, ry1] if rw > 0 else None})
     frame = np.asarray(img)
+    os.makedirs(os.path.join(HERE, "..", "..", ".tmp"), exist_ok=True)
     Image.fromarray(frame).save(os.path.join(HERE, "..", "..", ".tmp", "selftest-frame.png"))
     rows = detect_geometry(frame)
     ok = len(rows) == 10

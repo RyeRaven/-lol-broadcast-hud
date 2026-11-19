@@ -593,6 +593,19 @@ function renderRoflSource(state) {
   var imported = state && state.replayResult;
   el.textContent = imported && imported.at ? '回放真值 · ' + (imported.gameVersion || '') : 'LCDA 实时';
 }
+function renderOcrSupervisor(state) {
+  var el = byId('ocrSupervisorStatus');
+  if (!el) return;
+  var sup = state && state.ocrSupervisor;
+  if (!sup || !sup.enabled) { el.textContent = '采集脚本：未托管'; return; }
+  var names = { hp: '血条', econ: '经济' };
+  var parts = ['hp', 'econ'].map(function (name) {
+    var w = sup.workers && sup.workers[name];
+    if (!w || !w.running) return names[name] + '停';
+    return names[name] + '✓';
+  });
+  el.textContent = '采集脚本（' + (sup.runtime === 'bundled' ? '内置运行时' : sup.runtime || '--') + '）：' + parts.join(' · ');
+}
 function loadReplay() {
   fetchJson('/api/replay').then(function (data) {
     latestReplay = data;
@@ -649,6 +662,7 @@ function applyState(state) {
   renderDirectorFromState(state);
   renderObs(state);
   renderRoflSource(state);
+  renderOcrSupervisor(state);
   renderMvpPanel(state);
   processTimeline(state);
   deriveEvents(previous, state);
@@ -2731,6 +2745,7 @@ function consolePage(port) {
       <button type="button" id="obsConnect" class="btn primary wide">连接 OBS</button>
       <button type="button" id="obsRebrand" class="btn wide">一键换源（改名 + 重指 URL）</button>
       <div class="status-line" id="obsStatus">未连接</div>
+      <div class="status-line" id="ocrSupervisorStatus">采集脚本：--</div>
       <div class="stat-grid">
       <div><small>当前场景</small><b id="obsCurrent">--</b></div>
       <div><small>录制状态</small><b id="obsRecording">未接入</b></div>

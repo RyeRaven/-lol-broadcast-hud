@@ -3,6 +3,7 @@ shot-profile/
 node_modules/
 npm-cache/
 release/
+build/
 
 # 本地运行时数据（抓包语料/诊断/临时文件，绝不进库）
 .tmp/
