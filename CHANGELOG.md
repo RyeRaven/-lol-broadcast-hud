@@ -111,3 +111,10 @@
 - **潮虫计数修复**：LCDA 目标事件账本按 EventID 去重——同玩家连杀 N 只潮虫不再被合并成 1（训练模式真机实锤 + 回归测试）。
 - **赛后页**：删十人经济曲线面板（PLAYER GOLD OVER TIME）；视野分显示取整。
 - **验证**：`node --test` 258/258（0.2.3 时 250）；打包冒烟（RIFTBRIDGE_SMOKE，win-unpacked 实机启动，PORT=3315）全过——url/title/port/tray/tray-menu/dom（88 个按钮）/close-to-tray 七项断言通过，冒烟后自退。
+
+## 2026-11-19 · Khada Jhin 0.2.5：采集脚本集成（安装版开箱即用）、赛后数据真值补齐
+
+- **采集脚本集成（免装 Python）**：安装版内置 python-3.12.10 + numpy + Pillow 运行时（`resources/ocr`，extraResources），`src/ocr-supervisor.js` 启动时自动托管 hp_bars（血条 10Hz）与 econ_ocr（经济 1Hz）worker，数据仍走原 `/api/pixel-bars`、`/api/econ-ocr` 端点；崩溃自动重启（指数退避 1s→30s）；OBS 源名自动识别（GetInputList 第一个 game_capture），多采集源可在控台「采集源名」覆盖（保存即重启 worker）；校准缓存写入应用数据目录（安装目录只读）；启用门控 `RB_OCR_SUPERVISE=1` 仅安装版注入，dev 直跑默认关闭防双份采集；控台显示托管状态（血条/经济 worker 存活）。换机安装后开箱即用，不再需要本机 Python。
+- **赛后 ban 位真值**：BP 期间维护快照，进对局固化随局走（`state.gameBans`），赛后页 ban 位不再掉演示数据（前提：BP 发生在本机 app 开着时；第二局自动刷新）。
+- **赛后经济差曲线真值兜底**：局内按秒记录 OCR 十人金币（金币单调递增=错读自动沿用上一帧），局终无 LCU timeline（观战位 404 场景）时用记录生成真实曲线；LCU timeline 可读时仍优先官方数据。
+- **验证**：`node --test` 271/271（0.2.4 时 258）；打包冒烟（RIFTBRIDGE_SMOKE，PORT=3315）全过；捆绑运行时 `run_ocr.py hp --selftest` 在仓库/装版/打包产物三处均 PASS。

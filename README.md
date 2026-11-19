@@ -1,6 +1,6 @@
 # Khada Jhin
 
-![version](https://img.shields.io/badge/version-0.2.3-blue) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey) ![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![tests](https://img.shields.io/badge/tests-250%20passing-success)
+![version](https://img.shields.io/badge/version-0.2.5-blue) ![license](https://img.shields.io/badge/license-GPL--3.0-green) ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey) ![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![tests](https://img.shields.io/badge/tests-258%20passing-success)
 
 Windows 本地《英雄联盟》赛事导播辅助工具。Khada Jhin 将 LCU、Live Client Data API 和 Data Dragon 数据转换为 OBS Browser Source 可采集的 BP、局内 HUD、赛后庆典和转场画面，并提供本地三栏控台。
 
@@ -14,7 +14,7 @@ Windows 本地《英雄联盟》赛事导播辅助工具。Khada Jhin 将 LCU、
 
 ## 下载
 
-最新版安装包（Windows x64，无需自行构建）：[Khada Jhin Setup 0.2.3.exe](https://github.com/RyeRaven/-lol-broadcast-hud/releases/latest)
+最新版安装包（Windows x64，无需自行构建）：[Khada Jhin Setup 0.2.5.exe](https://github.com/RyeRaven/-lol-broadcast-hud/releases/latest)
 
 所有历史版本见 [Releases](https://github.com/RyeRaven/-lol-broadcast-hud/releases)。安装包未做代码签名，Windows SmartScreen 首次运行提示未知发布者时，选择「更多信息 → 仍要运行」。
 

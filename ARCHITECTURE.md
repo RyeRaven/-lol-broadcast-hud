@@ -18,7 +18,7 @@
 | 测试 | `node --test` + `node:assert/strict` | 内置运行器，无测试框架依赖 |
 | 视觉验收 | `tools/shot-overlays.cjs`（Electron offscreen capturePage） | 与 OBS Browser Source 同一 Chromium，能截到透明底真实效果 |
 
-**版本**：`package.json` version = `0.2.3`，Data Dragon `DEFAULT_VERSION = '16.22.1'`（`src/assets.js`）。
+**版本**：`package.json` version = `0.2.5`，Data Dragon `DEFAULT_VERSION = '16.22.1'`（`src/assets.js`）。
 
 ## 2. 模块关系
 
