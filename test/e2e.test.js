@@ -519,6 +519,111 @@ test('e2e：session 404 不抛错，离开 ChampSelect 清空 BP 数据', { time
   assert.equal(lobby.live.draft.parsed, false);
 });
 
+test('e2e：BP ban 快照进对局固化保留到赛后，第二局刷新', { timeout: 45000 }, async t => {
+  const [appPort, lcuPort] = await pickPorts(2);
+  const fake = await createFakeLcu({ port: lcuPort, token: TOKEN, phase: 'ChampSelect' });
+  resetTestConfig();
+  const app = spawnNode('src/main.js', [], {
+    RB_DATA_DIR: TEST_DATA_DIR,
+    PORT: String(appPort),
+    RIOT_LCU_PORT: String(lcuPort),
+    RIOT_REMOTING_AUTH_TOKEN: TOKEN,
+    LIVE_CLIENT_URL: 'http://127.0.0.1:9',
+    RIOT_CLIENT_COMMAND_LINE: '',
+    RIOT_LOCKFILE: ''
+  });
+  t.after(async () => {
+    await stopRun(app);
+    await fake.close();
+  });
+  await waitForOutput(app, /Khada Jhin running at http:\/\/127\.0\.0\.1:\d+/);
+
+  // BP 阶段：draft 拿到 ban，快照字段同步刷新。
+  const draftState = await waitFor('BP ban 到达', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'draft' && response.body.draft.blueBans.length > 0 && response.body.draft.redBans.length > 0 ? response.body : null;
+  });
+  const blueBans = draftState.draft.blueBans.slice();
+  const redBans = draftState.draft.redBans.slice();
+  assert.deepEqual(draftState.gameBans.blue, blueBans);
+  assert.deepEqual(draftState.gameBans.red, redBans);
+
+  // 进对局：快照固化（之后 draft 被清空也不影响）。
+  fake.setPhase('InProgress');
+  const inGame = await waitFor('进对局固化 ban 快照', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'in_game' && response.body.gameBans.blue.length > 0 ? response.body : null;
+  });
+  assert.deepEqual(inGame.gameBans.blue, blueBans);
+  assert.deepEqual(inGame.gameBans.red, redBans);
+
+  // 赛后：快照必须原样保留（赛后页 ban 位的数据源）。
+  fake.setPhase('PreEndOfGame');
+  const postState = await waitFor('赛后数据生成', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'post_game' && response.body.postGame ? response.body : null;
+  });
+  assert.deepEqual(postState.gameBans.blue, blueBans);
+  assert.deepEqual(postState.gameBans.red, redBans);
+
+  // 第二局：BP 重来，快照刷新为新 BP，不能残留旧局或变成空。
+  fake.setPhase('ChampSelect');
+  await waitFor('第二局 BP', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'draft' && response.body.draft.blueBans.length > 0 ? response.body : null;
+  });
+  fake.setPhase('InProgress');
+  const second = await waitFor('第二局局内快照刷新', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'in_game' ? response.body : null;
+  });
+  assert.deepEqual(second.gameBans.blue, blueBans);
+  assert.deepEqual(second.gameBans.red, redBans);
+});
+
+test('e2e：BP 为空时进对局的 ban 快照为空，赛后不残留旧局快照', { timeout: 45000 }, async t => {
+  const [appPort, lcuPort] = await pickPorts(2);
+  const fake = await createFakeLcu({ port: lcuPort, token: TOKEN, phase: 'ChampSelect', sessionMissing: true });
+  resetTestConfig();
+  const app = spawnNode('src/main.js', [], {
+    RB_DATA_DIR: TEST_DATA_DIR,
+    PORT: String(appPort),
+    RIOT_LCU_PORT: String(lcuPort),
+    RIOT_REMOTING_AUTH_TOKEN: TOKEN,
+    LIVE_CLIENT_URL: 'http://127.0.0.1:9',
+    RIOT_CLIENT_COMMAND_LINE: '',
+    RIOT_LOCKFILE: ''
+  });
+  t.after(async () => {
+    await stopRun(app);
+    await fake.close();
+  });
+  await waitForOutput(app, /Khada Jhin running at http:\/\/127\.0\.0\.1:\d+/);
+
+  // session 为空：进入 draft 但快照必须为空，绝不把演示/旧局 ban 带上。
+  const draftState = await waitFor('空 BP 快照为空', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'draft' && response.body.draft.blueBans.length === 0 ? response.body : null;
+  });
+  assert.deepEqual(draftState.gameBans, { blue: [], red: [] });
+
+  // 进对局：固化的快照保持为空。
+  fake.setPhase('InProgress');
+  const inGame = await waitFor('空快照进对局', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'in_game' ? response.body : null;
+  });
+  assert.deepEqual(inGame.gameBans, { blue: [], red: [] });
+
+  // 赛后：空快照依旧为空（赛后页 ban 位回退演示数据，这是既定行为）。
+  fake.setPhase('PreEndOfGame');
+  const postState = await waitFor('赛后数据生成', async () => {
+    const response = await getJson(appPort, '/api/state');
+    return response.body.phase === 'post_game' && response.body.postGame ? response.body : null;
+  });
+  assert.deepEqual(postState.gameBans, { blue: [], red: [] });
+});
+
 test('e2e：fake LCU 脚本模式按顺序切换相位并校验鉴权', { timeout: 30000 }, async t => {
   const [port] = await pickPorts(1);
   const fake = await createFakeLcu({ port, token: TOKEN, script: ['ChampSelect', 'InProgress', 'PreEndOfGame'], advanceDelayMs: 0 });

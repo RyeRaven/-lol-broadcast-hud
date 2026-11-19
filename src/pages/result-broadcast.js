@@ -305,8 +305,14 @@ const RESULT_SCRIPT = String.raw`(function () {
     return out;
   }
   function bansFor(side) {
-    var draft = state && state.draft;
-    var list = draft && Array.isArray(draft[side === 'red' ? 'redBans' : 'blueBans']) ? draft[side === 'red' ? 'redBans' : 'blueBans'] : [];
+    // ban 位真值源：进对局时固化的 BP 快照（state.gameBans）——draft 在离开选人时会被清空，
+    // .rofl 也不含 ban 数据，所以回放上传后同样吃这份快照；快照缺失才回退 draft/演示数据。
+    var snap = state && state.gameBans;
+    var list = snap && Array.isArray(snap[side === 'red' ? 'red' : 'blue']) ? snap[side === 'red' ? 'red' : 'blue'] : [];
+    if (!list.length) {
+      var draft = state && state.draft;
+      list = draft && Array.isArray(draft[side === 'red' ? 'redBans' : 'blueBans']) ? draft[side === 'red' ? 'redBans' : 'blueBans'] : [];
+    }
     if (list.length) return list.slice(0, 5);
     return (side === 'red' ? DEMO_BANS.slice(5) : DEMO_BANS.slice(0, 5));
   }

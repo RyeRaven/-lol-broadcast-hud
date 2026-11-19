@@ -53,6 +53,9 @@ const state = {
   econOcr: { active: false, updatedAt: null, stale: false },
   // BP 演示数据只在 mock 模式预置；实盘模式在真实 session 到达前必须是空 BP（和比分/选手同一条原则）。
   draft: initialMode === 'live' ? emptyDraft() : createMockDraft(),
+  // BP ban 快照（赛后 ban 位真值源）：BP 期间 applyDraftSession 实时刷新，进对局时固化跟局走。
+  // .rofl 与 EOG 报文都不含 ban 数据，赛后页只能靠这份快照渲染真实 ban 位；缺失时回退演示。
+  gameBans: { blue: [], red: [] },
   players: [],
   highlights: [],
   updatedAt: Date.now()

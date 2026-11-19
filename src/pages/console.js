@@ -1423,7 +1423,11 @@ function bindControls() {
       var status = byId('roflUploadStatus');
       if (!file) return;
       if (status) status.textContent = '解析上传中…（约 ' + Math.max(1, Math.round(file.size / 1048576)) + ' MB）';
-      fetch('/api/replay-result', { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file })
+      // .rofl 文件名自带 gameId（Riot 命名 NJ100-<gameId>.rofl）：取最长数字段随 URL 上送，
+      // 后端上传成功后立刻按 gameId 拉 LCU timeline，把赛后经济差曲线换成真值。
+      var idRuns = String(file.name || '').match(/\d{6,}/g) || [];
+      var gameId = idRuns.sort(function (a, b) { return b.length - a.length; })[0] || '';
+      fetch('/api/replay-result' + (gameId ? '?gameId=' + encodeURIComponent(gameId) : ''), { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file })
         .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
         .then(function (r) {
           if (r.ok) {

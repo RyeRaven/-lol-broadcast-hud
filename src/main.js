@@ -91,6 +91,9 @@ async function handleReplayResultApi(req, res, url, { json, broadcast }) {
   for (const side of ['blue', 'red']) {
     for (const key of ['score', 'towers', 'dragons', 'barons']) state[side][key] = roflPostGame[side][key];
   }
+  // 经济差曲线补真值：与 EOG/冻结路径同构，按 gameId 拉 LCU timeline（局后 ~30 分钟窗口才可读；
+  // 没有 gameId 或 LCU 不可达时 fetchGoldTimeline 内部静默放弃，赛后页保持演示曲线）。
+  void fetchGoldTimeline(state.postGame.gameId);
   broadcast();
   json(res, 200, { ok: true, winSide: roflPostGame.winSide, players: roflPostGame.players.length, gameVersion: parsed.gameVersion });
 }
@@ -243,6 +246,8 @@ function resetDraftState() {
 let objectiveLedger = createObjectiveLedger();
 function resetLiveGameData() {
   objectiveLedger = createObjectiveLedger();
+  // ban 快照跟着旧局清空；InProgress 分支会先把 BP 快照取走再调这里（见下）。
+  state.gameBans = { blue: [], red: [] };
   state.players = [];
   state.goldEstimated = false;
   state.goldSource = 'mock';
@@ -264,6 +269,9 @@ function applyDraftSession(session) {
   state.draft.redPicks = Array.isArray(draft.redPicks) ? draft.redPicks : [];
   state.draft.blueBans = Array.isArray(draft.blueBans) ? draft.blueBans : [];
   state.draft.redBans = Array.isArray(draft.redBans) ? draft.redBans : [];
+  // BP ban 快照（赛后 ban 位真值源）：.rofl 与 EOG 报文都不含 ban 数据，赛后页只能靠这里
+  // 留下的快照渲染真实 ban 位；进对局时由 InProgress 分支固化，之后 draft 被清也不受影响。
+  state.gameBans = { blue: state.draft.blueBans.slice(0, 5), red: state.draft.redBans.slice(0, 5) };
   state.draft.blueHover = Array.isArray(draft.blueHover) ? draft.blueHover : [];
   state.draft.redHover = Array.isArray(draft.redHover) ? draft.redHover : [];
   state.draft.blueBanHover = Array.isArray(draft.blueBanHover) ? draft.blueBanHover : [];
@@ -296,12 +304,17 @@ async function pollLcuDraft() {
         String(postGame.gameId) === String(state.live.game.gameId);
       const recent = postGame && postGame.capturedAt && Date.now() - postGame.capturedAt < 5 * 60 * 1000;
       if (!(sameGame && recent)) {
+        // 固化本局 BP 的 ban 快照：只有从 draft 直接进对局才保留（BP 期间 applyDraftSession
+        // 实时刷新 gameBans）；跳过 BP 的观战/中途加入不得残留上一局的快照。
+        // 必须在 resetLiveGameData() 清场之前取走，否则快照跟着旧局数据一起被清掉。
+        const banSnapshot = state.phase === 'draft' ? state.gameBans : null;
         state.phase = 'in_game';
         state.postGame = null;
         state.goldTimeline = null;
         state.goldPlayers = null;
         frozenSnapshot = null;
         resetLiveGameData();
+        if (banSnapshot) state.gameBans = banSnapshot;
         liveClientWatchdog.reset();
       }
     }
