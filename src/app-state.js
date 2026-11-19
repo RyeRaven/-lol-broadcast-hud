@@ -21,10 +21,15 @@ const initialDirectorConfig = normalizeDirectorConfig(savedConfig.director);
 function normalizeObsConfig(value) {
   const source = value && typeof value === 'object' ? value : {};
   const url = String(source.url || 'ws://127.0.0.1:4455').trim() || 'ws://127.0.0.1:4455';
-  return { url, password: source.password == null ? '' : String(source.password) };
+  // 采集源名：留空 = 脚本自动识别第一个 game_capture 源；填了则钉死该源。
+  const ocrSource = String(source.ocrSource == null ? '' : source.ocrSource).trim();
+  return { url, password: source.password == null ? '' : String(source.password), ocrSource };
 }
 // 配置文件只恢复地址；密码仅保存在当前进程内存中，避免明文落盘。
-const initialObsConfig = normalizeObsConfig({ url: savedConfig.obs && savedConfig.obs.url });
+const initialObsConfig = normalizeObsConfig({
+  url: savedConfig.obs && savedConfig.obs.url,
+  ocrSource: savedConfig.obs && savedConfig.obs.ocrSource
+});
 const BROADCAST_CUE_TYPES = Object.freeze(['bp-in', 'hud-in', 'result-in', 'wipe', 'reset']);
 
 const initialMode = savedConfig.mode === 'live' ? 'live' : 'mock';
@@ -106,8 +111,8 @@ function saveConfig() {
     const obsConfig = normalizeObsConfig(state.obsConfig);
     const text = JSON.stringify({
       tournamentName: state.tournamentName, mode: state.mode, phase: state.phase, autoSwitch: state.autoSwitch,
-      // 只持久化连接地址；密码不写入磁盘。
-      obs: { url: obsConfig.url },
+      // 只持久化连接地址与采集源名；密码不写入磁盘。
+      obs: { url: obsConfig.url, ...(obsConfig.ocrSource ? { ocrSource: obsConfig.ocrSource } : {}) },
       director: normalizeDirectorConfig(state.director)
     }, null, 2) + '\n';
     // tmp+rename 原子写：避免半截 config.json 被下次启动读空。

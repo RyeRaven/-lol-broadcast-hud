@@ -36,13 +36,17 @@ function parseObsEndpoint(obsConfig) {
 }
 
 function buildWorkerArgs(worker, endpoint, obsConfig, apiPort) {
-  return [
+  const args = [
     '--host', endpoint.host,
     '--port-obs', String(endpoint.port),
     '--password', String((obsConfig && obsConfig.password) || ''),
     '--port-api', String(apiPort),
     '--hz', String(worker.hz)
   ];
+  // 采集源名选填：留空由脚本自动挑第一个 game_capture 源；填了就钉死。
+  const src = String((obsConfig && obsConfig.ocrSource) || '').trim();
+  if (src) args.push('--source', src);
+  return args;
 }
 
 function resolveRuntime(appRoot, env) {
@@ -183,7 +187,18 @@ function createOcrSupervisor({ state, port, getObsConfig, broadcast = () => {}, 
     }
   }
 
-  return { start, stopAll, runtime };
+  // OBS 配置变更（地址/密码/采集源名）后重建 worker：旧进程退出、按新配置拉起。
+  function restartAll() {
+    stopAll();
+    setTimeout(() => {
+      if (!enabled || !runtime) return;
+      for (const [, w] of workers) w.stopping = false;
+      runStart();
+    }, 500);
+    return;
+  }
+
+  return { start, stopAll, restartAll, runtime };
 }
 
 module.exports = { createOcrSupervisor, parseObsEndpoint, buildWorkerArgs, resolveRuntime, WORKERS, RESTART_BASE_MS, RESTART_MAX_MS };

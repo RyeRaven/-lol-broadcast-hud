@@ -1324,7 +1324,7 @@ const server = http.createServer((req,res)=>{
   if (url.pathname === '/api/econ-ocr' || url.pathname === '/api/econ-ocr/status') { handleEconOcrApi(req, res, url, { store: econOcrStore, onUpdate: onEconOcrUpdate }); return; }
   // 回放上传：内部接口，只收本机来源，把赛后页数据换成 .rofl 官方统计真值。
   if (url.pathname === '/api/replay-result' || url.pathname === '/api/replay-result/status') { handleReplayResultApi(req, res, url, { json, broadcast }); return; }
-  if (url.pathname.startsWith('/api/obs/')) { handleObsApi(req, res, url, { obs, json, readBody, broadcast, state, port: PORT, getObsConfig, setObsConfig, saveConfig, onObsConnected: () => { lastAutoPhase = null; } }); return; }
+  if (url.pathname.startsWith('/api/obs/')) { handleObsApi(req, res, url, { obs, json, readBody, broadcast, state, port: PORT, getObsConfig, setObsConfig, saveConfig, onObsConnected: () => { lastAutoPhase = null; }, onObsConfigChanged: () => ocrSupervisor.restartAll() }); return; }
   if (url.pathname === '/api/datadragon-url') { try { return json(res, 200, { url: dataDragonUrl(url.searchParams.get('version') || DEFAULT_VERSION, url.searchParams.get('kind') || 'champion', url.searchParams.get('id') || 'Ahri') }); } catch (error) { return json(res, 400, { error: error.message }); } }
   if (url.pathname === '/events') {
     res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});

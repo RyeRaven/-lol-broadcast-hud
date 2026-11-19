@@ -298,7 +298,7 @@ test('obs connect API persists successful config and never echoes password', asy
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(captured.password, 'unit-test-secret');
-  assert.deepEqual(saved, [{ url: 'ws://127.0.0.1:4455', password: 'unit-test-secret' }]);
+  assert.deepEqual(saved, [{ url: 'ws://127.0.0.1:4455', password: 'unit-test-secret', ocrSource: '' }]);
   assert.equal(JSON.stringify(res.body).includes('unit-test-secret'), false);
 });
 
@@ -344,7 +344,7 @@ test('startObsAutoConnect retries every 5s and stops after success', async () =>
 
 test('app-state persists obs config without exposing password in state JSON', () => {
   const { state, configPath, normalizeObsConfig, getObsConfig, setObsConfig } = require('../src/app-state');
-  assert.deepEqual(normalizeObsConfig({}), { url: 'ws://127.0.0.1:4455', password: '' });
+  assert.deepEqual(normalizeObsConfig({}), { url: 'ws://127.0.0.1:4455', password: '', ocrSource: '' });
   const original = fs.existsSync(configPath) ? fs.readFileSync(configPath) : null;
   try {
     setObsConfig({ url: 'ws://127.0.0.1:4455', password: 'unit-test-secret' });
@@ -352,8 +352,14 @@ test('app-state persists obs config without exposing password in state JSON', ()
     // 密码只保存在进程内，绝不落盘；配置文件只留连接地址。
     assert.deepEqual(saved.obs, { url: 'ws://127.0.0.1:4455' });
     assert.equal(saved.obs.password, undefined);
-    assert.deepEqual(getObsConfig(), { url: 'ws://127.0.0.1:4455', password: 'unit-test-secret' });
+    assert.deepEqual(getObsConfig(), { url: 'ws://127.0.0.1:4455', password: 'unit-test-secret', ocrSource: '' });
     assert.equal(JSON.stringify(state).includes('unit-test-secret'), false);
+    // 采集源名非密，落盘持久化；清空回空串即恢复自动识别。
+    setObsConfig({ ocrSource: '自定义游戏源' });
+    const saved2 = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved2.obs.ocrSource, '自定义游戏源');
+    setObsConfig({ ocrSource: '' });
+    assert.equal(JSON.parse(fs.readFileSync(configPath, 'utf8')).obs.ocrSource, undefined);
   } finally {
     if (original === null) { try { fs.unlinkSync(configPath); } catch {} }
     else fs.writeFileSync(configPath, original);

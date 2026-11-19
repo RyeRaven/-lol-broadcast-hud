@@ -604,7 +604,7 @@ function validText(value, maxLength = 128) {
 }
 
 function handleObsApi(req, res, url, context) {
-  const { obs, json, readBody, broadcast, state, port, getObsConfig, setObsConfig, saveConfig, onObsConnected } = context;
+  const { obs, json, readBody, broadcast, state, port, getObsConfig, setObsConfig, saveConfig, onObsConnected, onObsConfigChanged } = context;
   const notConnected = () => { json(res, 200, { ok: false, error: 'obs_not_connected' }); return true; };
   const fail = error => {
     const message = error && error.message ? error.message : 'obs_error';
@@ -632,8 +632,14 @@ function handleObsApi(req, res, url, context) {
       const saved = typeof getObsConfig === 'function' ? getObsConfig() || {} : {};
       const targetUrl = String(payload.url || saved.url || 'ws://127.0.0.1:4455').trim();
       const password = payload.password === undefined || payload.password === null || payload.password === '' ? String(saved.password || '') : String(payload.password);
+      // 采集源名选填：传空串 = 恢复自动识别；非法字符整单拒绝。
+      const ocrSource = payload.ocrSource === undefined || payload.ocrSource === null ? '' : String(payload.ocrSource).trim();
+      if (ocrSource && !validText(ocrSource, 128)) {
+        return json(res, 400, { ok: false, error: 'invalid_ocr_source' });
+      }
       return obs.connect({ url: targetUrl, password, autoReconnect: true }).then(snapshot => {
-        if (typeof setObsConfig === 'function') setObsConfig({ url: targetUrl, password });
+        if (typeof setObsConfig === 'function') setObsConfig({ url: targetUrl, password, ocrSource });
+        if (typeof onObsConfigChanged === 'function') { try { onObsConfigChanged(); } catch { /* 重建失败不影响连接 */ } }
         state.obs = snapshot;
         if (typeof onObsConnected === 'function') onObsConnected();
         broadcast();

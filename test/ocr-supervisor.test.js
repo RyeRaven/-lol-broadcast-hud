@@ -21,14 +21,17 @@ test('parseObsEndpoint：ws url 拆 host/port，坏值回退默认', () => {
   assert.deepStrictEqual(sup.parseObsEndpoint(null), { host: '127.0.0.1', port: 4455 });
 });
 
-test('buildWorkerArgs：host/port-obs/password/port-api/hz 全量透传', () => {
+test('buildWorkerArgs：host/port-obs/password/port-api/hz 全量透传；ocrSource 非空追加 --source', () => {
   const args = sup.buildWorkerArgs(
     { name: 'hp', hz: 10 },
     { host: '10.0.0.2', port: 4456 },
-    { password: 'pw1' },
+    { password: 'pw1', ocrSource: '游戏采集' },
     3210
   );
-  assert.deepStrictEqual(args, ['--host', '10.0.0.2', '--port-obs', '4456', '--password', 'pw1', '--port-api', '3210', '--hz', '10']);
+  assert.deepStrictEqual(args, ['--host', '10.0.0.2', '--port-obs', '4456', '--password', 'pw1', '--port-api', '3210', '--hz', '10', '--source', '游戏采集']);
+  // ocrSource 空 = 自动识别第一个 game_capture 源，不传 --source。
+  const auto = sup.buildWorkerArgs({ name: 'econ', hz: 1 }, { host: 'h', port: 1 }, { password: '', ocrSource: '' }, 1);
+  assert.ok(!auto.includes('--source'));
 });
 
 test('resolveRuntime：RB_OCR_RUNTIME_DIR 命中捆绑运行时', () => {
@@ -48,9 +51,17 @@ test('resolveRuntime：RB_OCR_RUNTIME_DIR 命中捆绑运行时', () => {
 });
 
 test('resolveRuntime：无捆绑运行时时回退系统 python + tools/ocr/run_ocr.py', () => {
-  const rt = sup.resolveRuntime(path.join(__dirname, '..'), {});
-  assert.strictEqual(rt.kind, 'system');
-  assert.ok(rt.scriptPath.replace(/\\/g, '/').endsWith('tools/ocr/run_ocr.py'));
+  // 仓库 build/ocr-runtime 已存在（会命中 bundled），用隔离的假仓库根验证系统回退。
+  const fakeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocr-sysroot-'));
+  try {
+    fs.mkdirSync(path.join(fakeRoot, 'tools', 'ocr'), { recursive: true });
+    fs.writeFileSync(path.join(fakeRoot, 'tools', 'ocr', 'run_ocr.py'), '');
+    const rt = sup.resolveRuntime(fakeRoot, {});
+    assert.strictEqual(rt.kind, 'system');
+    assert.ok(rt.scriptPath.replace(/\\/g, '/').endsWith('tools/ocr/run_ocr.py'));
+  } finally {
+    fs.rmSync(fakeRoot, { recursive: true, force: true });
+  }
 });
 
 test('resolveRuntime：完全无候选返回 null，state.reason=no-runtime', () => {

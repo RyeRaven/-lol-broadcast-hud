@@ -1370,7 +1370,7 @@ function bindControls() {
     connect.disabled = true;
     var status = byId('obsStatus');
     if (status) status.textContent = '连接中…';
-    postJson('/api/obs/connect', { url: byId('obsUrl').value, password: byId('obsPass').value }).then(function (data) {
+    postJson('/api/obs/connect', { url: byId('obsUrl').value, password: byId('obsPass').value, ocrSource: byId('obsOcrSource').value }).then(function (data) {
       connect.disabled = false;
       if (data.ok) {
         toast('OBS 已连接');
@@ -2742,6 +2742,7 @@ function consolePage(port) {
       <div class="panel-head"><h2>OBS 控制</h2><span class="status-badge offline" id="obsBadge">未连接</span></div>
       <label class="field">WebSocket 地址<input id="obsUrl" value="ws://127.0.0.1:4455" autocomplete="off"></label>
       <label class="field">密码<input id="obsPass" type="password" placeholder="OBS → 工具 → WebSocket 服务器设置" autocomplete="off"></label>
+      <label class="field">采集源名（选填）<input id="obsOcrSource" placeholder="留空自动识别第一个游戏采集源" autocomplete="off"></label>
       <button type="button" id="obsConnect" class="btn primary wide">连接 OBS</button>
       <button type="button" id="obsRebrand" class="btn wide">一键换源（改名 + 重指 URL）</button>
       <div class="status-line" id="obsStatus">未连接</div>
